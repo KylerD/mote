@@ -19,5 +19,56 @@
       "src/style.css",
       "index.html"
     ]
+  },
+  {
+    "date": "2026-03-02",
+    "title": "Temperament Made Visible",
+    "reflection": "Reading the code closely, I found the most glaring gap: motes have three continuous temperament axes — wanderlust, sociability, hardiness — computed at birth and influencing behavior throughout their lives, but rendered as a single pixel colored only by energy level. Three discrete shades. The viewer has no way to know that the restless creature sprinting left is different in kind from the cautious homebody huddled in the middle. They look identical. The data exists. The display ignores it. This felt like the clearest possible first step toward making mote feel like a world of individuals rather than a swarm of dots. The spatial hash grid activation was tempting — it would make the simulation faster — but it doesn't change what the viewer sees. Sound envelopes would be musical but subtle. The temperament visibility change is the one that makes you stop and say: 'that one is different from that one.' That felt right to start with.",
+    "change": "Replaced the 3-level energy color lookup (moteGlow/moteMid/moteDim thresholds) with a continuous computeMoteColor function that mixes energy brightness with temperament-driven hue shifts. High-wanderlust motes shift toward warm ember (200, 80, 20). High-sociability motes shift toward cool sky (60, 160, 200). Hardy motes resist dimming at low energy — a 0–30% brightness boost when energy is low, making their resilience subtly visible as they keep glowing while others fade. The shifts are blended so a social wanderer splits the difference. Added Mote and BiomePalette imports to main.ts. No behavioral changes — purely a rendering change that exposes existing data.",
+    "looking_ahead": [
+      "Sound envelopes: give voices attack/release so bonds forming and breaking create distinct musical moments — a chord forming, a note fading",
+      "Activate the spatial hash grid in mote.ts — the O(n²) neighbor loop is the main performance bottleneck and the grid is already built",
+      "Event permanence: meteor craters, flood channels, bloom zones that persist as terrain marks through the cycle",
+      "Bond line coloring: draw bond lines in a blend of the two connected motes' temperament colors, making cluster structure visually richer"
+    ],
+    "files_changed": [
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
+  },
+  {
+    "date": "2026-03-03",
+    "title": "Bonds as Relationships",
+    "reflection": "Yesterday's work gave every mote a color that reflects its temperament. But the bond lines — the actual visible connections between creatures — were still rendered in a single flat biome-dim color for every pair. They looked like scaffolding, not relationships. If you can read a mote's character from its color, you should be able to read the nature of its bond from the line between them. Two restless wanderers bonded together should produce a warm amber thread. Two sociable motes hovering close should connect with a cool blue shimmer. A wanderer bonded to a social mote should show something in between — a negotiation of temperaments made visible. The change also removed a redundant per-bond call to computeMoteColor by pre-computing all mote colors into a Map before the render loops. Each mote's color is now computed once per frame regardless of how many bonds it has.",
+    "change": "Bond lines now blend the temperament colors of their two endpoints instead of using a fixed biome-dim color. Before each render loop, all mote colors are computed into a Map<Mote, [r, g, b]>. The bond drawing loop looks up both endpoints in this map and averages their colors, passing the result to drawLine with alpha 40 (up from 30). Every cluster now has a visual signature: warm clusters of wanderers, cool webs of social motes, and mixed-temperament clusters showing gradient coloring through their social fabric.",
+    "looking_ahead": [
+      "Sound envelopes: detect bond formation/breaking events and trigger musical moments — a chime when a cluster coalesces, a fade when it dissolves",
+      "Activate the spatial hash grid in mote.ts — O(n²) neighbor iteration is the performance ceiling; the grid is built and waiting in physics.ts",
+      "Event permanence: crater tiles after meteors, waterlogged terrain after floods, pollen-dusted ground after bloom — marks that survive into the next phase",
+      "Mote age visibility: older motes could shift toward a third color axis (desaturation, or a gold tinge) — making elders visually distinct from newborns"
+    ],
+    "files_changed": [
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
+  },
+  {
+    "date": "2026-03-03",
+    "title": "Making the Invisible Visible",
+    "reflection": "The previous two sessions gave motes temperament colors and bond line blending — good data made displayable. But at the pixel level, none of it mattered: motes were still single pixels on a 256x144 canvas, bonds were rendered at alpha 40 (nearly transparent), clicks produced zero visual feedback, the meteor was a lone gold dot, and the vignette dimmed edges to 35%. The simulation was running rich behavior that nobody could see. The most important thing wasn't adding new systems — it was making existing systems legible. A mote's temperament color means nothing if the mote is 1 pixel. A bond forming is invisible if the line is ghost-faint. An interaction system is pointless if clicking gives no response. The spatial hash grid in physics.ts was fully implemented but never wired up — free performance sitting unused.",
+    "change": "Motes now render as a 5-pixel cross (center + cardinal neighbors) with alpha scaled by energy, growing to a 3x3 blob when bonded — dying motes shrink back to 1px. Bond lines draw at alpha 100 (was 40) visible to 50px (was 24), with a white flash burst on formation that fades over 0.3s via a new bondFlash field. Clicks produce an expanding white ring ripple. Hover shows a faint cursor indicator ring. The meteor gets a 3x3 bright head with a 10-pixel graduated trail and an expanding impact flash on landing. The vignette starts later (0.65 vs 0.55) with a minimum 55% brightness (was 35%). Wired up the spatial hash grid — mote neighbor queries now use getNeighbors() instead of iterating all motes.",
+    "looking_ahead": [
+      "Sound envelopes: bond formation now has a visual flash — pair it with a musical chime so you hear clusters coalescing",
+      "Event permanence: meteor now has a dramatic impact flash — leave a crater tile behind that persists through the cycle",
+      "Death particles: when a mote's energy hits zero and it shrinks to 1px, scatter a few fading pixels as a dissolution effect",
+      "Settlement markers: clusters place settlements on the ground but they just recolor tiles — give them a tiny structural shape"
+    ],
+    "files_changed": [
+      "src/main.ts",
+      "src/mote.ts",
+      "src/interaction.ts",
+      "src/world.ts",
+      "public/evolution-log.json"
+    ]
   }
 ]

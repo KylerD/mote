@@ -3,7 +3,7 @@
 import { Mote, createMote, updateMote, placeSettlement } from "./mote";
 import { Terrain, generateTerrain, getSurfaceY, getTile, Tile } from "./terrain";
 import { W } from "./render";
-import { findClusters } from "./physics";
+import { findClusters, createGrid, buildGrid, SpatialGrid } from "./physics";
 import {
   ActiveEvent, checkForEvent, getEventTriggerPoint,
   applyEvent, isEventActive,
@@ -86,6 +86,7 @@ function mulberry32(seed: number): () => number {
 export interface World {
   terrain: Terrain;
   motes: Mote[];
+  grid: SpatialGrid;
   cycleProgress: number;
   cycleNumber: number;
   phaseIndex: number;
@@ -106,6 +107,7 @@ export function createWorld(): World {
   return {
     terrain,
     motes: [],
+    grid: createGrid(W),
     cycleProgress: 0,
     cycleNumber,
     phaseIndex: 0,
@@ -193,10 +195,11 @@ export function updateWorld(world: World, dt: number): void {
     }
   }
 
-  // Update motes
+  // Update motes (spatial grid for efficient neighbor queries)
+  buildGrid(world.grid, world.motes);
   for (const mote of world.motes) {
     updateMote(
-      mote, dt, world.terrain, world.motes,
+      mote, dt, world.terrain, world.grid,
       world.params.energyDecay, world.params.bondStrength, world.rng,
     );
   }
