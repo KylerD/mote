@@ -3,6 +3,7 @@
 
 import { Terrain, getSurfaceY, getTile, Tile, isWalkable } from "./terrain";
 import { W, H } from "./render";
+import { SpatialGrid, getNeighbors } from "./physics";
 
 /** Temperament axes (continuous, not classes) */
 interface Temperament {
@@ -21,6 +22,7 @@ export interface Mote {
   temperament: Temperament;
   bonds: Mote[];
   bondTimer: number;
+  bondFlash: number;   // 1.0 on bond formation, decays to 0
   grounded: boolean;   // is standing on terrain
   direction: number;   // -1 or 1, current walking direction
 
@@ -58,6 +60,7 @@ export function createMote(
     },
     bonds: [],
     bondTimer: 0,
+    bondFlash: 0,
     grounded: false,
     direction: rng() < 0.5 ? -1 : 1,
     forceX: 0,
@@ -69,12 +72,13 @@ export function updateMote(
   m: Mote,
   dt: number,
   terrain: Terrain,
-  allMotes: Mote[],
+  grid: SpatialGrid,
   energyDecay: number,
   bondStrength: number,
   rng: () => number,
 ): void {
   m.age += dt;
+  m.bondFlash = Math.max(0, m.bondFlash - dt * 3);
 
   // Energy decay (modified by hardiness)
   const decayRate = energyDecay * (1.2 - m.temperament.hardiness * 0.4);
@@ -104,12 +108,11 @@ export function updateMote(
   let closestUnbonded: Mote | null = null;
   let closestDist = Infinity;
 
-  for (const other of allMotes) {
-    if (other === m) continue;
+  const neighbors = getNeighbors(grid, m.x, m.y, NEIGHBOR_RADIUS, m);
+  for (const other of neighbors) {
     const dx = other.x - m.x;
     const dy = other.y - m.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > NEIGHBOR_RADIUS) continue;
     if (dist < 0.5) continue;
 
     // Social attraction
@@ -163,6 +166,8 @@ export function updateMote(
       m.bonds.push(closestUnbonded);
       closestUnbonded.bonds.push(m);
       m.bondTimer = 0;
+      m.bondFlash = 1;
+      closestUnbonded.bondFlash = 1;
       m.energy = Math.min(1, m.energy + 0.03);
       closestUnbonded.energy = Math.min(1, closestUnbonded.energy + 0.03);
     }

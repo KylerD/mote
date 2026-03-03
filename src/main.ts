@@ -17,6 +17,12 @@ let world: World;
 let sound: SoundEngine;
 let input: Interaction;
 
+// Meteor impact flash state
+let meteorWasVisible = false;
+let impactFlash = 0;
+let impactX = 0;
+let impactY = 0;
+
 // DOM elements for cycle info (populated outside the canvas)
 let elCycleName: HTMLElement | null;
 let elPhase: HTMLElement | null;
@@ -77,27 +83,48 @@ function init(): void {
       moteColors.set(m, computeMoteColor(m, bp));
     }
 
-    // Render motes — color reflects temperament + energy
+    // Render motes — multi-pixel so you can actually see them
     for (const m of world.motes) {
       const [cr, cg, cb] = moteColors.get(m)!;
+
+      // Center pixel — always full brightness
       setPixel(rc.buf, m.x, m.y, cr, cg, cb);
 
-      // Bonded motes glow slightly wider
+      // Cross pixels — scale alpha with energy so dying motes shrink to 1px
+      if (m.energy > 0.15) {
+        const ea = Math.round(60 + m.energy * 160); // 60–220
+        setPixel(rc.buf, m.x - 1, m.y, cr, cg, cb, ea);
+        setPixel(rc.buf, m.x + 1, m.y, cr, cg, cb, ea);
+        setPixel(rc.buf, m.x, m.y - 1, cr, cg, cb, ea);
+        setPixel(rc.buf, m.x, m.y + 1, cr, cg, cb, ea);
+      }
+
+      // Bonded motes get corner pixels — reads as a 3x3 blob
       if (m.bonds.length > 0) {
-        setPixel(rc.buf, m.x, m.y - 1, cr, cg, cb, 100);
+        const ba = Math.round(30 + m.bonds.length * 30); // 60–120
+        setPixel(rc.buf, m.x - 1, m.y - 1, cr, cg, cb, ba);
+        setPixel(rc.buf, m.x + 1, m.y - 1, cr, cg, cb, ba);
+        setPixel(rc.buf, m.x - 1, m.y + 1, cr, cg, cb, ba);
+        setPixel(rc.buf, m.x + 1, m.y + 1, cr, cg, cb, ba);
+      }
+
+      // Bond formation flash — bright burst that fades
+      if (m.bondFlash > 0) {
+        const fa = Math.round(m.bondFlash * 200);
+        setPixel(rc.buf, m.x - 2, m.y, 255, 255, 255, fa);
+        setPixel(rc.buf, m.x + 2, m.y, 255, 255, 255, fa);
+        setPixel(rc.buf, m.x, m.y - 2, 255, 255, 255, fa);
+        setPixel(rc.buf, m.x, m.y + 2, 255, 255, 255, fa);
       }
     }
 
-    // Draw bond lines — blend the temperament colors of the two endpoints.
-    // A wanderer-to-wanderer bond glows warm amber; social-to-social shimmers
-    // cool blue; mixed pairs show a midpoint hue. Each bond reads as a
-    // relationship between two distinct individuals.
+    // Draw bond lines — visible this time
     const drawn = new Set<string>();
     for (const m of world.motes) {
       for (const bonded of m.bonds) {
         const bdx = bonded.x - m.x;
         const bdy = bonded.y - m.y;
-        if (bdx * bdx + bdy * bdy > 24 * 24) continue; // skip long bonds visually
+        if (bdx * bdx + bdy * bdy > 50 * 50) continue;
         const key = m.x < bonded.x
           ? `${m.x},${m.y}-${bonded.x},${bonded.y}`
           : `${bonded.x},${bonded.y}-${m.x},${m.y}`;
@@ -105,24 +132,63 @@ function init(): void {
         drawn.add(key);
         const [r1, g1, b1] = moteColors.get(m)!;
         const [r2, g2, b2] = moteColors.get(bonded)!;
+        // Flash bright on formation, settle to steady visible alpha
+        const flash = Math.max(m.bondFlash, bonded.bondFlash);
+        const bondAlpha = Math.round(100 + flash * 155); // 100–255
         drawLine(rc.buf, m.x, m.y, bonded.x, bonded.y,
           Math.round((r1 + r2) / 2),
           Math.round((g1 + g2) / 2),
           Math.round((b1 + b2) / 2),
-          40);
+          bondAlpha);
       }
     }
 
-    // Meteor visual
+    // Meteor visual — bright head + long trail
     const meteorPos = getMeteorPosition(world.event, world.time, world.cycleNumber);
     if (meteorPos) {
-      const mc = PAL[14]; // gold
-      setPixel(rc.buf, meteorPos.x, meteorPos.y, mc[0], mc[1], mc[2]);
-      setPixel(rc.buf, meteorPos.x + 1, meteorPos.y - 1, mc[0], mc[1], mc[2], 180);
-      // Trail
-      for (let i = 1; i < 4; i++) {
-        setPixel(rc.buf, meteorPos.x + i, meteorPos.y - i, mc[0], mc[1], mc[2], 120 - i * 30);
+      const mx = Math.round(meteorPos.x);
+      const my = Math.round(meteorPos.y);
+      // Bright 3x3 head
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const dist = Math.abs(dx) + Math.abs(dy);
+          const a = dist === 0 ? 255 : 200;
+          setPixel(rc.buf, mx + dx, my + dy, 255, 220, 140, a);
+        }
       }
+      // Long trail
+      for (let i = 1; i <= 10; i++) {
+        const ta = Math.round(200 * (1 - i / 10));
+        const tr = Math.round(255 - i * 10);
+        const tg = Math.round(180 - i * 12);
+        setPixel(rc.buf, mx + i, my - i, tr, tg, 80, ta);
+        if (i < 7) {
+          setPixel(rc.buf, mx + i, my - i + 1, tr, tg, 80, Math.round(ta * 0.5));
+          setPixel(rc.buf, mx + i + 1, my - i, tr, tg, 80, Math.round(ta * 0.5));
+        }
+      }
+      meteorWasVisible = true;
+      impactX = mx;
+      impactY = my;
+    } else if (meteorWasVisible) {
+      meteorWasVisible = false;
+      impactFlash = 1.0;
+    }
+
+    // Impact flash — expanding bright circle
+    if (impactFlash > 0) {
+      const flashRadius = Math.round((1 - impactFlash) * 18 + 4);
+      for (let dy = -flashRadius; dy <= flashRadius; dy++) {
+        for (let dx = -flashRadius; dx <= flashRadius; dx++) {
+          const d2 = dx * dx + dy * dy;
+          if (d2 <= flashRadius * flashRadius) {
+            const falloff = 1 - Math.sqrt(d2) / flashRadius;
+            const fa = Math.round(impactFlash * 220 * falloff);
+            setPixel(rc.buf, impactX + dx, impactY + dy, 255, 240, 180, fa);
+          }
+        }
+      }
+      impactFlash = Math.max(0, impactFlash - dt * 2.5);
     }
 
     // Eclipse darkening
@@ -132,6 +198,43 @@ function init(): void {
         d[i] = d[i] * 0.4;
         d[i + 1] = d[i + 1] * 0.35;
         d[i + 2] = d[i + 2] * 0.5; // shift blue
+      }
+    }
+
+    // Click ripples — expanding rings
+    for (let i = input.ripples.length - 1; i >= 0; i--) {
+      const rp = input.ripples[i];
+      const r = Math.round(rp.radius);
+      const ra = Math.round(rp.alpha * 180);
+      const r2inner = (r - 1) * (r - 1);
+      const r2outer = (r + 1) * (r + 1);
+      for (let dy = -r - 1; dy <= r + 1; dy++) {
+        for (let dx = -r - 1; dx <= r + 1; dx++) {
+          const d2 = dx * dx + dy * dy;
+          if (d2 >= r2inner && d2 <= r2outer) {
+            setPixel(rc.buf, Math.round(rp.x) + dx, Math.round(rp.y) + dy, 220, 224, 228, ra);
+          }
+        }
+      }
+      rp.radius += dt * 30;
+      rp.alpha -= dt * 2.2;
+      if (rp.alpha <= 0) input.ripples.splice(i, 1);
+    }
+
+    // Cursor indicator — faint ring so you know where you're pointing
+    if (input.present) {
+      const cr = 5;
+      const cx = Math.round(input.x);
+      const cy = Math.round(input.y);
+      const cr2inner = (cr - 1) * (cr - 1);
+      const cr2outer = cr * cr;
+      for (let dy = -cr; dy <= cr; dy++) {
+        for (let dx = -cr; dx <= cr; dx++) {
+          const d2 = dx * dx + dy * dy;
+          if (d2 >= cr2inner && d2 <= cr2outer) {
+            setPixel(rc.buf, cx + dx, cy + dy, 220, 224, 228, 40);
+          }
+        }
       }
     }
 
@@ -220,8 +323,8 @@ function applyVignette(buf: ImageData): void {
       const dx = x - cx;
       const dy = y - cy;
       const dist = Math.sqrt(dx * dx + dy * dy) / maxDist;
-      const fade = dist < 0.55 ? 1 : 1 - (dist - 0.55) * 1.6;
-      const f = Math.max(0.35, fade);
+      const fade = dist < 0.65 ? 1 : 1 - (dist - 0.65) * 1.2;
+      const f = Math.max(0.55, fade);
       const i = (y * W + x) * 4;
       d[i] = d[i] * f;
       d[i + 1] = d[i + 1] * f;

@@ -3,6 +3,13 @@
 import { W, H } from "./render";
 import { Mote } from "./mote";
 
+export interface Ripple {
+  x: number;
+  y: number;
+  radius: number;
+  alpha: number;
+}
+
 export interface Interaction {
   x: number;
   y: number;
@@ -10,6 +17,7 @@ export interface Interaction {
   calm: boolean;
   speed: number;
   pulses: { x: number; y: number }[];
+  ripples: Ripple[];
 }
 
 const INFLUENCE_RADIUS = 30;
@@ -23,7 +31,7 @@ const PULSE_ENERGY = 0.12;
 
 export function createInteraction(canvas: HTMLCanvasElement): Interaction {
   const ix: Interaction = {
-    x: -1, y: -1, present: false, calm: false, speed: 0, pulses: [],
+    x: -1, y: -1, present: false, calm: false, speed: 0, pulses: [], ripples: [],
   };
 
   let lastX = 0, lastY = 0, lastMove = 0, calmTimer = 0;
@@ -55,6 +63,7 @@ export function createInteraction(canvas: HTMLCanvasElement): Interaction {
   canvas.addEventListener("click", (e) => {
     const [wx, wy] = toWorld(e.clientX, e.clientY);
     ix.pulses.push({ x: wx, y: wy });
+    ix.ripples.push({ x: wx, y: wy, radius: 2, alpha: 1 });
   });
 
   // Touch
@@ -70,6 +79,7 @@ export function createInteraction(canvas: HTMLCanvasElement): Interaction {
     const [wx, wy] = toWorld(t.clientX, t.clientY);
     ix.x = wx; ix.y = wy; ix.present = true;
     ix.pulses.push({ x: wx, y: wy });
+    ix.ripples.push({ x: wx, y: wy, radius: 2, alpha: 1 });
   });
 
   canvas.addEventListener("touchend", () => { ix.present = false; });
