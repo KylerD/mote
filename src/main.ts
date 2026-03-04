@@ -74,7 +74,7 @@ function init(): void {
     applyInteraction(input, world.motes);
 
     // Render terrain + sky
-    renderTerrain(rc.buf, world.terrain, world.time);
+    renderTerrain(rc.buf, world.terrain, world.time, world.cycleProgress);
 
     // Pre-compute mote colors (reused for both mote pixels and bond lines)
     const bp = world.terrain.bp;

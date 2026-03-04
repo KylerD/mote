@@ -296,15 +296,53 @@ function tileColor(tile: Tile, bp: BiomePalette): number {
   }
 }
 
+/**
+ * Sky tints per phase — RGB deltas applied on top of biome sky.
+ * These shift the sky's mood across the cycle arc without overriding biome identity.
+ * Top of sky gets full tint; horizon fades to 30% tint for a natural gradient blend.
+ */
+const SKY_TINTS: RGB[] = [
+  [-8,  -8,  15],  // genesis:      cool violet — pre-dawn, a world not yet awake
+  [ 0,   0,   0],  // exploration:  neutral — clear day, open sky
+  [ 5,   3,  -3],  // organization: slight warmth — mid-day building
+  [ 8,   4,  -5],  // complexity:   warm afternoon — peak light
+  [20,   8, -15],  // dissolution:  golden hour — amber light, things fading
+  [-5, -10,  12],  // silence:      indigo dusk — the world going to sleep
+];
+
+// Cumulative phase boundaries (fractions of cycle) — mirrors world.ts PHASE_DURATIONS
+const TINT_BOUNDARIES = [0.10, 0.30, 0.55, 0.80, 0.92, 1.0];
+
+/** Smooth interpolated sky tint for a given cycle position (0–1) */
+function skyTintAt(cycleProgress: number): RGB {
+  let prev = 0;
+  for (let i = 0; i < TINT_BOUNDARIES.length; i++) {
+    if (cycleProgress <= TINT_BOUNDARIES[i]) {
+      const t = (cycleProgress - prev) / (TINT_BOUNDARIES[i] - prev);
+      const a = SKY_TINTS[i];
+      const b = SKY_TINTS[(i + 1) % SKY_TINTS.length];
+      return [
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+        a[2] + (b[2] - a[2]) * t,
+      ];
+    }
+    prev = TINT_BOUNDARIES[i];
+  }
+  return SKY_TINTS[5];
+}
+
 /** Render terrain + sky into the buffer */
 export function renderTerrain(
   buf: ImageData,
   terrain: Terrain,
-  _time: number,
+  time: number,
+  cycleProgress: number,
 ): void {
   const { tiles, bp } = terrain;
   const skyTop = PAL[bp.sky];
   const skyBot = PAL[bp.skyHorizon];
+  const tint = skyTintAt(cycleProgress);
 
   const d = buf.data;
 
@@ -319,9 +357,11 @@ export function renderTerrain(
         const t = y / (H * 0.6); // gradient occupies top 60%
         const st = Math.min(1, Math.max(0, t));
         const c: RGB = lerpColor(skyTop, skyBot, st);
-        d[pi] = c[0];
-        d[pi + 1] = c[1];
-        d[pi + 2] = c[2];
+        // Tint is strongest at zenith, fades toward horizon — top sky sets the mood
+        const tintStr = 1 - st * 0.7;
+        d[pi]     = Math.max(0, Math.min(255, c[0] + tint[0] * tintStr));
+        d[pi + 1] = Math.max(0, Math.min(255, c[1] + tint[1] * tintStr));
+        d[pi + 2] = Math.max(0, Math.min(255, c[2] + tint[2] * tintStr));
         d[pi + 3] = 255;
       } else {
         const ci = tileColor(tile, bp);
@@ -341,7 +381,7 @@ export function renderTerrain(
     const worldH = H - surfaceY;
     if (worldH <= terrain.waterLevel && worldH >= terrain.waterLevel - 1) {
       // This is a water surface pixel — add shimmer
-      if ((x + Math.floor(_time * 2)) % 5 === 0) {
+      if ((x + Math.floor(time * 2)) % 5 === 0) {
         setPixel(buf, x, surfaceY, PAL[8][0], PAL[8][1], PAL[8][2], 120);
       }
     }
