@@ -143,6 +143,36 @@ canvas#world {
   border-radius: 4px;
 }
 
+/* Audio prompt — invites users to hear the world */
+#audio-prompt {
+  position: absolute;
+  bottom: clamp(0.8rem, 2vh, 1.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-weight: 300;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  color: rgba(220, 224, 228, 0.7);
+  text-transform: lowercase;
+  pointer-events: none;
+  opacity: 0;
+  animation: audio-prompt-in 1.5s ease-out 2s forwards;
+  z-index: 3;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+#audio-prompt.dismissed {
+  opacity: 0 !important;
+  transition: opacity 0.5s ease-out;
+}
+
+@keyframes audio-prompt-in {
+  0% { opacity: 0; }
+  60% { opacity: 0.8; }
+  100% { opacity: 0.6; }
+}
+
 
 /* ── Cycle info bar ────────────────────────────────────── */
 
@@ -169,6 +199,26 @@ canvas#world {
 
 #cycle-phase {
   color: var(--text-muted);
+}
+
+
+/* ── Narrative text ───────────────────────────────────── */
+
+#narrative {
+  width: min(94vw, calc((100vh - 7rem) * 16 / 9));
+  width: min(94vw, calc((100dvh - 7rem) * 16 / 9));
+  max-width: 2000px;
+  text-align: center;
+  font-family: var(--mono);
+  font-weight: 300;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  padding-top: 0.5rem;
+  min-height: 1.5rem;
+  opacity: 0;
+  transition: opacity 0.8s ease-out;
+  font-style: italic;
 }
 
 

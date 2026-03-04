@@ -48,9 +48,9 @@ The daily evolution prompt lives at `.claude/daily-evolve.md`. Read it for the f
 
 ## Design Constraints
 
-- Zero runtime dependencies — everything is procedural code
+- Zero npm runtime dependencies — browser APIs (WebGL, Web Audio, Canvas 2D) are encouraged
 - 256×144 pixel canvas, 5-minute cycle structure — these are sacred
 - Deterministic: same cycle number must produce the same world for everyone
-- Meditative, ambient, minimal UI — observation over interaction
-- Changes should deepen existing systems, not bolt on new frameworks
-- One focused change at a time — depth over breadth
+- Emotionally compelling — the experience should make people stop, watch, and come back
+- Ambitious evolution — push rendering, sound, and creature behavior toward what's mesmerizing, not merely functional
+- The daily evolution prompt at `.claude/daily-evolve.md` sets the creative bar — read it
