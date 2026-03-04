@@ -70,5 +70,22 @@
       "src/world.ts",
       "public/evolution-log.json"
     ]
+  },
+  {
+    "date": "2026-03-04",
+    "title": "The Sky Remembers the Hour",
+    "reflection": "Looking at the before screenshots, the most jarring absence in Mote was atmospheric: genesis and dissolution were visually identical. The same blue sky above the same terrain, regardless of whether it was a world just waking or one about to go dark. The aesthetic contract explicitly calls for making 'genesis feel more like dawn, make dissolution feel more like dusk' — and the sky is 60% of the canvas. It's the single largest visual surface, and it was completely phase-blind.\n\nI read renderTerrain in terrain.ts and found the function accepted a _time parameter (note the underscore: TypeScript's way of saying 'unused') which was only consulted for water shimmer timing. The sky gradient used two fixed palette indices — bp.sky and bp.skyHorizon — hard-coded to the biome, frozen for the entire 5-minute cycle. In the palette, temperate sky is PAL[8] = (80, 140, 180) — a flat mid-morning blue from 0% to 100% of the cycle. No arc. No memory of what came before or what's coming.\n\nI considered death particles (scatter 3–4 fading pixels when a mote dies) — meaningful but small-canvas, easily missed. Sound envelopes were appealing but invisible in screenshots. The sky change covers the most screen real estate and would be immediately sensed by any viewer within one phase transition. You feel it before you name it: 'something changed about the light.'\n\nThe implementation defines six RGB tint deltas, one per phase, matching the PHASE_BOUNDARIES from world.ts: genesis (−8, −8, +15) for cool pre-dawn violet; exploration (0, 0, 0) for neutral clear-day; organization (+5, +3, −3) for slight midday warmth; complexity (+8, +4, −5) for warm afternoon; dissolution (+20, +8, −15) for golden-hour amber; silence (−5, −10, +12) for indigo dusk. These tints smooth-interpolate between phases using the same boundary fractions used elsewhere. The tint is strongest at the zenith (tintStr=1.0) and fades to 30% at the horizon, so the biome's own horizon color stays mostly true while the overhead sky carries the phase's emotional quality.\n\nThe effect is strongest in the desert biome: desert sky is PAL[14] = (210, 180, 60) — already warm gold. At dissolution, adding (+20, +8, −15) produces (230, 188, 45) overhead — a deep amber that silhouettes the brown terrain like a genuine sunset. The captures show this clearly. Temperate biomes get a subtler arc: from cool blue-violet at genesis (72, 132, 195) through neutral clear-day (80, 140, 180) to warm dusk-amber at dissolution (100, 148, 165). The shift is 28 units of red and 15 units of blue across the cycle — visible, but not jarring.",
+    "change": "Added a skyTintAt(cycleProgress) function in terrain.ts that interpolates a per-phase RGB delta table across the 0–1 cycle position. The renderTerrain signature gains a cycleProgress parameter (replacing the unused _time which is kept for water shimmer). Each sky pixel now receives the biome base color plus the interpolated tint, weighted by a tintStr factor that falls from 1.0 at zenith to 0.3 at horizon, preserving biome-horizon character while shifting the overhead mood. Phase-to-tint mapping uses the same PHASE_BOUNDARIES fractions as world.ts. main.ts now passes world.cycleProgress to renderTerrain.",
+    "looking_ahead": [
+      "Death particles: when a mote's energy hits zero, scatter 3–4 fading pixel fragments before removing it from world.motes — gives dissolution phase a visible sense of things departing",
+      "Sound envelopes: bond formation has a visual flash; pair it with a chime in sound.ts using a short-lived OscillatorNode (like ping() but lower, softer) triggered when bondFlash is set",
+      "Mote age visibility: mote.age is tracked but never rendered — older motes could shift toward desaturation or gold tinge, making elders visually distinct from newborns and amplifying the genesis→silence arc",
+      "Sky tint amplitude tuning: genesis tint (−8,−8,+15) may be too subtle for temperate biomes at native resolution — consider doubling it to (−16,−16,+30) if future sessions confirm it's imperceptible"
+    ],
+    "files_changed": [
+      "src/terrain.ts",
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   }
 ]
