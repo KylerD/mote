@@ -1,9 +1,16 @@
-name: Daily Evolution
+name: Daily Evolution (Legacy — Manual Only)
+
+# NOTE: Scheduled evolution is now handled by 5 specialized agents:
+#   evolve-motes.yml     — Mote Agent (3x/day: 00, 08, 16 UTC)
+#   evolve-sound.yml     — Sound Agent (2x/day: 01, 13 UTC)
+#   evolve-terrain.yml   — Terrain & Weather Agent (2x/day: 02, 14 UTC)
+#   evolve-narrative.yml — Narrative & Events Agent (2x/day: 03, 15 UTC)
+#   evolve-visual.yml    — Visual Effects Agent (2x/day: 04, 20 UTC)
+#
+# This workflow is kept as a manual fallback for full-system evolution.
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 6 * * *'
 
 jobs:
   evolve:

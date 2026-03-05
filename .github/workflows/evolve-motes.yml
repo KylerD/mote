@@ -1,0 +1,60 @@
+name: "Evolve: Motes"
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 3x daily: 00:00, 08:00, 16:00 UTC — the star of the show gets extra attention
+    - cron: '0 0 * * *'
+    - cron: '0 8 * * *'
+    - cron: '0 16 * * *'
+
+concurrency:
+  group: mote-evolution
+  cancel-in-progress: false
+
+jobs:
+  evolve-motes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: "Mote Agent: evolve creatures"
+        run: |
+          npx -y @anthropic-ai/claude-code -p "$(cat .claude/agents/mote-agent.md)" \
+            --dangerously-skip-permissions \
+            --max-turns 40
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Verify build
+        run: |
+          npx tsc --noEmit
+          npx vite build
+
+      - name: Push changes
+        run: |
+          git config user.name "mote-agent[bot]"
+          git config user.email "mote-agent[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "evolve(motes): autonomous improvement $(date -u +%Y-%m-%d-%H%M)"
+          fi
+          git push
