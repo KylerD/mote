@@ -247,6 +247,6 @@ export function updateWorld(world: World, dt: number): void {
   // Remove dead motes
   world.motes = world.motes.filter((m) => m.energy > 0);
 
-  // Clean old death records
-  world.deaths = world.deaths.filter(d => world.time - d.time < 0.8);
+  // Clean old death records (1.2s for soul-rise effect)
+  world.deaths = world.deaths.filter(d => world.time - d.time < 1.2);
 }
