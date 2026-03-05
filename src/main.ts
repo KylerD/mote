@@ -676,6 +676,14 @@ function computeMoteColor(m: Mote, bp: BiomePalette): [number, number, number] {
   g += (160 - g) * st;
   b += (200 - b) * st;
 
+  // Age: elders shift toward warm gold (220, 165, 40) as they accumulate time.
+  // Starts at maturity (age 8s), peaks at 40% gold by age 30s.
+  // By dissolution the survivors are visibly golden — the cycle arc reads in color.
+  const ageGold = Math.min(1, Math.max(0, (m.age - 8) / 22)) * 0.40;
+  r += (220 - r) * ageGold;
+  g += (165 - g) * ageGold;
+  b += (40 - b) * ageGold;
+
   return [Math.round(r), Math.round(g), Math.round(b)];
 }
 
