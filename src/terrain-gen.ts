@@ -208,42 +208,109 @@ export function generateTerrain(seed: number): Terrain {
 }
 
 function placeFeatures(t: Terrain, rng: () => number): void {
-  // Trees: on flat ground above water
-  const treeCount = 20 + Math.floor(rng() * 30);
-  for (let i = 0; i < treeCount; i++) {
-    const x = 4 + Math.floor(rng() * (W - 8));
-    const surfaceY = getSurfaceY(t, x);
-    if (surfaceY < 2) continue;
+  const biome = t.biome;
 
-    const worldH = H - surfaceY;
-    if (worldH <= t.waterLevel + 2) continue; // too close to water
-
-    // Check flat enough
-    if (x > 0 && x < W - 1) {
-      const slope = Math.abs(t.heights[x + 1] - t.heights[x - 1]);
-      if (slope > 2) continue; // too steep
+  if (biome === "desert") {
+    // Cacti: vertical columns of TreeCanopy (dark green) with arm stubs
+    // Desert bp has treeCanopy=11 (deep forest green) — perfect for cacti
+    const cactusCount = 10 + Math.floor(rng() * 14);
+    for (let i = 0; i < cactusCount; i++) {
+      const x = 4 + Math.floor(rng() * (W - 8));
+      const surfaceY = getSurfaceY(t, x);
+      if (surfaceY < 2) continue;
+      const worldH = H - surfaceY;
+      if (worldH <= t.waterLevel + 2) continue;
+      if (x > 0 && x < W - 1) {
+        const slope = Math.abs(t.heights[x + 1] - t.heights[x - 1]);
+        if (slope > 3) continue; // cacti grow on moderately sloped dunes
+      }
+      const height = 3 + Math.floor(rng() * 4); // 3–6px tall
+      const armHeight = 1 + Math.floor(rng() * Math.floor(height / 2)); // arm level from base
+      // Main column
+      for (let dy = 0; dy < height; dy++) {
+        const cy = surfaceY - 1 - dy;
+        if (cy >= 0) t.tiles[cy * W + x] = Tile.TreeCanopy;
+      }
+      // Arms: one or two pixels to each side at armHeight
+      const acy = surfaceY - 1 - armHeight;
+      if (acy >= 0) {
+        if (x > 0) t.tiles[acy * W + x - 1] = Tile.TreeCanopy;
+        if (x < W - 1) t.tiles[acy * W + x + 1] = Tile.TreeCanopy;
+        // Second arm segment reaches upward
+        if (acy - 1 >= 0 && rng() < 0.6) {
+          if (x > 0) t.tiles[(acy - 1) * W + x - 1] = Tile.TreeCanopy;
+          if (x < W - 1) t.tiles[(acy - 1) * W + x + 1] = Tile.TreeCanopy;
+        }
+      }
     }
-
-    // Draw tree: trunk (1px wide, 2-3px tall) + canopy (3px wide, 2px tall)
-    const trunkH = 2 + Math.floor(rng() * 2);
-    const ty = surfaceY - 1; // one pixel above surface
-
-    // Trunk
-    for (let dy = 0; dy < trunkH; dy++) {
-      const idx = (ty - dy) * W + x;
-      if (ty - dy >= 0) t.tiles[idx] = Tile.TreeTrunk;
+  } else if (biome === "volcanic") {
+    // Rock spires: jagged Cliff columns jutting above the surface
+    // Volcanic bp has cliff=0 (near-void black) — menacing dark spires
+    const spireCount = 8 + Math.floor(rng() * 12);
+    for (let i = 0; i < spireCount; i++) {
+      const x = 4 + Math.floor(rng() * (W - 8));
+      const surfaceY = getSurfaceY(t, x);
+      if (surfaceY < 2) continue;
+      const worldH = H - surfaceY;
+      if (worldH <= t.waterLevel + 2) continue;
+      const height = 5 + Math.floor(rng() * 10); // 5–14px tall spires
+      const baseWidth = rng() < 0.4 ? 2 : 1; // some spires have a 2px base
+      for (let dy = 0; dy < height; dy++) {
+        const cy = surfaceY - 1 - dy;
+        if (cy < 0) break;
+        // Taper: full width at base, 1px near tip
+        const w = dy < 2 ? baseWidth : 1;
+        for (let dx = 0; dx < w; dx++) {
+          const cx = x + dx;
+          if (cx < W) t.tiles[cy * W + cx] = Tile.Cliff;
+        }
+      }
     }
-
-    // Canopy
-    const canopyY = ty - trunkH;
-    for (let dy = 0; dy < 2; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const cx = x + dx;
-        const cy = canopyY - dy;
-        if (cx >= 0 && cx < W && cy >= 0) {
-          // Skip corners on top row for rounder shape
-          if (dy === 1 && Math.abs(dx) === 1 && rng() < 0.3) continue;
-          t.tiles[cy * W + cx] = Tile.TreeCanopy;
+  } else {
+    // Trees: temperate, lush, tundra — organic canopy shapes
+    // Tundra gets sparse dead trees; lush gets denser; temperate standard
+    const treeCount = biome === "lush"   ? 28 + Math.floor(rng() * 22) :
+                      biome === "tundra" ?  8 + Math.floor(rng() *  8) :
+                                           20 + Math.floor(rng() * 30);
+    for (let i = 0; i < treeCount; i++) {
+      const x = 4 + Math.floor(rng() * (W - 8));
+      const surfaceY = getSurfaceY(t, x);
+      if (surfaceY < 2) continue;
+      const worldH = H - surfaceY;
+      if (worldH <= t.waterLevel + 2) continue;
+      if (x > 0 && x < W - 1) {
+        const slope = Math.abs(t.heights[x + 1] - t.heights[x - 1]);
+        if (slope > 2) continue;
+      }
+      const trunkH = 2 + Math.floor(rng() * 2);
+      const ty = surfaceY - 1;
+      for (let dy = 0; dy < trunkH; dy++) {
+        const idx = (ty - dy) * W + x;
+        if (ty - dy >= 0) t.tiles[idx] = Tile.TreeTrunk;
+      }
+      const canopyY = ty - trunkH;
+      if (biome === "tundra") {
+        // Dead tree: narrow silhouette, sparse branching, no wide canopy
+        if (canopyY >= 0) t.tiles[canopyY * W + x] = Tile.TreeCanopy;
+        // Sparse branch stubs off to one side
+        if (canopyY + 1 >= 0 && canopyY + 1 < H && rng() < 0.65) {
+          const side = rng() < 0.5 ? -1 : 1;
+          if (x + side >= 0 && x + side < W) {
+            t.tiles[(canopyY + 1) * W + x + side] = Tile.TreeCanopy;
+          }
+        }
+      } else {
+        // Full canopy: 3px wide × 2px tall (lush gets an extra canopy row)
+        const canopyRows = biome === "lush" ? 3 : 2;
+        for (let dy = 0; dy < canopyRows; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const cx = x + dx;
+            const cy = canopyY - dy;
+            if (cx >= 0 && cx < W && cy >= 0) {
+              if (dy === canopyRows - 1 && Math.abs(dx) === 1 && rng() < 0.35) continue;
+              t.tiles[cy * W + cx] = Tile.TreeCanopy;
+            }
+          }
         }
       }
     }

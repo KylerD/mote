@@ -254,5 +254,22 @@
       "src/main.ts",
       "public/evolution-log.json"
     ]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "terrain-weather",
+    "title": "Biomes Made Real — Cacti, Lava, Frost, Horizon Glow",
+    "reflection": "Four changes that close the gap between biome names and biome identity. Desert was the most egregious offender — brown-trunked trees with dark green canopies growing in sand. Replaced with cacti: tall narrow columns of dark green, arms branching at mid-height, 3–6px tall, seeded deterministically across the dunes. Volcanic terrain was sprouting trees despite being a hellscape; now it grows rock spires — jagged 1–2px Cliff columns 5–14px tall, tapering to a point, menacing silhouettes against the purple sky. Lush biome gets denser 3-row canopies; tundra gets sparse dead trees with bare trunk and one-sided branch stubs, leafless and cold. The volcanic water body was the second major lie — dark blue lakes in a lava world. Now DeepWater and ShallowWater tiles in volcanic render as animated orange-red lava: per-pixel noise drives a flicker between dark orange and bright orange-red. The lava surface gets hotspot glints and dark crust cracks. Horizon glow finally landed: a quadratic-falloff color band rises 16px above the terrain surface, warm amber during genesis and dissolution, cool blue-violet during silence. Tundra frost: noise-driven white-blue crystal pixels on ground tiles, some extending one pixel above the surface.",
+    "looking_ahead": [
+      "Desert heat shimmer: vertical pixel-shift distortion on the lower sky near the terrain horizon",
+      "Phase-reactive water level: flood event visibly raises water by 3–5 tiles across the map",
+      "Volcanic ash accumulation: rare event leaves a static grey-particle overlay on ground tiles",
+      "Lush biome bloom event: surface flowers multiply and brighten dramatically during bloom"
+    ],
+    "files_changed": [
+      "src/terrain-gen.ts",
+      "src/terrain-render.ts",
+      "public/evolution-log.json"
+    ]
   }
 ]
