@@ -271,5 +271,22 @@
       "src/terrain-render.ts",
       "public/evolution-log.json"
     ]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "narrative-events",
+    "title": "Five New Emotional Beats",
+    "reflection": "The narrative arc had six phase-entry lines and three milestone types, then went quiet for most of dissolution and all of silence. Five new beats close the gap: the first mote death in dissolution fires 'the first farewell' (opening dirge); when bonds drop below half their peak, 'the bonds begin to fray' marks community fragmentation; when the world first reaches 60 motes during complexity, 'all of them, alive at once' acknowledges the peak; when only one mote remains, 'one light remains' names the final witness; and if a rare event outlasts a phase transition, a cascade line acknowledges it persisting ('still the waters rise', 'the darkness persists'). Each event message also now has three variants picked per-cycle, so eclipse can be 'DARKNESS DESCENDS', 'THE SUN IS SWALLOWED', or 'TOTALITY' — every 12th cycle's event feels slightly different.",
+    "looking_ahead": [
+      "Cluster identity persistence: give clusters of 5+ a generated name ('the western fellowship') that appears in narrative text",
+      "Silent-world narration: when all motes are gone and silence is running, a final reflection line ('they will return')",
+      "Biome-aware dissolution: tundra gets 'the frost claims them', volcanic gets 'the fire takes them back'",
+      "Weather-event overlap: if it's storming during a flood, acknowledge the confluence ('the storm feeds the flood')"
+    ],
+    "files_changed": [
+      "src/narrative.ts",
+      "src/events.ts",
+      "public/evolution-log.json"
+    ]
   }
 ]

@@ -21,22 +21,24 @@ export function checkForEvent(cycleNumber: number): ActiveEvent | null {
     "flood", "bloom", "meteor", "migration", "eclipse",
     "earthquake", "plague", "aurora", "drought",
   ];
-  const messages: string[] = [
-    "THE WATERS RISE",
-    "LIFE ERUPTS",
-    "FIRE FROM ABOVE",
-    "THE GREAT MIGRATION",
-    "DARKNESS DESCENDS",
-    "THE EARTH SHAKES",
-    "A PLAGUE SPREADS",
-    "THE SKY AWAKENS",
-    "THE LONG THIRST",
+  // Three variants per event — picked by a secondary hash for per-cycle diversity
+  const messagePools: string[][] = [
+    ["THE WATERS RISE",      "THE FLOOD COMES",         "RISING TIDE"],
+    ["LIFE ERUPTS",          "THE BLOOM ARRIVES",       "ABUNDANCE"],
+    ["FIRE FROM ABOVE",      "SOMETHING FALLS",         "THE SKY BREAKS"],
+    ["THE GREAT MIGRATION",  "THEY MOVE AS ONE",        "MASS MOVEMENT"],
+    ["DARKNESS DESCENDS",    "THE SUN IS SWALLOWED",    "TOTALITY"],
+    ["THE EARTH SHAKES",     "THE GROUND BREAKS",       "UPHEAVAL"],
+    ["A PLAGUE SPREADS",     "SICKNESS DESCENDS",       "THE WASTING"],
+    ["THE SKY AWAKENS",      "LIGHTS IN THE DARK",      "THE AURORA RISES"],
+    ["THE LONG THIRST",      "WATER RUNS DRY",          "THE DRYING"],
   ];
+  const variant = (h >>> 16) % 3;
   const durations = [28, 15, 8, 22, 28, 12, 32, 22, 48];
 
   return {
     type: types[eventIndex],
-    message: messages[eventIndex],
+    message: messagePools[eventIndex][variant],
     startTime: -1, // set when triggered
     duration: durations[eventIndex],
     messageAlpha: 1,

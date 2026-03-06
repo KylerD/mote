@@ -80,6 +80,51 @@ const EVENT_AFTERMATH: Partial<Record<string, string[]>> = {
   drought:    ["the thirst passes", "memory of water"],
 };
 
+/** Fired when a phase transition happens while an event is still active */
+const EVENT_CASCADE_TEXTS: Partial<Record<string, string>> = {
+  flood:      "still the waters rise",
+  bloom:      "life continues to pour forth",
+  meteor:     "the crater holds its silence",
+  migration:  "still they move as one",
+  eclipse:    "the darkness persists",
+  earthquake: "the earth still trembles",
+  plague:     "the sickness endures",
+  aurora:     "the lights still dance",
+  drought:    "no relief yet",
+};
+
+/** Fired when mote count first peaks at 60+ during complexity */
+const PEAK_POPULATION_TEXTS = [
+  "all of them, alive at once",
+  "the world at its fullest",
+  "never more than this",
+  "the peak of everything",
+];
+
+/** Fired on the first mote death during dissolution — the unraveling begins */
+const DISSOLUTION_FIRST_DEATH_TEXTS = [
+  "the first farewell",
+  "the first to let go",
+  "one light goes out",
+  "it begins",
+];
+
+/** Fired when bond count drops below half peak during dissolution */
+const DISSOLUTION_BONDS_BREAKING_TEXTS = [
+  "the bonds begin to fray",
+  "they drift apart",
+  "communities unraveling",
+  "the ties grow thin",
+];
+
+/** Fired when only one mote remains */
+const LAST_MOTE_TEXTS = [
+  "one light remains",
+  "the last wanderer",
+  "alone at the end",
+  "only one",
+];
+
 // --- State ---
 
 interface NarrativeEvent {
@@ -102,6 +147,13 @@ export interface NarrativeState {
   eventStartNarrated: boolean;
   eventWasActive: boolean;
   eventAftermathNarrated: boolean;
+  eventCascadeNarrated: boolean;
+  narratedPeakPopulation: boolean;
+  narratedFirstDeath: boolean;
+  narratedBondsBreaking: boolean;
+  narratedLastMote: boolean;
+  peakMoteCount: number;
+  peakBondCount: number;
   el: HTMLElement | null;
 }
 
@@ -120,6 +172,13 @@ export function createNarrative(): NarrativeState {
     eventStartNarrated: false,
     eventWasActive: false,
     eventAftermathNarrated: false,
+    eventCascadeNarrated: false,
+    narratedPeakPopulation: false,
+    narratedFirstDeath: false,
+    narratedBondsBreaking: false,
+    narratedLastMote: false,
+    peakMoteCount: 0,
+    peakBondCount: 0,
     el: document.getElementById("narrative"),
   };
 }
@@ -140,6 +199,13 @@ export function updateNarrative(ns: NarrativeState, w: World): void {
     ns.eventStartNarrated = false;
     ns.eventWasActive = false;
     ns.eventAftermathNarrated = false;
+    ns.eventCascadeNarrated = false;
+    ns.narratedPeakPopulation = false;
+    ns.narratedFirstDeath = false;
+    ns.narratedBondsBreaking = false;
+    ns.narratedLastMote = false;
+    ns.peakMoteCount = 0;
+    ns.peakBondCount = 0;
     ns.queue = [];
     ns.el.textContent = "";
     ns.el.style.opacity = "0";
@@ -173,6 +239,22 @@ export function updateNarrative(ns: NarrativeState, w: World): void {
 
       pushNarrative(ns, text, now, true);
     }
+
+    // Event cascade: if a rare event is actively ongoing during this phase transition,
+    // acknowledge it — the event has outlasted the phase that witnessed it
+    if (
+      w.event &&
+      w.eventTriggered &&
+      isEventActive(w.event, w.time) &&
+      !ns.eventCascadeNarrated
+    ) {
+      ns.eventCascadeNarrated = true;
+      const cascadeText = EVENT_CASCADE_TEXTS[w.event.type];
+      if (cascadeText) {
+        // Push directly so it queues after the phase entry text
+        ns.queue.push({ text: cascadeText, time: now, duration: 5 });
+      }
+    }
   }
 
   // --- Milestone narration (respect 6s cooldown) ---
@@ -185,6 +267,10 @@ export function updateNarrative(ns: NarrativeState, w: World): void {
   let bondCount = 0;
   for (const m of w.motes) bondCount += m.bonds.length;
   bondCount = Math.floor(bondCount / 2);
+
+  // Track peaks
+  if (w.motes.length > ns.peakMoteCount) ns.peakMoteCount = w.motes.length;
+  if (bondCount > ns.peakBondCount) ns.peakBondCount = bondCount;
 
   // First bond
   if (!ns.narratedFirstBond && bondCount > 0) {
@@ -216,6 +302,51 @@ export function updateNarrative(ns: NarrativeState, w: World): void {
   ) {
     ns.narratedPeakCluster = true;
     pushNarrative(ns, "a great gathering", now);
+  }
+
+  // Peak population — narrate when mote count first hits 60 during complexity
+  if (
+    !ns.narratedPeakPopulation &&
+    w.motes.length >= 60 &&
+    w.phaseName === "complexity"
+  ) {
+    ns.narratedPeakPopulation = true;
+    const pick = Math.abs((w.cycleNumber * 999937) % PEAK_POPULATION_TEXTS.length);
+    pushNarrative(ns, PEAK_POPULATION_TEXTS[pick], now);
+  }
+
+  // Dissolution: narrate the first mote death — the unraveling's opening beat
+  if (
+    !ns.narratedFirstDeath &&
+    (w.phaseName === "dissolution" || w.phaseName === "silence") &&
+    w.deaths.length > 0
+  ) {
+    ns.narratedFirstDeath = true;
+    const pick = Math.abs((w.cycleNumber * 999931) % DISSOLUTION_FIRST_DEATH_TEXTS.length);
+    pushNarrative(ns, DISSOLUTION_FIRST_DEATH_TEXTS[pick], now);
+  }
+
+  // Dissolution: narrate when bonds drop below half their peak (community fragmenting)
+  if (
+    !ns.narratedBondsBreaking &&
+    ns.peakBondCount > 4 &&
+    bondCount < Math.floor(ns.peakBondCount * 0.45) &&
+    w.phaseName === "dissolution"
+  ) {
+    ns.narratedBondsBreaking = true;
+    const pick = Math.abs((w.cycleNumber * 999929) % DISSOLUTION_BONDS_BREAKING_TEXTS.length);
+    pushNarrative(ns, DISSOLUTION_BONDS_BREAKING_TEXTS[pick], now);
+  }
+
+  // Last mote — the final witness
+  if (
+    !ns.narratedLastMote &&
+    w.motes.length === 1 &&
+    (w.phaseName === "dissolution" || w.phaseName === "silence")
+  ) {
+    ns.narratedLastMote = true;
+    const pick = Math.abs((w.cycleNumber * 999923) % LAST_MOTE_TEXTS.length);
+    pushNarrative(ns, LAST_MOTE_TEXTS[pick], now);
   }
 
   // --- Event anticipation (~25s before trigger) ---
