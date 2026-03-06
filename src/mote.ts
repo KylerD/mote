@@ -225,46 +225,64 @@ export function updateMote(
   m.forceX = 0;
   m.forceY = 0;
 
-  // Water avoidance: check if heading toward water, but also check behind —
-  // if water is on both sides, just keep going (prevents oscillation/spazzing)
+  // Unified movement check: test current direction for both water and cliff,
+  // flip once if blocked, and stop if both directions are blocked (no oscillation)
+  const currentSurface = getSurfaceY(terrain, m.x);
+  let blocked = false;
+
+  // Check ahead for water
   const aheadX = Math.round(m.x + m.direction * 3);
   if (aheadX >= 0 && aheadX < W) {
     const aheadSurface = getSurfaceY(terrain, aheadX);
     const aheadTile = getTile(terrain, aheadX, aheadSurface);
     if (aheadTile === Tile.ShallowWater || aheadTile === Tile.DeepWater) {
-      // Check behind before flipping — avoid oscillation when water is on both sides
-      const behindX = Math.round(m.x - m.direction * 3);
-      if (behindX >= 0 && behindX < W) {
-        const behindSurface = getSurfaceY(terrain, behindX);
-        const behindTile = getTile(terrain, behindX, behindSurface);
-        if (behindTile !== Tile.ShallowWater && behindTile !== Tile.DeepWater) {
-          m.direction *= -1;
-          m.vx = m.direction * finalSpeed;
-        }
-        // else: water on both sides — just keep walking, don't oscillate
-      } else {
-        m.direction *= -1;
-        m.vx = m.direction * finalSpeed;
+      blocked = true;
+    }
+  }
+
+  // Check ahead for steep cliff
+  if (!blocked) {
+    const moveX = m.x + m.vx * dt;
+    const clampedMoveX = Math.max(1, Math.min(W - 2, moveX));
+    const moveSurface = getSurfaceY(terrain, clampedMoveX);
+    if (currentSurface - moveSurface > JUMP_OVER) {
+      blocked = true;
+    }
+  }
+
+  if (blocked) {
+    // Before flipping, check if the other direction is also blocked
+    const otherDir = -m.direction;
+    let otherBlocked = false;
+
+    const behindX = Math.round(m.x + otherDir * 3);
+    if (behindX >= 0 && behindX < W) {
+      const behindSurface = getSurfaceY(terrain, behindX);
+      const behindTile = getTile(terrain, behindX, behindSurface);
+      if (behindTile === Tile.ShallowWater || behindTile === Tile.DeepWater) {
+        otherBlocked = true;
       }
+      // Also check cliff in the other direction
+      if (!otherBlocked) {
+        if (currentSurface - behindSurface > JUMP_OVER) {
+          otherBlocked = true;
+        }
+      }
+    }
+
+    if (otherBlocked) {
+      // Both directions blocked — just idle, don't oscillate
+      m.vx = 0;
+    } else {
+      m.direction = otherDir;
+      m.vx = m.direction * finalSpeed + socialFx * 0.3;
     }
   }
 
   // Move horizontally
   const newX = m.x + m.vx * dt;
   const clampedX = Math.max(1, Math.min(W - 2, newX));
-
-  // Check if we can walk to new X (terrain collision)
-  const currentSurface = getSurfaceY(terrain, m.x);
-  const newSurface = getSurfaceY(terrain, clampedX);
-  const heightDiff = currentSurface - newSurface; // positive = uphill
-
-  if (heightDiff > JUMP_OVER) {
-    // Too steep uphill — turn around
-    m.direction *= -1;
-    m.vx = 0;
-  } else {
-    m.x = clampedX;
-  }
+  m.x = clampedX;
 
   // Move vertically (gravity + terrain snap)
   m.y += m.vy * dt;
