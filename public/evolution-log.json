@@ -223,5 +223,23 @@
       "src/main.ts",
       "public/evolution-log.json"
     ]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "mote",
+    "title": "Bond Arc, Wanderer Trails, Social Pulse",
+    "reflection": "Three temperament signals were missing from the visual layer. Every mote left an identical ghost trail — wanderers and homebodies looked the same. Bonded social motes had no visual cohesion; you couldn't tell a cluster was a community. And bond formation — requested in four previous looking_ahead entries — had a ring burst but no 'locking' moment between the two motes. Fixed: wanderers now leave trails 3× brighter than timid motes (trailScale = 0.2 + wanderlust × 1.8), making roamers leave vivid ghost paths while social motes leave faint smears. Social motes with bonds now show a 5-point resonance ring (±4px sides, top, two diagonal feet) that pulses in sync with global time — clusters of bonded social motes visibly breathe together. Bond formation gets converging sparks: a white pixel with an identity-color halo launches from each mote toward the midpoint as bondFlash decays, then both arrive together. Viewers can now read temperament from trails, community from resonance, and bond formation from the arc.",
+    "looking_ahead": [
+      "Hardy mote resilience flash: brief white glint + shield arc when standing on hostile terrain (cave, shallow water)",
+      "Wanderer direction curiosity: high-wanderlust motes change direction more often and tilt their sprite slightly in the direction of movement",
+      "Cluster identity halo: clusters of 4+ share an averaged color ambient glow that pulses at a frequency related to cluster size",
+      "Bond break visual: when a bond breaks, a small crack/scatter of 2-3 pixels in the bond color"
+    ],
+    "files_changed": [
+      "src/render-bonds.ts",
+      "src/render-motes.ts",
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   }
 ]

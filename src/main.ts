@@ -137,7 +137,7 @@ function init(): void {
 
     // Mote trails, sprites, bonds, deaths
     renderMoteTrails(rc.buf, w.motes, moteColors);
-    renderMotes(rc.buf, w.motes, moteColors, plagueActive, plaguePulse);
+    renderMotes(rc.buf, w.motes, moteColors, plagueActive, plaguePulse, w.time);
     renderBondLines(rc.buf, w.motes, moteColors, w.time);
     renderDeathParticles(rc.buf, w.deaths, w.time);
 

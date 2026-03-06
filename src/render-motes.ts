@@ -36,9 +36,11 @@ export function renderMoteTrails(
 ): void {
   for (const m of motes) {
     const [tr, tg, tb] = moteColors.get(m)!;
+    // Wanderers leave vivid ghost trails; social/hardy motes leave faint smears
+    const trailScale = 0.2 + m.temperament.wanderlust * 1.8;
     for (const pt of m.trail) {
-      const ta = Math.round((1 - pt.age / 2.0) * 35);
-      if (ta > 0) setPixel(buf, pt.x, pt.y, tr, tg, tb, ta);
+      const ta = Math.round((1 - pt.age / 2.0) * 35 * trailScale);
+      if (ta > 2) setPixel(buf, pt.x, pt.y, tr, tg, tb, ta);
     }
   }
 }
@@ -50,6 +52,7 @@ export function renderMotes(
   moteColors: Map<Mote, [number, number, number]>,
   plagueActive: boolean,
   plaguePulse: number,
+  time: number,
 ): void {
   for (const m of motes) {
     let [cr, cg, cb] = moteColors.get(m)!;
@@ -180,6 +183,20 @@ export function renderMotes(
       setPixel(buf, ox, oy - 3, lr, lg, lb, sa);
       setPixel(buf, ox - 1, oy - 3, lr, lg, lb, Math.round(sa * 0.4));
       setPixel(buf, ox + 1, oy - 3, lr, lg, lb, Math.round(sa * 0.4));
+    }
+
+    // SOCIAL RESONANCE — bonded social motes pulse in sync with global time
+    if (m.bonds.length > 0 && m.temperament.sociability > 0.45) {
+      const resonance = (m.temperament.sociability - 0.45) / 0.55; // 0 → 1
+      const syncPulse = Math.sin(time * 3.5) * 0.5 + 0.5;
+      const ra = Math.round(syncPulse * resonance * 48);
+      if (ra > 3) {
+        setPixel(buf, ox + 4, oy - 1, cr, cg, cb, ra);
+        setPixel(buf, ox - 4, oy - 1, cr, cg, cb, ra);
+        setPixel(buf, ox,     oy - 5, cr, cg, cb, Math.round(ra * 0.8));
+        setPixel(buf, ox + 3, oy + 2, cr, cg, cb, Math.round(ra * 0.5));
+        setPixel(buf, ox - 3, oy + 2, cr, cg, cb, Math.round(ra * 0.5));
+      }
     }
 
     // BOND FORMATION FLASH

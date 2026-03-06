@@ -72,6 +72,25 @@ export function renderBondLines(
       drawLine(buf, m.x, m.y, bonded.x, bonded.y, avgR, avgG, avgB, bondAlpha);
       const glowAlpha = Math.round(bondAlpha * 0.35);
       drawLine(buf, m.x, m.y - 1, bonded.x, bonded.y - 1, avgR, avgG, avgB, glowAlpha);
+
+      // Bond formation arc: two sparks converge from each mote toward midpoint
+      if (flash > 0.02) {
+        const t = 1 - flash;          // 0→1 as flash decays
+        const t1 = t * 0.5;           // spark from m: 0 → 0.5
+        const t2 = 1 - t * 0.5;      // spark from bonded: 1 → 0.5
+        const s1x = m.x + (bonded.x - m.x) * t1;
+        const s1y = m.y + (bonded.y - m.y) * t1;
+        const s2x = m.x + (bonded.x - m.x) * t2;
+        const s2y = m.y + (bonded.y - m.y) * t2;
+        const sparkA = Math.round(flash * 240);
+        const glowA  = Math.round(flash * 110);
+        setPixel(buf, s1x,     s1y,     255,  255,  255,  sparkA);
+        setPixel(buf, s1x - 1, s1y,     avgR, avgG, avgB, glowA);
+        setPixel(buf, s1x + 1, s1y,     avgR, avgG, avgB, glowA);
+        setPixel(buf, s2x,     s2y,     255,  255,  255,  sparkA);
+        setPixel(buf, s2x - 1, s2y,     avgR, avgG, avgB, glowA);
+        setPixel(buf, s2x + 1, s2y,     avgR, avgG, avgB, glowA);
+      }
     }
   }
 }
