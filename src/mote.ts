@@ -41,6 +41,7 @@ export function createMote(
     bonds: [],
     bondTimer: 0,
     bondFlash: 0,
+    bondBreakFlash: 0,
     grounded: false,
     direction: rng() < 0.5 ? -1 : 1,
     spawnFlash: 1.0,
@@ -69,6 +70,7 @@ export function updateMote(
   const ageMod = ageElder ? 0.82 : ageMature ? 0.92 : 1.0;
 
   m.bondFlash = Math.max(0, m.bondFlash - dt * 3);
+  m.bondBreakFlash = Math.max(0, m.bondBreakFlash - dt * 2.5);
 
   // Record trail breadcrumbs
   m.trailTimer += dt;
@@ -190,6 +192,8 @@ export function updateMote(
     if (bdx * bdx + bdy * bdy > BOND_DIST * BOND_DIST * 6 * breakMult) {
       b.bonds = b.bonds.filter((o) => o !== m);
       m.bonds.splice(i, 1);
+      m.bondBreakFlash = 1;
+      b.bondBreakFlash = 1;
     }
   }
 

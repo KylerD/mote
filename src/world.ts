@@ -11,7 +11,7 @@ import {
   applyEvent, isEventActive,
 } from "./events";
 import { mulberry32 } from "./rng";
-import { PAL } from "./palette";
+import { hsl2rgb } from "./palette";
 import { createWeather, updateWeather } from "./weather";
 
 // Re-export for backward compatibility
@@ -153,7 +153,7 @@ export function updateWorld(world: World, dt: number): void {
 
   // Rare event triggering
   if (world.event && !world.eventTriggered) {
-    if (world.cycleProgress >= getEventTriggerPoint()) {
+    if (world.cycleProgress >= getEventTriggerPoint(world.event.type)) {
       world.event.startTime = world.time;
       world.eventTriggered = true;
       world.pendingEventSound = world.event.type;
@@ -210,18 +210,23 @@ export function updateWorld(world: World, dt: number): void {
     }
   }
 
-  // Capture deaths with color before filtering
-  const bp = world.terrain.bp;
-  const bright = PAL[bp.moteGlow];
-  const dark = PAL[bp.moteDim];
+  // Capture deaths with actual temperament color before filtering
   for (const m of world.motes) {
     if (m.energy <= 0) {
-      const t = 0.3; // dying motes are dim
+      // Use mid energy so identity color is recognizable (mote was alive moments ago)
+      const dE = 0.4;
+      const hue = (m.temperament.wanderlust * 50 + m.temperament.sociability * 160 + 40 + m.temperament.hardiness * 60) % 360;
+      const sat = Math.min(1, 0.45 + m.temperament.sociability * 0.35 + dE * 0.15);
+      const hardyBoost = m.temperament.hardiness * 0.08 * (1 - dE);
+      const light = Math.min(0.72, 0.30 + (dE + hardyBoost) * 0.38);
+      let [dr, dg, db] = hsl2rgb(hue, sat, light);
+      const ageGold = Math.min(1, Math.max(0, (m.age - 8) / 22)) * 0.40;
+      dr = Math.round(dr + (220 - dr) * ageGold);
+      dg = Math.round(dg + (165 - dg) * ageGold);
+      db = Math.round(db + (40 - db) * ageGold);
       world.deaths.push({
         x: m.x, y: m.y,
-        r: dark[0] + (bright[0] - dark[0]) * t,
-        g: dark[1] + (bright[1] - dark[1]) * t,
-        b: dark[2] + (bright[2] - dark[2]) * t,
+        r: dr, g: dg, b: db,
         time: world.time,
       });
     }
@@ -230,8 +235,8 @@ export function updateWorld(world: World, dt: number): void {
   // Remove dead motes
   world.motes = world.motes.filter((m) => m.energy > 0);
 
-  // Clean old death records (1.2s for soul-rise effect)
-  world.deaths = world.deaths.filter(d => world.time - d.time < 6);
+  // Clean old death records (7.5s for full soul-rise + ground echo)
+  world.deaths = world.deaths.filter(d => world.time - d.time < 7.5);
 
   // Weather particle/cloud/lightning updates
   updateWeather(world.weather, dt, world.time, world.rng);

@@ -3,7 +3,7 @@
 import { W, H } from "./config";
 import type { Interaction } from "./types";
 import { setPixel } from "./render";
-import { drawText, drawTextRight } from "./font";
+import { drawText, drawTextRight, measureText } from "./font";
 import { isEventActive } from "./events";
 import type { ActiveEvent } from "./types";
 
@@ -29,38 +29,61 @@ export function renderRipples(buf: ImageData, input: Interaction, dt: number): v
   }
 }
 
-/** Render cursor indicator */
-export function renderCursor(buf: ImageData, input: Interaction): void {
+/** Render cursor indicator — warm glow disc with pulsing ring */
+export function renderCursor(buf: ImageData, input: Interaction, time: number): void {
   if (!input.present) return;
-  const cr = 5;
   const cx = Math.round(input.x);
   const cy = Math.round(input.y);
+
+  // Soft warm glow beneath the cursor
+  const glowR = 9;
+  for (let dy = -glowR; dy <= glowR; dy++) {
+    for (let dx = -glowR; dx <= glowR; dx++) {
+      const d2 = dx * dx + dy * dy;
+      if (d2 > glowR * glowR) continue;
+      const falloff = 1 - Math.sqrt(d2) / glowR;
+      const ga = Math.round(falloff * falloff * 28);
+      if (ga > 1) setPixel(buf, cx + dx, cy + dy, 230, 210, 170, ga);
+    }
+  }
+
+  // Pulsing outer ring
+  const pulse = Math.sin(time * 2.5) * 0.15 + 0.85;
+  const cr = 5;
   const cr2inner = (cr - 1) * (cr - 1);
   const cr2outer = cr * cr;
+  const ringA = Math.round(55 * pulse);
   for (let dy = -cr; dy <= cr; dy++) {
     for (let dx = -cr; dx <= cr; dx++) {
       const d2 = dx * dx + dy * dy;
       if (d2 >= cr2inner && d2 <= cr2outer) {
-        setPixel(buf, cx + dx, cy + dy, 220, 224, 228, 40);
+        setPixel(buf, cx + dx, cy + dy, 225, 215, 195, ringA);
       }
     }
   }
 }
 
-/** Render event message flash */
+/** Render event message flash — text with dark backing for readability */
 export function renderEventMessage(
   buf: ImageData,
   event: ActiveEvent | null,
   time: number,
 ): void {
   if (!event || !isEventActive(event, time) || event.messageAlpha <= 0) return;
-  const msgX = Math.floor((W - event.message.length * 4) / 2);
+  const textW = measureText(event.message);
+  const msgX = Math.floor((W - textW) / 2);
   const msgY = Math.floor(H * 0.3);
-  if (event.messageAlpha > 0.3) {
-    drawText(buf, msgX, msgY, event.message, 5);
-  } else {
-    drawText(buf, msgX, msgY, event.message, 4);
+  // Dark semi-transparent backing rectangle
+  const padX = 5;
+  const padY = 3;
+  const bgAlpha = Math.round(event.messageAlpha * 180);
+  for (let by = msgY - padY; by <= msgY + 5 + padY; by++) {
+    for (let bx = msgX - padX; bx <= msgX + textW + padX; bx++) {
+      setPixel(buf, bx, by, 0, 0, 0, bgAlpha);
+    }
   }
+  const colorIndex = event.messageAlpha > 0.3 ? 5 : 4;
+  drawText(buf, msgX, msgY, event.message, colorIndex);
 }
 
 /** Render debug overlay */

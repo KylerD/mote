@@ -1,36 +1,236 @@
-// sound.ts — Generative audio engine. Note-trigger architecture.
-// Clusters trigger discrete envelope-driven notes. Motes chirp individually.
-// Weather sounds are audible. Phase arc is dramatic.
+// sound.ts — Generative audio engine. Note-trigger architecture with biome-aware sonic identity.
+// Five biomes, five voices. Clusters trigger discrete envelope-driven notes. Motes chirp individually.
 
-import type { Mote, SoundEngine, Weather } from "./types";
+import type { Mote, SoundEngine, Weather, Biome } from "./types";
 import { findClusters } from "./physics";
 import { W, H } from "./config";
 
 // Re-export for backward compatibility
 export type { SoundEngine };
 
-/** Scale degrees by phase */
-const PHASE_SCALES: number[][] = [
-  [0, 3, 7, 10, 14, 19, 22],              // genesis: pentatonic minor
-  [0, 2, 4, 7, 9, 12, 14, 16],            // exploration: major pentatonic
-  [0, 2, 3, 5, 7, 8, 10, 12, 14, 15],     // organization: natural minor
-  [0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17, 19, 20, 22, 24], // complexity: chromatic
-  [0, 3, 5, 7, 10, 12, 15],               // dissolution: pentatonic minor
-  [0, 7, 12],                              // silence: root + fifth
-];
+// ---- Biome Sound Profiles ----
 
-const BASE_FREQ = 130.81;
-
-function semitonesToFreq(semitones: number): number {
-  return BASE_FREQ * Math.pow(2, semitones / 12);
+interface BiomeSoundProfile {
+  rootFreq: number;          // Tonal center (Hz) — defines the biome's home note
+  reverbSecs: number;        // Impulse length — larger = more spacious/distant
+  filterBase: number;        // Lowpass base frequency (Hz)
+  filterMod: number;         // Energy modulation range on filter
+  filterQ: number;           // Filter resonance
+  waveSmall: OscillatorType; // Cluster size < 4
+  waveMed: OscillatorType;   // Cluster size 4-7
+  waveLarge: OscillatorType; // Cluster size >= 8
+  masterMult: number;        // Volume multiplier
+  detuneRange: number;       // X-position detune spread (cents)
+  panStrength: number;       // Stereo pan depth 0-1
 }
 
-function mapToScale(value: number, scale: number[]): number {
-  const idx = Math.floor(value * scale.length) % scale.length;
-  return semitonesToFreq(scale[idx]);
-}
+const BIOME_SOUND: Record<Biome, BiomeSoundProfile> = {
+  temperate: {
+    rootFreq: 130.81,   // C3 — warm, comfortable home
+    reverbSecs: 1.8,
+    filterBase: 700,
+    filterMod: 1400,
+    filterQ: 1.0,
+    waveSmall: "sine",
+    waveMed: "triangle",
+    waveLarge: "triangle",
+    masterMult: 1.0,
+    detuneRange: 15,
+    panStrength: 0.65,
+  },
+  desert: {
+    rootFreq: 164.81,   // E3 — bright, warm, elevated
+    reverbSecs: 3.5,    // Long: vast open sky, heat shimmer
+    filterBase: 1400,
+    filterMod: 600,
+    filterQ: 0.6,       // Low Q = open, bell-like resonance
+    waveSmall: "sine",
+    waveMed: "sine",    // Bell-like throughout
+    waveLarge: "sine",
+    masterMult: 0.88,
+    detuneRange: 6,     // Less detune = purer bell tones
+    panStrength: 0.85,  // Wide stereo = sparse open landscape
+  },
+  tundra: {
+    rootFreq: 110,      // A2 — cold, low, ancient
+    reverbSecs: 4.5,    // Very long: frozen distances, ice
+    filterBase: 320,
+    filterMod: 500,
+    filterQ: 2.0,       // Higher Q = crystalline resonance
+    waveSmall: "sine",
+    waveMed: "sine",    // Crystalline purity
+    waveLarge: "triangle",
+    masterMult: 0.78,
+    detuneRange: 28,    // Wide detune = crystalline shimmer, chorus
+    panStrength: 0.92,  // Maximum width = vast frozen expanse
+  },
+  volcanic: {
+    rootFreq: 82.41,    // E2 — deep, threatening, subterranean
+    reverbSecs: 0.7,    // Short: hard stone, no natural reverb
+    filterBase: 160,
+    filterMod: 350,
+    filterQ: 1.5,
+    waveSmall: "triangle",
+    waveMed: "sawtooth",
+    waveLarge: "sawtooth",
+    masterMult: 1.12,
+    detuneRange: 22,
+    panStrength: 0.45,  // Narrow stereo = claustrophobic, enclosed
+  },
+  lush: {
+    rootFreq: 98,       // G2 — rich, warm, verdant
+    reverbSecs: 2.5,    // Dense canopy reverb
+    filterBase: 900,
+    filterMod: 1800,
+    filterQ: 1.2,
+    waveSmall: "sine",
+    waveMed: "triangle",
+    waveLarge: "triangle",
+    masterMult: 1.05,
+    detuneRange: 18,
+    panStrength: 0.6,
+  },
+};
+
+// ---- Per-biome, per-phase scales (semitones from root) ----
+
+const BIOME_PHASE_SCALES: Record<Biome, number[][]> = {
+  temperate: [
+    [0, 3, 7, 10, 14],                        // genesis: minor pentatonic
+    [0, 2, 4, 7, 9, 12, 14],                  // exploration: major pentatonic
+    [0, 2, 4, 5, 7, 9, 11, 12],               // organization: ionian
+    [0, 2, 4, 5, 7, 9, 11, 12, 14, 16],       // complexity: major extended
+    [0, 3, 5, 7, 10, 12],                     // dissolution: minor penta + octave
+    [0, 7, 12],                               // silence: root + fifth + octave
+  ],
+  desert: [
+    [0, 2, 4, 7, 9],                          // genesis: major penta — sparse, open
+    [0, 2, 5, 7, 10, 12],                     // exploration: suspended — heat shimmer
+    [0, 2, 4, 6, 7, 9, 11],                   // organization: lydian
+    [0, 2, 4, 6, 7, 9, 11, 12, 14, 16],       // complexity: lydian extended
+    [0, 2, 7, 9, 12],                         // dissolution: open fifths emptying
+    [0, 7],                                   // silence: bare fifth
+  ],
+  tundra: [
+    [0, 2, 3, 7, 10],                         // genesis: dorian penta — cold
+    [0, 2, 3, 5, 7, 9, 10, 12],               // exploration: dorian
+    [0, 2, 3, 5, 7, 8, 10, 12],               // organization: natural minor
+    [0, 1, 3, 5, 7, 8, 10, 12, 13, 15],       // complexity: phrygian
+    [0, 3, 7, 10],                            // dissolution: minor penta
+    [0, 3, 7],                                // silence: minor triad
+  ],
+  volcanic: [
+    [0, 1, 6, 7],                             // genesis: semitone + tritone
+    [0, 1, 3, 6, 7, 10],                      // exploration: diminished 7th arpeggio
+    [0, 1, 4, 5, 7, 8, 10],                   // organization: phrygian dominant
+    [0, 1, 3, 4, 6, 7, 9, 10, 12],            // complexity: octatonic
+    [0, 3, 6, 9, 12],                         // dissolution: diminished arp
+    [0, 6],                                   // silence: tritone alone
+  ],
+  lush: [
+    [0, 2, 4, 7, 9],                          // genesis: major penta
+    [0, 2, 4, 7, 9, 12, 14],                  // exploration: major penta wide
+    [0, 2, 4, 5, 7, 9, 11, 12],               // organization: ionian
+    [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19], // complexity: two lush octaves
+    [0, 2, 4, 7, 9, 12],                      // dissolution: warmth fading
+    [0, 4, 7],                                // silence: major triad
+  ],
+};
 
 const MAX_VOICES = 8;
+
+// ---- Biome Ambient Texture Beds ----
+
+interface AmbientBed {
+  droneOsc: OscillatorNode | null;
+  droneGain: GainNode | null;
+  textureSource: AudioBufferSourceNode;
+  textureFilter: BiquadFilterNode;
+  textureGain: GainNode;
+}
+
+interface BiomeAmbientConfig {
+  droneFreq: number;
+  droneTargetGain: number;
+  droneWave: OscillatorType;
+  noiseFilterType: BiquadFilterType;
+  noiseFreq: number;
+  noiseQ: number;
+  noiseTargetGain: number;
+}
+
+const BIOME_AMBIENT: Record<Biome, BiomeAmbientConfig> = {
+  temperate: {
+    droneFreq: 130.81, droneTargetGain: 0.006, droneWave: "sine",
+    noiseFilterType: "bandpass", noiseFreq: 900, noiseQ: 1.5, noiseTargetGain: 0.004,
+  },
+  desert: {
+    droneFreq: 0, droneTargetGain: 0, droneWave: "sine",
+    noiseFilterType: "highpass", noiseFreq: 3000, noiseQ: 0.8, noiseTargetGain: 0.004,
+  },
+  tundra: {
+    droneFreq: 0, droneTargetGain: 0, droneWave: "sine",
+    noiseFilterType: "highpass", noiseFreq: 2400, noiseQ: 1.5, noiseTargetGain: 0.006,
+  },
+  volcanic: {
+    droneFreq: 41.2, droneTargetGain: 0.008, droneWave: "sawtooth",
+    noiseFilterType: "lowpass", noiseFreq: 70, noiseQ: 2.5, noiseTargetGain: 0.014,
+  },
+  lush: {
+    droneFreq: 98, droneTargetGain: 0.005, droneWave: "sine",
+    noiseFilterType: "bandpass", noiseFreq: 2200, noiseQ: 1.2, noiseTargetGain: 0.005,
+  },
+};
+
+function createAmbientBed(ctx: AudioContext, biome: Biome, destination: AudioNode): AmbientBed {
+  const cfg = BIOME_AMBIENT[biome];
+  const now = ctx.currentTime;
+
+  const textureSource = createNoiseSource(ctx, 5);
+  const textureFilter = ctx.createBiquadFilter();
+  textureFilter.type = cfg.noiseFilterType;
+  textureFilter.frequency.value = cfg.noiseFreq;
+  textureFilter.Q.value = cfg.noiseQ;
+  const textureGain = ctx.createGain();
+  textureGain.gain.setValueAtTime(0.0001, now);
+  textureGain.gain.linearRampToValueAtTime(cfg.noiseTargetGain, now + 3.0);
+  textureSource.connect(textureFilter);
+  textureFilter.connect(textureGain);
+  textureGain.connect(destination);
+  textureSource.start(now);
+
+  let droneOsc: OscillatorNode | null = null;
+  let droneGain: GainNode | null = null;
+  if (cfg.droneFreq > 0) {
+    droneOsc = ctx.createOscillator();
+    droneGain = ctx.createGain();
+    droneOsc.type = cfg.droneWave;
+    droneOsc.frequency.value = cfg.droneFreq;
+    droneGain.gain.setValueAtTime(0.0001, now);
+    droneGain.gain.linearRampToValueAtTime(cfg.droneTargetGain, now + 3.0);
+    droneOsc.connect(droneGain);
+    droneGain.connect(destination);
+    droneOsc.start(now);
+  }
+
+  return { droneOsc, droneGain, textureSource, textureFilter, textureGain };
+}
+
+function stopAmbientBed(bed: AmbientBed, now: number): void {
+  const fadeTime = 2.5;
+  bed.textureGain.gain.linearRampToValueAtTime(0, now + fadeTime);
+  if (bed.droneGain) bed.droneGain.gain.linearRampToValueAtTime(0, now + fadeTime);
+  try { bed.textureSource.stop(now + fadeTime + 0.1); } catch (_) { /* already stopped */ }
+  if (bed.droneOsc) { try { bed.droneOsc.stop(now + fadeTime + 0.1); } catch (_) { /* already stopped */ } }
+}
+
+// ---- Module-level engine augmentation ----
+// Extra state stored in WeakMaps keyed on the engine,
+// without needing to modify the SoundEngine interface in types.ts.
+
+const engineCurrentBiome = new WeakMap<SoundEngine, Biome | null>();
+const engineAmbientBed = new WeakMap<SoundEngine, AmbientBed>();
+const engineSpawnCooldown = new WeakMap<SoundEngine, number>();
 
 // Per-voice note scheduling state
 interface VoiceSlot {
@@ -38,7 +238,6 @@ interface VoiceSlot {
   noteInterval: number;
 }
 
-// Module-level state for note scheduling (not serializable, not in types)
 const voiceSlots: VoiceSlot[] = [];
 for (let i = 0; i < MAX_VOICES; i++) {
   voiceSlots.push({ lastNoteTime: 0, noteInterval: 2 });
@@ -68,14 +267,17 @@ export function initAudio(engine: SoundEngine): void {
   engine.ctx = ctx;
 
   engine.compressor = ctx.createDynamicsCompressor();
-  engine.compressor.threshold.value = -15;
-  engine.compressor.knee.value = 6;
-  engine.compressor.ratio.value = 3;
+  engine.compressor.threshold.value = -18;
+  engine.compressor.knee.value = 8;
+  engine.compressor.ratio.value = 4;
+  engine.compressor.attack.value = 0.003;
+  engine.compressor.release.value = 0.25;
 
   engine.masterGain = ctx.createGain();
   engine.masterGain.gain.value = 0.20;
 
-  engine.reverb = createReverb(ctx);
+  // Initial reverb — temperate profile, rebuilt on first biome-aware updateSound
+  engine.reverb = createReverb(ctx, 1.8);
 
   // Dry path: compressor → master
   engine.compressor.connect(engine.masterGain);
@@ -86,17 +288,23 @@ export function initAudio(engine: SoundEngine): void {
 
   // No permanent oscillators — notes are triggered on demand
 
+  engineCurrentBiome.set(engine, null);
+
+  // Start ambient bed at temperate default; swapped on first biome-aware updateSound
+  const ambientBed = createAmbientBed(ctx, "temperate", engine.masterGain);
+  engineAmbientBed.set(engine, ambientBed);
+
   engine.initialized = true;
 }
 
-function createReverb(ctx: AudioContext): ConvolverNode {
+function createReverb(ctx: AudioContext, seconds: number): ConvolverNode {
   const conv = ctx.createConvolver();
-  const len = ctx.sampleRate * 2;
+  const len = Math.floor(ctx.sampleRate * seconds);
   const impulse = ctx.createBuffer(2, len, ctx.sampleRate);
   for (let ch = 0; ch < 2; ch++) {
     const d = impulse.getChannelData(ch);
     for (let i = 0; i < len; i++) {
-      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.0);
     }
   }
   conv.buffer = impulse;
@@ -112,6 +320,7 @@ function triggerNote(
   decay: number,
   filterFreq: number,
   detuneCents = 0,
+  useReverb = false,
 ): void {
   const ctx = engine.ctx;
   const now = ctx.currentTime;
@@ -138,32 +347,26 @@ function triggerNote(
 
   osc.connect(filter);
   filter.connect(gainNode);
-  gainNode.connect(engine.compressor);
+  gainNode.connect(useReverb ? engine.reverb : engine.compressor);
   osc.start(now);
   osc.stop(now + attack + sustainTime + decay + 0.05);
 }
 
 /** Phase-dependent parameters for note scheduling */
 interface PhaseAudioParams {
-  volume: number;       // master gain
-  noteIntervalScale: number; // multiplier on note intervals (lower = more notes)
-  decay: number;        // note decay time
-  filterFreq: number;   // lowpass filter cutoff
-  chirpRate: number;    // probability of mote chirp per update
+  volume: number;
+  noteIntervalScale: number;
+  decay: number;
+  filterFreq: number;
+  chirpRate: number;
 }
 
 const PHASE_AUDIO: PhaseAudioParams[] = [
-  // genesis: sparse, long tails, quiet
   { volume: 0.08, noteIntervalScale: 3.0, decay: 1.2, filterFreq: 600, chirpRate: 0.02 },
-  // exploration: more frequent, brighter
   { volume: 0.15, noteIntervalScale: 1.5, decay: 0.6, filterFreq: 1200, chirpRate: 0.06 },
-  // organization: medium density, warm
   { volume: 0.20, noteIntervalScale: 1.0, decay: 0.4, filterFreq: 1600, chirpRate: 0.08 },
-  // complexity: peak density, richest
   { volume: 0.25, noteIntervalScale: 0.6, decay: 0.3, filterFreq: 2400, chirpRate: 0.12 },
-  // dissolution: slowing, longer decay, melancholy
   { volume: 0.14, noteIntervalScale: 2.0, decay: 0.8, filterFreq: 800, chirpRate: 0.04 },
-  // silence: rare notes, huge reverb
   { volume: 0.04, noteIntervalScale: 8.0, decay: 2.0, filterFreq: 400, chirpRate: 0.01 },
 ];
 
@@ -172,22 +375,45 @@ export function updateSound(
   motes: Mote[],
   phaseIndex: number,
   phaseProgress: number,
+  biome: Biome = "temperate",
 ): void {
   if (!engine.initialized) return;
 
+  const profile = BIOME_SOUND[biome];
+  const scale = BIOME_PHASE_SCALES[biome][phaseIndex];
   const now = engine.ctx.currentTime;
   const pa = PHASE_AUDIO[phaseIndex];
   const nextPa = PHASE_AUDIO[(phaseIndex + 1) % 6];
 
-  // Interpolate phase volume
-  const targetVol = pa.volume * (1 - phaseProgress) + nextPa.volume * phaseProgress;
+  // Rebuild reverb and swap ambient bed when biome changes
+  const prevBiome = engineCurrentBiome.get(engine);
+  if (prevBiome !== biome) {
+    const oldReverb = engine.reverb;
+    const newReverb = createReverb(engine.ctx, profile.reverbSecs);
+    try {
+      engine.compressor.disconnect(oldReverb);
+      oldReverb.disconnect(engine.masterGain);
+    } catch (_) { /* ignore if not connected */ }
+    engine.compressor.connect(newReverb);
+    newReverb.connect(engine.masterGain);
+    engine.reverb = newReverb;
+
+    // Swap ambient texture bed to match new biome
+    const oldBed = engineAmbientBed.get(engine);
+    if (oldBed) stopAmbientBed(oldBed, now);
+    engineAmbientBed.set(engine, createAmbientBed(engine.ctx, biome, engine.masterGain));
+
+    engineCurrentBiome.set(engine, biome);
+  }
+
+  // Interpolate phase volume with biome multiplier
+  const targetVol = (pa.volume * (1 - phaseProgress) + nextPa.volume * phaseProgress) * profile.masterMult;
   engine.masterGain.gain.linearRampToValueAtTime(targetVol, now + 0.5);
 
-  const scale = PHASE_SCALES[phaseIndex];
   const decay = pa.decay * (1 - phaseProgress) + nextPa.decay * phaseProgress;
   const filterFreq = pa.filterFreq * (1 - phaseProgress) + nextPa.filterFreq * phaseProgress;
 
-  // Clusters → triggered notes
+  // Clusters → triggered notes (no permanent oscillators, no drone)
   const clusters = findClusters(motes);
   clusters.sort((a, b) => b.length - a.length);
   const active = clusters.slice(0, MAX_VOICES);
@@ -198,9 +424,7 @@ export function updateSound(
     if (i < active.length) {
       const cluster = active[i];
       let cx = 0, cy = 0, totalEnergy = 0;
-      for (const m of cluster) {
-        cx += m.x; cy += m.y; totalEnergy += m.energy;
-      }
+      for (const m of cluster) { cx += m.x; cy += m.y; totalEnergy += m.energy; }
       cx /= cluster.length;
       cy /= cluster.length;
       totalEnergy /= cluster.length;
@@ -209,20 +433,25 @@ export function updateSound(
       const baseInterval = cluster.length < 4 ? 2.0 : cluster.length < 7 ? 0.8 : 0.3;
       slot.noteInterval = baseInterval * pa.noteIntervalScale;
 
-      // Time to trigger a note?
       if (now - slot.lastNoteTime >= slot.noteInterval) {
         slot.lastNoteTime = now;
 
+        // Y position → scale degree → biome-rooted frequency
+        // Offset each voice by its index so concurrent clusters form chords
         const yNorm = 1 - cy / H;
-        const freq = mapToScale(yNorm, scale);
-        const waveform: OscillatorType = cluster.length < 4 ? "sine" : cluster.length < 7 ? "triangle" : "sawtooth";
+        const baseIdx = Math.floor(yNorm * scale.length) % scale.length;
+        const idx = (baseIdx + i) % scale.length;
+        const freq = profile.rootFreq * Math.pow(2, scale[idx] / 12);
+
+        const sz = cluster.length;
+        const waveform = sz < 4 ? profile.waveSmall : sz < 8 ? profile.waveMed : profile.waveLarge;
         const noteGain = Math.log2(cluster.length + 1) / Math.log2(MAX_VOICES + 1) * totalEnergy * 0.15;
-        const detune = (cx / W - 0.5) * 20;
+        const detune = (cx / W - 0.5) * profile.detuneRange;
 
         triggerNote(engine, freq, waveform, noteGain, decay, filterFreq, detune);
       }
     } else {
-      slot.lastNoteTime = 0; // reset so next cluster starts immediately
+      slot.lastNoteTime = 0;
     }
   }
 
@@ -230,27 +459,47 @@ export function updateSound(
   const chirpRate = pa.chirpRate * (1 - phaseProgress) + nextPa.chirpRate * phaseProgress;
   if (now - lastChirpTime > 0.15 && motes.length > 0 && Math.random() < chirpRate) {
     const m = motes[Math.floor(Math.random() * motes.length)];
-    playChirp(engine, m, scale);
+    playChirp(engine, m, scale, profile);
     lastChirpTime = now;
+  }
+
+  // Lone mote pings — sparse presence using audio clock
+  const loners = motes.filter((m) => m.bonds.length === 0);
+  if (loners.length > 0) {
+    const t = now % 8;
+    if (t < 0.068) {
+      const m = loners[Math.floor((t * 1000 + loners.length) % loners.length)];
+      ping(engine, m.x / W, 1 - m.y / H, m.energy, scale, profile);
+    }
   }
 
   // Bond formation sounds
   for (const m of motes) {
     if (m.bondFlash > 0.9) {
-      playBondForm(engine, 1 - m.y / H, scale);
+      playBondForm(engine, 1 - m.y / H, scale, profile);
       break;
+    }
+  }
+
+  // Spawn sounds — gentle arrival ping for freshly born motes
+  const spawnCooldown = engineSpawnCooldown.get(engine) ?? 0;
+  if (now - spawnCooldown > 0.18) {
+    const freshMote = motes.find((m) => m.spawnFlash > 0.75);
+    if (freshMote) {
+      playSpawnPing(engine, freshMote.x / W, 1 - freshMote.y / H, scale, profile);
+      engineSpawnCooldown.set(engine, now);
     }
   }
 }
 
 /** Individual mote chirp — varies by temperament */
-function playChirp(engine: SoundEngine, m: Mote, scale: number[]): void {
+function playChirp(engine: SoundEngine, m: Mote, scale: number[], profile: BiomeSoundProfile): void {
   const ctx = engine.ctx;
   const now = ctx.currentTime;
   const yNorm = 1 - m.y / H;
-  const baseFreq = mapToScale(yNorm, scale) * 2;
+  const idx = Math.floor(yNorm * scale.length) % scale.length;
+  const baseFreq = profile.rootFreq * Math.pow(2, scale[idx] / 12) * 2;
 
-  // Waveform from temperament
   const waveform: OscillatorType =
     m.temperament.wanderlust > 0.6 ? "triangle" :
     m.temperament.hardiness > 0.6 ? "square" : "sine";
@@ -309,58 +558,101 @@ function playChirp(engine: SoundEngine, m: Mote, scale: number[]): void {
   }
 }
 
-/** Two-note ascending chime on bond formation */
-export function playBondForm(engine: SoundEngine, yNorm: number, scale: number[]): void {
+/** Gentle arrival ping — a mote enters the world */
+function playSpawnPing(
+  engine: SoundEngine,
+  xNorm: number,
+  yNorm: number,
+  scale: number[],
+  profile: BiomeSoundProfile,
+): void {
+  const ctx = engine.ctx;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  const panner = ctx.createStereoPanner();
+
+  osc.type = "sine";
+  const idx = Math.floor(yNorm * scale.length) % scale.length;
+  osc.frequency.value = profile.rootFreq * Math.pow(2, scale[idx] / 12) * 2;
+
+  panner.pan.value = (xNorm * 2 - 1) * profile.panStrength * 0.6;
+
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(0.013, now + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+
+  osc.connect(gain);
+  gain.connect(panner);
+  panner.connect(engine.reverb);
+  osc.start(now);
+  osc.stop(now + 0.42);
+}
+
+/** Two-note ascending chime on bond formation — a perfect fifth finding harmony */
+export function playBondForm(
+  engine: SoundEngine,
+  yNorm: number,
+  scale: number[],
+  profile?: BiomeSoundProfile,
+): void {
+  const p = profile ?? BIOME_SOUND.temperate;
   const ctx = engine.ctx;
   const now = ctx.currentTime;
 
-  const freq1 = mapToScale(yNorm, scale);
   const idx = Math.floor(yNorm * scale.length) % scale.length;
-  const nextIdx = Math.min(idx + 1, scale.length - 1);
-  const freq2 = semitonesToFreq(scale[nextIdx]);
+  const freq1 = p.rootFreq * Math.pow(2, scale[idx] / 12) * 2;
+  const freq2 = freq1 * Math.pow(2, 7 / 12); // perfect fifth above
 
-  // First note — audible
   const osc1 = ctx.createOscillator();
   const gain1 = ctx.createGain();
   osc1.type = "sine";
   osc1.frequency.value = freq1;
-  gain1.gain.setValueAtTime(0.10, now);
-  gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+  gain1.gain.setValueAtTime(0.001, now);
+  gain1.gain.linearRampToValueAtTime(0.032, now + 0.02);
+  gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
   osc1.connect(gain1);
-  gain1.connect(engine.compressor);
+  gain1.connect(engine.reverb);
   osc1.start(now);
   osc1.stop(now + 0.6);
 
-  // Second note, 60ms later
   const osc2 = ctx.createOscillator();
   const gain2 = ctx.createGain();
   osc2.type = "sine";
   osc2.frequency.value = freq2;
-  gain2.gain.setValueAtTime(0.001, now + 0.06);
-  gain2.gain.linearRampToValueAtTime(0.10, now + 0.08);
-  gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+  gain2.gain.setValueAtTime(0.001, now + 0.065);
+  gain2.gain.linearRampToValueAtTime(0.025, now + 0.085);
+  gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
   osc2.connect(gain2);
-  gain2.connect(engine.compressor);
-  osc2.start(now + 0.06);
-  osc2.stop(now + 0.6);
+  gain2.connect(engine.reverb);
+  osc2.start(now + 0.065);
+  osc2.stop(now + 0.7);
 }
 
-/** Audible mote death — melancholy descending tone */
+/** Descending glide on mote death — loss made audible, biome-tuned */
 export function playDeath(engine: SoundEngine, yNorm: number): void {
+  const biome = engineCurrentBiome.get(engine) ?? "temperate";
+  const p = BIOME_SOUND[biome];
   const ctx = engine.ctx;
   const now = ctx.currentTime;
+
+  const startFreq = p.rootFreq * (1 + yNorm * 0.6);
+  const endFreq = startFreq * 0.63;
 
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = "sine";
-  osc.frequency.setValueAtTime(120 + yNorm * 60, now);
-  osc.frequency.exponentialRampToValueAtTime(60 + yNorm * 20, now + 0.6);
-  gain.gain.setValueAtTime(0.08, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+  osc.frequency.setValueAtTime(startFreq, now);
+  osc.frequency.exponentialRampToValueAtTime(endFreq, now + 0.9);
+
+  gain.gain.setValueAtTime(0.022, now);
+  gain.gain.setValueAtTime(0.022, now + 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+
   osc.connect(gain);
-  gain.connect(engine.compressor);
+  gain.connect(engine.reverb);
   osc.start(now);
-  osc.stop(now + 0.7);
+  osc.stop(now + 1.1);
 }
 
 /** Different sound per event type */
@@ -370,165 +662,233 @@ export function playEventSound(engine: SoundEngine, eventType: string): void {
 
   switch (eventType) {
     case "meteor": {
-      const bufferSize = Math.floor(ctx.sampleRate * 0.6);
-      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
+      // High noise burst sweeping down to bass impact
+      const bufLen = Math.floor(ctx.sampleRate * 0.9);
+      const buf = ctx.createBuffer(2, bufLen, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < bufLen; i++) d[i] = Math.random() * 2 - 1;
       }
       const src = ctx.createBufferSource();
-      src.buffer = buffer;
+      src.buffer = buf;
       const filter = ctx.createBiquadFilter();
       filter.type = "lowpass";
-      filter.frequency.value = 200;
+      filter.frequency.setValueAtTime(4000, now);
+      filter.frequency.exponentialRampToValueAtTime(70, now + 0.7);
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.18, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
       src.connect(filter);
       filter.connect(gain);
       gain.connect(engine.compressor);
       src.start(now);
-      src.stop(now + 0.6);
+      src.stop(now + 0.9);
       break;
     }
+
     case "flood": {
-      const bufferSize = Math.floor(ctx.sampleRate * 1.5);
-      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
-      }
-      const src = ctx.createBufferSource();
-      src.buffer = buffer;
+      // Rising wash of filtered noise
+      const src = createNoiseSource(ctx, 2.5);
       const filter = ctx.createBiquadFilter();
       filter.type = "bandpass";
-      filter.frequency.setValueAtTime(2000, now);
-      filter.frequency.exponentialRampToValueAtTime(200, now + 1.5);
+      filter.frequency.setValueAtTime(2800, now);
+      filter.frequency.exponentialRampToValueAtTime(180, now + 2.2);
+      filter.Q.value = 0.4;
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+      gain.gain.setValueAtTime(0.0, now);
+      gain.gain.linearRampToValueAtTime(0.065, now + 0.4);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
       src.connect(filter);
       filter.connect(gain);
       gain.connect(engine.compressor);
       src.start(now);
-      src.stop(now + 1.5);
+      src.stop(now + 2.3);
       break;
     }
+
     case "bloom": {
-      const root = BASE_FREQ * 2;
-      const freqs = [root, root * Math.pow(2, 4 / 12), root * Math.pow(2, 7 / 12)];
-      for (const freq of freqs) {
+      // Bright major chord burst — 4 notes in quick succession
+      const root = 261.63; // C4
+      const bloomFreqs = [root, root * Math.pow(2, 4 / 12), root * Math.pow(2, 7 / 12), root * 2];
+      bloomFreqs.forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = "sine";
         osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.10, now + 0.3);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+        const t = now + i * 0.09;
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.052, t + 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 1.6);
         osc.connect(gain);
-        gain.connect(engine.compressor);
-        osc.start(now);
-        osc.stop(now + 1.6);
-      }
+        gain.connect(engine.reverb);
+        osc.start(t);
+        osc.stop(t + 1.7);
+      });
       break;
     }
+
     case "earthquake": {
+      // Sub-bass descending sawtooth with falling pitch
       const osc = ctx.createOscillator();
       const filter = ctx.createBiquadFilter();
       const gain = ctx.createGain();
       osc.type = "sawtooth";
-      osc.frequency.value = 50;
+      osc.frequency.setValueAtTime(40, now);
+      osc.frequency.linearRampToValueAtTime(28, now + 1.0);
       filter.type = "lowpass";
-      filter.frequency.value = 100;
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+      filter.frequency.value = 95;
+      gain.gain.setValueAtTime(0.0, now);
+      gain.gain.linearRampToValueAtTime(0.09, now + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
       osc.connect(filter);
       filter.connect(gain);
       gain.connect(engine.compressor);
       osc.start(now);
-      osc.stop(now + 0.8);
+      osc.stop(now + 1.2);
       break;
     }
+
     case "plague": {
-      const freqs = [200, 213, 227];
+      // 3 detuned sines — unsettling cluster of dissonance
+      const freqs = [194, 200, 215];
       for (const freq of freqs) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = "sine";
         osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.10, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+        gain.gain.setValueAtTime(0.0, now);
+        gain.gain.linearRampToValueAtTime(0.024, now + 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
         osc.connect(gain);
         gain.connect(engine.compressor);
         osc.start(now);
-        osc.stop(now + 0.6);
+        osc.stop(now + 0.75);
       }
       break;
     }
+
     case "aurora": {
-      const freqs = [BASE_FREQ, BASE_FREQ * Math.pow(2, 7 / 12), BASE_FREQ * 2];
-      for (const freq of freqs) {
+      // Harmonic series spread across stereo — shimmering overtone cloud
+      const auroraRoot = 130.81;
+      const ratios = [1, 1.5, 2, 2.5, 3, 4];
+      ratios.forEach((ratio, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
+        const panner = ctx.createStereoPanner();
         osc.type = "sine";
-        osc.frequency.value = freq;
+        osc.frequency.value = auroraRoot * ratio;
+        osc.detune.value = (i - 2.5) * 6;
+        panner.pan.value = (i / (ratios.length - 1)) * 2 - 1;
+        const vol = 0.038 / (i * 0.6 + 1);
         gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(0.10, now + 1);
-        gain.gain.linearRampToValueAtTime(0.10, now + 1.5);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 4.5);
-        osc.connect(gain);
-        gain.connect(engine.compressor);
+        gain.gain.linearRampToValueAtTime(vol, now + 1.8);
+        gain.gain.setValueAtTime(vol, now + 3.0);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 6.0);
+        osc.connect(panner);
+        panner.connect(gain);
+        gain.connect(engine.reverb);
         osc.start(now);
-        osc.stop(now + 5);
-      }
+        osc.stop(now + 6.2);
+      });
       break;
     }
+
     case "drought": {
-      engine.masterGain.gain.linearRampToValueAtTime(
-        engine.masterGain.gain.value * 0.4, now + 0.1,
-      );
-      engine.masterGain.gain.linearRampToValueAtTime(
-        engine.masterGain.gain.value, now + 2,
-      );
+      // Sudden hush — the world goes dry
+      const currentVol = engine.masterGain.gain.value;
+      engine.masterGain.gain.setValueAtTime(currentVol, now);
+      engine.masterGain.gain.linearRampToValueAtTime(currentVol * 0.4, now + 0.25);
+      engine.masterGain.gain.linearRampToValueAtTime(currentVol, now + 2.8);
       break;
     }
+
     case "migration": {
-      const scale = PHASE_SCALES[1];
-      for (let i = 0; i < 3; i++) {
+      // Ascending arpeggio — hopeful, departing
+      const migScale = BIOME_PHASE_SCALES.temperate[1];
+      const steps = [0, 2, 4, 6];
+      for (let i = 0; i < steps.length; i++) {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = "sine";
-        const idx = Math.min(2 + i * 2, scale.length - 1);
-        osc.frequency.value = semitonesToFreq(scale[idx]);
-        const t = now + i * 0.1;
-        gain.gain.setValueAtTime(0.08, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        const idx = Math.min(steps[i], migScale.length - 1);
+        osc.frequency.value = 130.81 * Math.pow(2, migScale[idx] / 12);
+        const t = now + i * 0.13;
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(0.042, t + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
         osc.connect(gain);
-        gain.connect(engine.compressor);
+        gain.connect(engine.reverb);
         osc.start(t);
-        osc.stop(t + 0.4);
+        osc.stop(t + 0.5);
       }
       break;
     }
+
     case "eclipse": {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = BASE_FREQ / 2;
-      gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.08, now + 0.5);
-      gain.gain.linearRampToValueAtTime(0.08, now + 2.5);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 4);
-      osc.connect(gain);
-      gain.connect(engine.compressor);
-      osc.start(now);
-      osc.stop(now + 4.5);
+      // Two-layer drone: deep bass + eerie 7th harmonic partial
+      const eclipseRoot = 65.41; // C2
+
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.value = eclipseRoot;
+      gain1.gain.setValueAtTime(0.001, now);
+      gain1.gain.linearRampToValueAtTime(0.055, now + 1.8);
+      gain1.gain.setValueAtTime(0.055, now + 4.0);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 6.0);
+      osc1.connect(gain1);
+      gain1.connect(engine.compressor);
+      osc1.start(now);
+      osc1.stop(now + 6.2);
+
+      // 7th harmonic — eerie overtone
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.value = eclipseRoot * 7;
+      gain2.gain.setValueAtTime(0.001, now);
+      gain2.gain.linearRampToValueAtTime(0.014, now + 2.5);
+      gain2.gain.setValueAtTime(0.014, now + 4.0);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 6.0);
+      osc2.connect(gain2);
+      gain2.connect(engine.reverb);
+      osc2.start(now);
+      osc2.stop(now + 6.2);
       break;
     }
   }
 }
 
-/** Create a looping noise buffer source */
+/** Lone mote ping — sparse presence */
+function ping(
+  engine: SoundEngine,
+  xNorm: number, yNorm: number,
+  energy: number, scale: number[],
+  profile: BiomeSoundProfile,
+): void {
+  const ctx = engine.ctx;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  const panner = ctx.createStereoPanner();
+
+  osc.type = "sine";
+  const idx = Math.floor(yNorm * scale.length) % scale.length;
+  osc.frequency.value = profile.rootFreq * Math.pow(2, scale[idx] / 12) * 2;
+
+  panner.pan.value = (xNorm * 2 - 1) * profile.panStrength;
+
+  gain.gain.setValueAtTime(energy * 0.038, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+
+  osc.connect(gain);
+  gain.connect(panner);
+  panner.connect(engine.reverb);
+  osc.start(now);
+  osc.stop(now + 0.85);
+}
+
+/** Create a looping stereo noise buffer source */
 function createNoiseSource(ctx: AudioContext, duration: number): AudioBufferSourceNode {
   const len = Math.floor(ctx.sampleRate * duration);
   const buffer = ctx.createBuffer(2, len, ctx.sampleRate);
@@ -562,7 +922,6 @@ export function updateWeatherSound(engine: SoundEngine, weather: Weather): void 
     amb.rainSource = null; amb.rainGain = null; amb.rainFilter = null;
     amb.windSource = null; amb.windGain = null; amb.windFilter = null;
 
-    // Rain ambient — louder, textured
     if (needsRain) {
       const src = createNoiseSource(ctx, 2);
       const filter = ctx.createBiquadFilter();
@@ -584,7 +943,6 @@ export function updateWeatherSound(engine: SoundEngine, weather: Weather): void 
       amb.rainFilter = filter;
     }
 
-    // Wind ambient — audible gusts
     if (needsWind) {
       const src = createNoiseSource(ctx, 3);
       const filter = ctx.createBiquadFilter();
@@ -609,13 +967,11 @@ export function updateWeatherSound(engine: SoundEngine, weather: Weather): void 
     amb.currentType = weather.type;
   }
 
-  // Rain filter sweep for texture
   if (amb.rainFilter && needsRain) {
     const sweep = Math.sin(now * 0.3) * 800 + (weather.type === "storm" ? 1500 : 3000);
     amb.rainFilter.frequency.linearRampToValueAtTime(sweep, now + 0.1);
   }
 
-  // Wind gusts — deeper modulation
   if (amb.windGain && needsWind) {
     const gustBase = weather.type === "storm" ? 0.10 : 0.05;
     const gustSwing = weather.type === "storm" ? 0.06 : 0.03;
@@ -623,17 +979,79 @@ export function updateWeatherSound(engine: SoundEngine, weather: Weather): void 
     amb.windGain.gain.linearRampToValueAtTime(Math.max(0, gust), now + 0.1);
   }
 
-  // Thunder during storms — startling
   if (weather.type === "storm" && weather.lightning.active) {
     amb.thunderCooldown -= 0.067;
     if (amb.thunderCooldown <= 0) {
       playThunder(engine, weather.lightning.brightness);
-      amb.thunderCooldown = 10 + Math.random() * 20;
+      amb.thunderCooldown = 15 + Math.random() * 25;
     }
   }
 }
 
-/** Thunder — loud and startling */
+/**
+ * Phase transition musical moment — a distinct chord or melodic figure at each boundary.
+ */
+export function playPhaseTransition(engine: SoundEngine, phaseIndex: number, biome: Biome = "temperate"): void {
+  if (!engine.initialized) return;
+  const p = BIOME_SOUND[biome];
+  const ctx = engine.ctx;
+  const now = ctx.currentTime;
+
+  const note = (semitones: number, octaveMult: number, delay: number, duration: number, maxGain: number) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = p.rootFreq * Math.pow(2, semitones / 12) * octaveMult;
+    gain.gain.setValueAtTime(0.001, now + delay);
+    gain.gain.linearRampToValueAtTime(maxGain, now + delay + 0.07);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + delay + duration);
+    osc.connect(gain);
+    gain.connect(engine.reverb);
+    osc.start(now + delay);
+    osc.stop(now + delay + duration + 0.05);
+  };
+
+  switch (phaseIndex) {
+    case 0: // genesis — a slow-dawning fifth
+      note(0,  1, 0.0, 4.2, 0.016);
+      note(7,  1, 0.4, 3.8, 0.012);
+      break;
+
+    case 1: // exploration — ascending major arpeggio
+      note(0,  2, 0.00, 1.1, 0.019);
+      note(4,  2, 0.09, 1.0, 0.017);
+      note(7,  2, 0.18, 1.0, 0.016);
+      note(12, 2, 0.27, 1.3, 0.021);
+      break;
+
+    case 2: // organization — warm major triad landing
+      note(0, 1, 0.00, 2.8, 0.023);
+      note(4, 1, 0.05, 2.7, 0.021);
+      note(7, 1, 0.10, 2.7, 0.020);
+      break;
+
+    case 3: // complexity — full major 7th chord, peak of life
+      note(0,  1, 0.00, 3.0, 0.025);
+      note(4,  1, 0.00, 3.0, 0.023);
+      note(7,  1, 0.00, 3.0, 0.023);
+      note(11, 1, 0.06, 2.6, 0.019);
+      note(0,  2, 0.12, 2.3, 0.017);
+      break;
+
+    case 4: // dissolution — minor triad then a drop
+      note(0,  2, 0.00, 1.3, 0.019);
+      note(3,  2, 0.00, 1.3, 0.017);
+      note(7,  2, 0.00, 1.3, 0.017);
+      note(0,  1, 0.35, 3.8, 0.021);
+      break;
+
+    case 5: // silence — single root tone fading into nothing
+      note(-12, 1, 0.0, 6.0, 0.018);
+      break;
+  }
+}
+
+/** Low rumbling thunder */
 function playThunder(engine: SoundEngine, intensity: number): void {
   const ctx = engine.ctx;
   const now = ctx.currentTime;

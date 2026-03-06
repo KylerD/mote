@@ -1,0 +1,59 @@
+name: "Evolve: Visual Effects"
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 2x daily: 04:00, 20:00 UTC
+    - cron: '0 4 * * *'
+    - cron: '0 20 * * *'
+
+concurrency:
+  group: visual-evolution
+  cancel-in-progress: false
+
+jobs:
+  evolve-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: "Visual Agent: evolve effects"
+        run: |
+          npx -y @anthropic-ai/claude-code -p "$(cat .claude/agents/visual-agent.md)" \
+            --dangerously-skip-permissions \
+            --max-turns 40
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Verify build
+        run: |
+          npx tsc --noEmit
+          npx vite build
+
+      - name: Push changes
+        run: |
+          git config user.name "visual-agent[bot]"
+          git config user.email "visual-agent[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "evolve(visual): autonomous improvement $(date -u +%Y-%m-%d-%H%M)"
+          fi
+          git push

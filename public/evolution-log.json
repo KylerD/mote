@@ -76,5 +76,135 @@
       "Sound evolution: phase transitions with musical moments"
     ],
     "files_changed": ["src/config.ts", "src/types.ts", "src/terrain.ts", "src/terrain-gen.ts", "src/terrain-query.ts", "src/terrain-render.ts", "src/weather.ts", "src/weather-render.ts", "src/narrative.ts", "src/render-motes.ts", "src/render-effects.ts", "src/render-bonds.ts", "src/render-ui.ts", "src/main.ts", "src/render.ts", "src/palette.ts", "src/world.ts", "src/mote.ts", "src/events.ts", "src/sound.ts", "src/interaction.ts", "src/physics.ts", "src/font.ts", "CLAUDE.md", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "mote",
+    "title": "Death Made Dramatic",
+    "reflection": "Rewrote death particles into four phases (flash, shards, spirit orb, ground echo lasting 7.5s) using the mote's actual temperament color instead of biome palette.",
+    "looking_ahead": [
+      "Temperament movement distinction: wanderers leave longer trails, social motes pulse when bonded",
+      "Bond formation visual moment: a brief arc of light connecting two motes",
+      "Cluster identity: large clusters develop a shared color aura",
+      "Hardy motes: visual resilience cue on hostile terrain"
+    ],
+    "files_changed": ["src/world.ts", "src/render-bonds.ts", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "sound",
+    "title": "Five Worlds, Five Voices",
+    "reflection": "Each biome now has a distinct sonic identity: root pitch, reverb length, filter Q, scale vocabulary per phase, stereo panning per voice cluster, LFO for organic filter breathing, perfect-fifth bond chimes, and descending-glide death sound.",
+    "looking_ahead": [
+      "Spawn sound: gentle arrival tone per mote",
+      "Phase transition musical moment",
+      "Cluster fragmentation sound",
+      "Biome ambient texture beds"
+    ],
+    "files_changed": ["src/sound.ts", "src/main.ts", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "terrain-weather",
+    "title": "The Sky Learns to Tell Time",
+    "reflection": "Full cycle-driven solar arc, biome-aware weather particles (desert sand, volcanic ash, tundra blue-white), biome fog identity, multi-frequency water shimmer, and depth-blended background mountains.",
+    "looking_ahead": [
+      "Horizon glow at sky-terrain boundary",
+      "Desert heat shimmer distortion",
+      "Volcanic lava pools as terrain feature",
+      "Phase-reactive terrain during events"
+    ],
+    "files_changed": ["src/weather-render.ts", "src/terrain-render.ts", "src/main.ts", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "narrative-events",
+    "title": "The Cycle Learns to Tell Its Own Story",
+    "reflection": "Rewrote narrative arc: 4 deterministic opening lines per phase, event anticipation window 25s before trigger, aftermath lines, per-event trigger timing, sustained migration direction, expanded cycle name vocabulary.",
+    "looking_ahead": [
+      "Bond formation flash between motes",
+      "Dissolution dirge for first death",
+      "Event cascade narrative for phase overlaps",
+      "Cluster identity names in narrative text"
+    ],
+    "files_changed": ["src/narrative.ts", "src/events.ts", "src/world.ts", "src/names.ts", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "visual",
+    "title": "Cinematic Post-Processing",
+    "reflection": "Added phase-specific color grading, rebuilt aurora with 5 overlapping layers, phase flash with identity colors, phase-varying vignette, event message backing, warm glowing cursor.",
+    "looking_ahead": [
+      "Bond formation arc streak",
+      "WebGL overlay for real bloom/glow",
+      "Phase-specific particle showers",
+      "Terrain color overlays per biome"
+    ],
+    "files_changed": ["src/render-effects.ts", "src/render-ui.ts", "src/main.ts", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "sound",
+    "title": "Ambient Beds, Phase Chords, Spawn Pings",
+    "reflection": "Added continuous biome ambient beds (sine drones, filtered noise), phase transition chord signatures, spread cluster voices across scale degrees for natural chords, spawn ping per new mote.",
+    "looking_ahead": [
+      "Phase-reactive ambient bed volume",
+      "Cluster fragmentation sound",
+      "Bond-break downward glide",
+      "Event-ambient crossfade"
+    ],
+    "files_changed": ["src/sound.ts", "src/main.ts", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "mote",
+    "title": "Bond Arc, Wanderer Trails, Social Pulse",
+    "reflection": "Wanderers now leave 3x brighter trails via trailScale. Bonded social motes show 5-point resonance ring pulsing in sync. Bond formation gets converging spark arc.",
+    "looking_ahead": [
+      "Hardy mote terrain resilience flash",
+      "Wanderer sprite tilt toward movement",
+      "Cluster identity halo for 4+ groups",
+      "Bond break visual scatter"
+    ],
+    "files_changed": ["src/render-bonds.ts", "src/render-motes.ts", "src/main.ts", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "terrain-weather",
+    "title": "Biomes Made Real",
+    "reflection": "Desert gets cacti instead of trees, volcanic gets rock spires, tundra gets dead trees. Volcanic water renders as animated lava. Added horizon glow band and tundra frost crystals.",
+    "looking_ahead": [
+      "Desert heat shimmer distortion",
+      "Phase-reactive water level during flood",
+      "Volcanic ash accumulation overlay",
+      "Lush bloom event flower multiplication"
+    ],
+    "files_changed": ["src/terrain-gen.ts", "src/terrain-render.ts", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "narrative-events",
+    "title": "Five New Emotional Beats",
+    "reflection": "Added first-death dirge, bond fragmentation line, peak population acknowledgment, last-survivor naming, and event-phase cascade lines. Event messages now have 3 per-cycle variants.",
+    "looking_ahead": [
+      "Cluster identity persistence with names",
+      "Silent-world final reflection line",
+      "Biome-aware dissolution text",
+      "Weather-event overlap narrative"
+    ],
+    "files_changed": ["src/narrative.ts", "src/events.ts", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "mote",
+    "title": "Bond Break, Cluster Territory",
+    "reflection": "Bond breaks scatter six colored shards with dark core hole. Clusters of 4+ pulse a dashed perimeter ring; 6+ gain centroid spokes. bondBreakFlash field added to Mote.",
+    "looking_ahead": [
+      "Hardy mote terrain resilience flash",
+      "Wanderer sprite tilt",
+      "Bond break midpoint flash",
+      "Cluster fragmentation cascade"
+    ],
+    "files_changed": ["src/types.ts", "src/mote.ts", "src/render-motes.ts", "src/render-bonds.ts", "public/evolution-log.json"]
   }
 ]

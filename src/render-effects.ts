@@ -8,24 +8,49 @@ import { getMeteorPosition } from "./events";
 /** Draw aurora light curtains in the sky */
 export function renderAuroraCurtains(buf: ImageData, time: number, eventStart: number): void {
   const elapsed = time - eventStart;
-  const intensity = Math.min(1, elapsed / 3);
+  const fadeIn = Math.min(1, elapsed / 4);
+  const fadeOut = elapsed > 55 ? Math.max(0, 1 - (elapsed - 55) / 10) : 1;
+  const intensity = fadeIn * fadeOut;
 
   for (let x = 0; x < W; x++) {
-    const curtain1 = Math.sin(x * 0.08 + time * 0.5) * 0.5 + 0.5;
-    const curtain2 = Math.sin(x * 0.05 - time * 0.3 + 2) * 0.3 + 0.5;
-    const curtain3 = Math.sin(x * 0.12 + time * 0.7 + 4) * 0.2 + 0.5;
-    const curtainStrength = (curtain1 + curtain2 + curtain3) / 3;
+    // Five overlapping curtain waves at different frequencies and speeds
+    const c1 = Math.sin(x * 0.060 + time * 0.40) * 0.5 + 0.5;
+    const c2 = Math.sin(x * 0.040 - time * 0.25 + 1.5) * 0.5 + 0.5;
+    const c3 = Math.sin(x * 0.090 + time * 0.60 + 3.7) * 0.4 + 0.5;
+    const c4 = Math.sin(x * 0.030 - time * 0.15 + 5.2) * 0.3 + 0.5;
+    const c5 = Math.sin(x * 0.140 + time * 0.85 + 0.9) * 0.2 + 0.5;
+    const curtainStr = c1 * 0.32 + c2 * 0.26 + c3 * 0.20 + c4 * 0.14 + c5 * 0.08;
 
-    const maxY = Math.floor(H * 0.5);
+    const maxY = Math.floor(H * 0.52);
     for (let y = 0; y < maxY; y++) {
-      const yFade = 1 - y / maxY;
-      const alpha = Math.round(curtainStrength * yFade * intensity * 35);
-      if (alpha < 3) continue;
+      const yNorm = y / maxY;
+      // Bell-curve falloff: dim at zenith and horizon, peak at ~25% down
+      const yShape = Math.sin(yNorm * Math.PI * 1.0 + 0.15) * (1 - yNorm * 0.4);
+      const alpha = Math.round(curtainStr * yShape * intensity * 100);
+      if (alpha < 4) continue;
 
-      const colorT = (Math.sin(x * 0.04 + time * 0.2) + 1) / 2;
-      const ar = Math.round(40 + colorT * 80);
-      const ag = Math.round(180 - colorT * 40);
-      const ab = Math.round(100 + colorT * 80);
+      // Color cycles through green → teal → blue → purple across x and time
+      const colorT = (Math.sin(x * 0.033 + time * 0.11) + 1) / 2;
+      let ar: number, ag: number, ab: number;
+      if (colorT < 0.35) {
+        // Green
+        const t = colorT / 0.35;
+        ar = Math.round(15 + t * 40);
+        ag = Math.round(215 - t * 35);
+        ab = Math.round(60 + t * 110);
+      } else if (colorT < 0.65) {
+        // Teal to blue
+        const t = (colorT - 0.35) / 0.30;
+        ar = Math.round(55 + t * 75);
+        ag = Math.round(180 - t * 100);
+        ab = Math.round(170 + t * 65);
+      } else {
+        // Blue to purple
+        const t = (colorT - 0.65) / 0.35;
+        ar = Math.round(130 + t * 90);
+        ag = Math.round(80 - t * 45);
+        ab = Math.round(235 - t * 15);
+      }
       setPixel(buf, x, y, ar, ag, ab, alpha);
     }
   }
@@ -189,6 +214,34 @@ export function renderMeteorVisual(
   }
 }
 
+/** Per-phase color grade — subtle warm/cool tint applied to the final composed frame */
+export function applyPhaseColorGrade(buf: ImageData, phaseIndex: number, phaseProgress: number): void {
+  // Additive RGB shifts [r, g, b] for each phase — small but perceptible
+  const GRADES: [number, number, number][] = [
+    [ 0,  0,  7],  // 0 genesis:      cool violet cast
+    [ 3,  1, -2],  // 1 exploration:  slight warm push
+    [ 0,  0,  0],  // 2 organization: neutral (skip)
+    [ 4,  2, -3],  // 3 complexity:   vivid warm peak
+    [ 7, -1, -5],  // 4 dissolution:  amber decline
+    [-3, -2,  6],  // 5 silence:      cold blue absence
+  ];
+  const [dr, dg, db] = GRADES[Math.min(5, Math.max(0, phaseIndex))];
+  if (dr === 0 && dg === 0 && db === 0) return;
+  // Blend in gradually — full strength by 25% into the phase
+  const blend = Math.min(1, phaseProgress / 0.25);
+  const fr = Math.round(dr * blend);
+  const fg = Math.round(dg * blend);
+  const fb = Math.round(db * blend);
+  if (fr === 0 && fg === 0 && fb === 0) return;
+
+  const d = buf.data;
+  for (let i = 0; i < d.length; i += 4) {
+    d[i]     = Math.min(255, Math.max(0, d[i]     + fr));
+    d[i + 1] = Math.min(255, Math.max(0, d[i + 1] + fg));
+    d[i + 2] = Math.min(255, Math.max(0, d[i + 2] + fb));
+  }
+}
+
 /** Meteor crater afterglow */
 export function renderCraterGlow(
   buf: ImageData,
@@ -215,20 +268,34 @@ export function renderCraterGlow(
   }
 }
 
-/** Phase transition pulse — subtle brightness flash */
-export function renderPhaseFlash(buf: ImageData, phaseFlash: number): void {
+/** Phase transition pulse — colored flash matching each phase's mood */
+export function renderPhaseFlash(buf: ImageData, phaseFlash: number, phaseIndex: number): void {
   if (phaseFlash <= 0) return;
-  const boost = phaseFlash * 0.08;
+  // Per-phase additive RGB boost [r, g, b] applied at full flash intensity
+  const PHASE_FLASHES: [number, number, number][] = [
+    [ 0,  2, 18],  // 0 genesis:      cool violet
+    [14,  6,  0],  // 1 exploration:  warm gold
+    [ 8,  7,  7],  // 2 organization: soft white
+    [12,  5,  0],  // 3 complexity:   vivid warm
+    [18,  0, -4],  // 4 dissolution:  deep amber-red
+    [ 0,  2, 16],  // 5 silence:      cold blue
+  ];
+  const tint = PHASE_FLASHES[Math.min(5, Math.max(0, phaseIndex))];
+  const f = phaseFlash;
   const d = buf.data;
   for (let i = 0; i < d.length; i += 4) {
-    d[i]     = Math.min(255, Math.round(d[i] * (1 + boost)));
-    d[i + 1] = Math.min(255, Math.round(d[i + 1] * (1 + boost)));
-    d[i + 2] = Math.min(255, Math.round(d[i + 2] * (1 + boost)));
+    d[i]     = Math.min(255, Math.max(0, Math.round(d[i]     + (d[i]     * 0.07 + tint[0]) * f)));
+    d[i + 1] = Math.min(255, Math.max(0, Math.round(d[i + 1] + (d[i + 1] * 0.07 + tint[1]) * f)));
+    d[i + 2] = Math.min(255, Math.max(0, Math.round(d[i + 2] + (d[i + 2] * 0.07 + tint[2]) * f)));
   }
 }
 
-/** Vignette — darken edges */
-export function applyVignette(buf: ImageData): void {
+/** Vignette — darken edges, strength varies by phase */
+export function applyVignette(buf: ImageData, phaseIndex: number): void {
+  // Minimum brightness at extreme corners per phase (lower = darker edges)
+  // silence is most dramatic; exploration is most open
+  const VIGNETTE_FLOORS = [0.57, 0.62, 0.56, 0.55, 0.46, 0.32];
+  const floor = VIGNETTE_FLOORS[Math.min(5, Math.max(0, phaseIndex))];
   const cx = W / 2;
   const cy = H / 2;
   const maxDist = Math.sqrt(cx * cx + cy * cy);
@@ -240,9 +307,9 @@ export function applyVignette(buf: ImageData): void {
       const dy = y - cy;
       const dist = Math.sqrt(dx * dx + dy * dy) / maxDist;
       const fade = dist < 0.65 ? 1 : 1 - (dist - 0.65) * 1.2;
-      const f = Math.max(0.55, fade);
+      const f = Math.max(floor, fade);
       const i = (y * W + x) * 4;
-      d[i] = d[i] * f;
+      d[i]     = d[i]     * f;
       d[i + 1] = d[i + 1] * f;
       d[i + 2] = d[i + 2] * f;
     }

@@ -95,6 +95,7 @@ export interface Mote {
   trailTimer: number;
   forceX: number;
   forceY: number;
+  bondBreakFlash: number;
 }
 
 // ---- Physics ----

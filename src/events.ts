@@ -21,22 +21,24 @@ export function checkForEvent(cycleNumber: number): ActiveEvent | null {
     "flood", "bloom", "meteor", "migration", "eclipse",
     "earthquake", "plague", "aurora", "drought",
   ];
-  const messages: string[] = [
-    "A FLOOD RISES",
-    "A BLOOM ERUPTS",
-    "SOMETHING FALLS",
-    "THE GREAT MIGRATION",
-    "AN ECLIPSE DESCENDS",
-    "THE GROUND SHAKES",
-    "A PLAGUE SPREADS",
-    "AN AURORA APPEARS",
-    "A DROUGHT SETS IN",
+  // Three variants per event — picked by a secondary hash for per-cycle diversity
+  const messagePools: string[][] = [
+    ["THE WATERS RISE",      "THE FLOOD COMES",         "RISING TIDE"],
+    ["LIFE ERUPTS",          "THE BLOOM ARRIVES",       "ABUNDANCE"],
+    ["FIRE FROM ABOVE",      "SOMETHING FALLS",         "THE SKY BREAKS"],
+    ["THE GREAT MIGRATION",  "THEY MOVE AS ONE",        "MASS MOVEMENT"],
+    ["DARKNESS DESCENDS",    "THE SUN IS SWALLOWED",    "TOTALITY"],
+    ["THE EARTH SHAKES",     "THE GROUND BREAKS",       "UPHEAVAL"],
+    ["A PLAGUE SPREADS",     "SICKNESS DESCENDS",       "THE WASTING"],
+    ["THE SKY AWAKENS",      "LIGHTS IN THE DARK",      "THE AURORA RISES"],
+    ["THE LONG THIRST",      "WATER RUNS DRY",          "THE DRYING"],
   ];
-  const durations = [25, 15, 8, 20, 25, 12, 30, 20, 45];
+  const variant = (h >>> 16) % 3;
+  const durations = [28, 15, 8, 22, 28, 12, 32, 22, 48];
 
   return {
     type: types[eventIndex],
-    message: messages[eventIndex],
+    message: messagePools[eventIndex][variant],
     startTime: -1, // set when triggered
     duration: durations[eventIndex],
     messageAlpha: 1,
@@ -44,9 +46,23 @@ export function checkForEvent(cycleNumber: number): ActiveEvent | null {
   };
 }
 
-/** When in the cycle should the event trigger? (as fraction 0-1) */
-export function getEventTriggerPoint(): number {
-  return 0.45; // during organization phase, when things are interesting
+/**
+ * When in the cycle should each event trigger? (as fraction 0-1)
+ * Events are placed intentionally within the arc — not all at the same moment.
+ */
+export function getEventTriggerPoint(type: EventType): number {
+  const points: Record<EventType, number> = {
+    flood:      0.40, // early — more time for rising waters to reshape play
+    bloom:      0.50, // mid organization — abundance at peak bonding
+    meteor:     0.60, // during complexity — maximum witnesses
+    migration:  0.55, // late organization — community just formed, then swept away
+    eclipse:    0.65, // complexity peak — most dramatic darkening
+    earthquake: 0.45, // organization boundary — chaos just as clusters form
+    plague:     0.50, // mid cycle — targets bonded motes at their richest
+    aurora:     0.70, // late complexity — beautiful prelude to dissolution
+    drought:    0.38, // early — long suffering through the full arc
+  };
+  return points[type];
 }
 
 /** Apply ongoing event effects each frame */
@@ -80,7 +96,7 @@ export function applyEvent(
       applyMeteor(world, progress);
       break;
     case "migration":
-      applyMigration(world.motes, progress);
+      applyMigration(world.motes, world.cycleNumber, progress);
       break;
     case "eclipse":
       // Eclipse effect is purely visual — handled in main.ts render
@@ -237,10 +253,11 @@ function applyMeteor(world: World, progress: number): void {
   }
 }
 
-function applyMigration(motes: Mote[], progress: number): void {
-  // Strong directional force pushing all motes to one side
-  const direction = progress < 0.5 ? 1 : -1; // go right, then left
-  const strength = Math.sin(progress * Math.PI) * 20;
+function applyMigration(motes: Mote[], cycleNumber: number, progress: number): void {
+  // Sustained single-direction wave based on cycle seed — a true migration
+  const direction = (cycleNumber * 6271) % 2 === 0 ? 1 : -1;
+  // Build up quickly, sustain at peak, then taper to stillness
+  const strength = Math.sin(progress * Math.PI) * 28;
 
   for (const m of motes) {
     m.forceX += direction * strength;

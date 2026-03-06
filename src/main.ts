@@ -5,7 +5,7 @@ import { H } from "./config";
 import { renderTerrain } from "./terrain";
 import { createWorld, updateWorld } from "./world";
 import { cycleName } from "./names";
-import { createSoundEngine, initAudio, updateSound, updateWeatherSound, playDeath, playEventSound } from "./sound";
+import { createSoundEngine, initAudio, updateSound, updateWeatherSound, playDeath, playEventSound, playPhaseTransition } from "./sound";
 import { createInteraction, applyInteraction } from "./interaction";
 import { isEventActive, isEclipseActive } from "./events";
 import {
@@ -17,7 +17,7 @@ import { computeMoteColor, renderMoteTrails, renderMotes } from "./render-motes"
 import {
   renderAuroraCurtains, renderEclipse, applyAuroraBoost,
   renderMeteorVisual, renderCraterGlow, renderPhaseFlash,
-  applyVignette, createMeteorState,
+  applyVignette, applyPhaseColorGrade, createMeteorState,
 } from "./render-effects";
 import { renderClusterGlow, renderBondLines, renderDeathParticles } from "./render-bonds";
 import { renderRipples, renderCursor, renderEventMessage, renderDebugOverlay } from "./render-ui";
@@ -59,8 +59,19 @@ function init(): void {
   document.addEventListener("keydown", startAudio);
 
   // Sound update loop (~15fps, decoupled)
+  // Track phase for transition sounds; -1 until first sync so stale phases don't fire on load
+  let lastPhaseIndex = -1;
   setInterval(() => {
-    updateSound(sound, world.ref.motes, world.ref.phaseIndex, world.ref.phaseProgress);
+    const curPhase = world.ref.phaseIndex;
+    if (sound.initialized) {
+      if (curPhase !== lastPhaseIndex && lastPhaseIndex >= 0) {
+        playPhaseTransition(sound, curPhase, world.ref.terrain.biome);
+      }
+      lastPhaseIndex = curPhase;
+    } else {
+      lastPhaseIndex = curPhase; // stay in sync without playing
+    }
+    updateSound(sound, world.ref.motes, curPhase, world.ref.phaseProgress, world.ref.terrain.biome);
     updateWeatherSound(sound, world.ref.weather);
   }, 67);
 
@@ -107,7 +118,7 @@ function init(): void {
     renderTerrain(rc.buf, w.terrain, w.time, w.cycleProgress);
 
     // Weather background
-    renderCelestial(rc.buf, w.weather, w.time);
+    renderCelestial(rc.buf, w.weather, w.time, w.cycleProgress);
     renderClouds(rc.buf, w.weather, w.time);
     applyWeatherDarkening(rc.buf, w.weather);
 
@@ -137,7 +148,7 @@ function init(): void {
 
     // Mote trails, sprites, bonds, deaths
     renderMoteTrails(rc.buf, w.motes, moteColors);
-    renderMotes(rc.buf, w.motes, moteColors, plagueActive, plaguePulse);
+    renderMotes(rc.buf, w.motes, moteColors, plagueActive, plaguePulse, w.time);
     renderBondLines(rc.buf, w.motes, moteColors, w.time);
     renderDeathParticles(rc.buf, w.deaths, w.time);
 
@@ -159,16 +170,17 @@ function init(): void {
 
     // UI: ripples, cursor
     renderRipples(rc.buf, input, dt);
-    renderCursor(rc.buf, input);
+    renderCursor(rc.buf, input, w.time);
 
     // Weather foreground
-    renderParticles(rc.buf, w.weather);
-    renderFog(rc.buf, w.weather, w.time);
+    renderParticles(rc.buf, w.weather, w.terrain.biome);
+    renderFog(rc.buf, w.weather, w.time, w.terrain.biome);
     renderLightning(rc.buf, w.weather);
 
     // Phase flash + vignette
-    renderPhaseFlash(rc.buf, w.phaseFlash);
-    applyVignette(rc.buf);
+    renderPhaseFlash(rc.buf, w.phaseFlash, w.phaseIndex);
+    applyVignette(rc.buf, w.phaseIndex);
+    applyPhaseColorGrade(rc.buf, w.phaseIndex, w.phaseProgress);
 
     // Event message
     renderEventMessage(rc.buf, w.event, w.time);

@@ -94,11 +94,46 @@ export function renderTerrain(
   cycleProgress: number,
 ): void {
   const { tiles, bp } = terrain;
+  const biome = terrain.biome;
   const skyTop = PAL[bp.sky];
   const skyBot = PAL[bp.skyHorizon];
   const tint = skyTintAt(cycleProgress);
   const bgMountains = getBgMountains(terrain.seed);
   const bgColor = PAL[bp.cliff];
+
+  // Pre-compute surface Y per column for horizon glow
+  const surfaceYCache = new Int16Array(W);
+  for (let hx = 0; hx < W; hx++) surfaceYCache[hx] = getSurfaceY(terrain, hx);
+
+  // Horizon glow: warm amber/orange at genesis & dissolution, cool violet at silence
+  // Each glows at the sky-terrain seam and fades upward over ~16 pixels
+  const inGenesis     = cycleProgress < 0.16;
+  const inDissolution = cycleProgress >= 0.76 && cycleProgress < 0.92;
+  const inSilence     = cycleProgress >= 0.92;
+  const glowStrength  =
+    inGenesis     ? Math.sin(cycleProgress / 0.16 * Math.PI * 0.5) * 0.72 :
+    inDissolution ? Math.sin((cycleProgress - 0.76) / 0.16 * Math.PI) * 1.0 :
+    inSilence     ? 0.48 * (1 - (cycleProgress - 0.92) / 0.08) :
+    0;
+  const glowWarm = !inSilence; // warm amber vs cool violet
+
+  // Background mountain color: biome-matched silhouette
+  // Slightly lighter/tinted version of the cliff color for atmospheric depth
+  const bgMtnR = biome === "desert"   ? Math.min(255, bgColor[0] + 30) :
+                 biome === "tundra"   ? Math.min(255, bgColor[0] + 20) :
+                 biome === "volcanic" ? bgColor[0] :
+                 biome === "lush"     ? Math.max(0, bgColor[0] - 10) :
+                                        bgColor[0] + 15;
+  const bgMtnG = biome === "desert"   ? Math.min(255, bgColor[1] + 18) :
+                 biome === "tundra"   ? Math.min(255, bgColor[1] + 25) :
+                 biome === "volcanic" ? bgColor[1] :
+                 biome === "lush"     ? Math.min(255, bgColor[1] + 18) :
+                                        bgColor[1] + 15;
+  const bgMtnB = biome === "desert"   ? Math.min(255, bgColor[2] + 8)  :
+                 biome === "tundra"   ? Math.min(255, bgColor[2] + 40) :
+                 biome === "volcanic" ? bgColor[2] :
+                 biome === "lush"     ? Math.max(0, bgColor[2] - 5)    :
+                                        bgColor[2] + 18;
 
   const d = buf.data;
 
@@ -119,17 +154,39 @@ export function renderTerrain(
         let b = Math.max(0, Math.min(255, c[2] + tint[2] * tintStr));
 
         // Background mountains — blend distant silhouettes over sky
+        // Two depth layers: far (lighter) and near (darker), based on height
         const bgSurfY = Math.floor(H - bgMountains[x]);
         if (y >= bgSurfY) {
-          const blend = 0.25;
-          r = r * (1 - blend) + bgColor[0] * blend;
-          g = g * (1 - blend) + bgColor[1] * blend;
-          b = b * (1 - blend) + bgColor[2] * blend;
+          // Depth-based blend: stronger near the surface (more opaque mountains)
+          const depthIntoMtn = y - bgSurfY;
+          const blend = Math.min(0.52, 0.35 + depthIntoMtn * 0.025);
+          r = r * (1 - blend) + bgMtnR * blend;
+          g = g * (1 - blend) + bgMtnG * blend;
+          b = b * (1 - blend) + bgMtnB * blend;
         }
 
-        d[pi]     = r;
-        d[pi + 1] = g;
-        d[pi + 2] = b;
+        // Horizon glow: warm/cool band rising from the terrain surface
+        if (glowStrength > 0) {
+          const dist = surfaceYCache[x] - y; // pixels above terrain surface
+          if (dist >= 0 && dist < 16) {
+            const gf = (1 - dist / 16) * (1 - dist / 16) * glowStrength; // quadratic falloff
+            if (glowWarm) {
+              // Dawn / dusk: warm amber-orange
+              r = Math.min(255, r + 95 * gf);
+              g = Math.min(255, g + 38 * gf);
+              b = Math.max(0,   b - 22 * gf);
+            } else {
+              // Twilight / silence: cool blue-violet
+              r = Math.min(255, r + 28 * gf);
+              g = Math.max(0,   g - 12 * gf);
+              b = Math.min(255, b + 55 * gf);
+            }
+          }
+        }
+
+        d[pi]     = Math.round(r);
+        d[pi + 1] = Math.round(g);
+        d[pi + 2] = Math.round(b);
         d[pi + 3] = 255;
       } else if (tile === Tile.CaveInterior) {
         // Cave interiors: near-black with subtle texture
@@ -138,6 +195,14 @@ export function renderTerrain(
         d[pi]     = brightness;
         d[pi + 1] = brightness;
         d[pi + 2] = brightness + 4;
+        d[pi + 3] = 255;
+      } else if (biome === "volcanic" && (tile === Tile.DeepWater || tile === Tile.ShallowWater)) {
+        // Lava: animated orange-red glow — volcanic water is molten rock
+        const lavaFlicker = noise2(x * 0.28 + time * 0.55, y * 0.22 - time * 0.35) * 0.5 + 0.5;
+        const depthDim = tile === Tile.DeepWater ? 0.70 : 0.88; // deep lava slightly darker
+        d[pi]     = Math.round(Math.min(255, (145 + lavaFlicker * 95) * depthDim));
+        d[pi + 1] = Math.round(Math.min(255, (28  + lavaFlicker * 72) * depthDim));
+        d[pi + 2] = 8;
         d[pi + 3] = 255;
       } else {
         const ci = tileColor(tile, bp);
@@ -154,14 +219,75 @@ export function renderTerrain(
   // Surface detail: grass blades, flowers, vines
   renderSurfaceDetail(buf, terrain);
 
-  // Water surface shimmer: occasional lighter pixels on water surface
+  // Water surface shimmer: animated wave highlights across water
+  renderWaterShimmer(buf, terrain, time);
+}
+
+/** Animated water shimmer — layered waves with depth variation */
+function renderWaterShimmer(buf: ImageData, terrain: Terrain, time: number): void {
+  const { bp, biome } = terrain;
+
+  if (biome === "volcanic") {
+    // Lava surface: bright yellow-orange hotspot glints and dark crust cracks
+    for (let x = 0; x < W; x++) {
+      const surfaceY = getSurfaceY(terrain, x);
+      const worldH = H - surfaceY;
+      if (worldH > terrain.waterLevel || worldH < terrain.waterLevel - 6) continue;
+      // Slow roiling hotspots
+      const lw1 = Math.sin(x * 0.22 + time * 0.7) * 0.5 + 0.5;
+      const lw2 = Math.sin(x * 0.41 - time * 0.5 + 2.1) * 0.5 + 0.5;
+      const lwave = lw1 * 0.6 + lw2 * 0.4;
+      // Bright yellow hotspot — crust cracking open
+      if (lwave > 0.72) {
+        const a = Math.round((lwave - 0.72) / 0.28 * 200);
+        setPixel(buf, x, surfaceY, 255, Math.round(180 + lwave * 60), 20, a);
+      }
+      // Dark crust between hot spots
+      if (lwave < 0.28) {
+        const a = Math.round((0.28 - lwave) / 0.28 * 80);
+        setPixel(buf, x, surfaceY, 35, 18, 5, a);
+      }
+    }
+    return;
+  }
+
+  const shallowC = PAL[bp.shallowWater];
+  const skyC = PAL[bp.sky];
+
   for (let x = 0; x < W; x++) {
     const surfaceY = getSurfaceY(terrain, x);
     const worldH = H - surfaceY;
-    if (worldH <= terrain.waterLevel && worldH >= terrain.waterLevel - 1) {
-      if ((x + Math.floor(time * 2)) % 5 === 0) {
-        setPixel(buf, x, surfaceY, PAL[8][0], PAL[8][1], PAL[8][2], 120);
-      }
+    if (worldH > terrain.waterLevel || worldH < terrain.waterLevel - 8) continue;
+
+    // Three overlapping wave frequencies for organic motion
+    const w1 = Math.sin(x * 0.18 + time * 1.8) * 0.5 + 0.5;
+    const w2 = Math.sin(x * 0.31 - time * 2.4 + 1.3) * 0.5 + 0.5;
+    const w3 = Math.sin(x * 0.07 + time * 0.9 + 2.7) * 0.5 + 0.5;
+    const wave = w1 * 0.5 + w2 * 0.3 + w3 * 0.2;
+
+    // Surface glint — brightest highlights
+    if (wave > 0.78) {
+      const a = Math.round((wave - 0.78) / 0.22 * 160);
+      setPixel(buf, x, surfaceY,
+        Math.min(255, skyC[0] + 40),
+        Math.min(255, skyC[1] + 40),
+        Math.min(255, skyC[2] + 30), a);
+    }
+
+    // Shallow shimmer — sub-surface ripple color
+    if (wave > 0.55 && surfaceY + 1 < H) {
+      const a = Math.round((wave - 0.55) / 0.45 * 70);
+      setPixel(buf, x, surfaceY + 1,
+        shallowC[0] + 20, shallowC[1] + 20, shallowC[2] + 25, a);
+    }
+
+    // Occasional dark trough between waves
+    if (wave < 0.22) {
+      const a = Math.round((0.22 - wave) / 0.22 * 40);
+      setPixel(buf, x, surfaceY,
+        Math.max(0, shallowC[0] - 15),
+        Math.max(0, shallowC[1] - 12),
+        Math.max(0, shallowC[2] - 8), a);
     }
   }
 }
@@ -235,6 +361,22 @@ function renderSurfaceDetail(buf: ImageData, terrain: Terrain): void {
       if (mushChance > 0.75) {
         const mc = PAL[15]; // dusk purple
         setPixel(buf, x, surfaceY, mc[0], mc[1], mc[2], 180);
+      }
+    }
+
+    // Frost crystals on tundra ground — icy white-blue glint on and above the surface
+    if (biome === "tundra" &&
+        (surfTile === Tile.Ground || surfTile === Tile.DarkGround || surfTile === Tile.Sand)) {
+      const frostNoise = noise2(x * 0.85, terrain.seed * 0.4 + 311) * 0.5 + 0.5;
+      if (frostNoise > 0.52) {
+        // Frost on the ground tile itself — lightens and blue-shifts the surface
+        const fi = Math.round((frostNoise - 0.52) / 0.48 * 100);
+        setPixel(buf, x, surfaceY, 210, 225, 245, fi);
+        // Frost crystal pixel above the surface — taller crystals at higher noise values
+        if (surfaceY > 0 && frostNoise > 0.70) {
+          const crystalA = Math.round((frostNoise - 0.70) / 0.30 * 80);
+          setPixel(buf, x, surfaceY - 1, 240, 248, 255, crystalA);
+        }
       }
     }
   }
