@@ -1,9 +1,92 @@
-// render-effects.ts — Visual effects: eclipse, aurora, meteor, impact, crater, vignette, phase flash.
+// render-effects.ts — Visual effects: eclipse, aurora, meteor, impact, crater, vignette, phase flash, bloom.
 
 import { W, H } from "./config";
 import type { Mote, ActiveEvent } from "./types";
 import { setPixel } from "./render";
 import { getMeteorPosition } from "./events";
+
+// ─── Screen-space bloom ────────────────────────────────────────────────────
+// Pre-allocated buffers — never allocate during the frame loop.
+const _BLOOM_N = W * H;
+const _bloomExtR = new Uint8Array(_BLOOM_N);
+const _bloomExtG = new Uint8Array(_BLOOM_N);
+const _bloomExtB = new Uint8Array(_BLOOM_N);
+const _bloomBufR = new Uint8Array(_BLOOM_N);
+const _bloomBufG = new Uint8Array(_BLOOM_N);
+const _bloomBufB = new Uint8Array(_BLOOM_N);
+
+/**
+ * Screen-space bloom: threshold bright pixels, apply separable box blur,
+ * additive-blend the glow back onto the frame.  Creates the "lens glow"
+ * around mote eyes, bond sparks, death flashes, and celestial bodies.
+ *
+ * @param strength  0 = no bloom, 1 = full (0.3–0.7 recommended)
+ */
+export function applyBloom(buf: ImageData, strength: number): void {
+  if (strength <= 0) return;
+  const d = buf.data;
+  const THRESHOLD = 140;
+  const R = 4; // blur radius → 9-tap kernel each axis
+
+  // Pass 1 — extract bright pixels (luma above threshold, scaled by excess)
+  for (let i = 0; i < _BLOOM_N; i++) {
+    const di = i << 2;
+    // Fast integer luma: coefficients ≈ 0.299, 0.587, 0.114
+    const lum = (d[di] * 77 + d[di + 1] * 150 + d[di + 2] * 29) >> 8;
+    if (lum > THRESHOLD) {
+      const excess = lum - THRESHOLD; // 0..115
+      _bloomExtR[i] = (d[di]     * excess) >> 7;
+      _bloomExtG[i] = (d[di + 1] * excess) >> 7;
+      _bloomExtB[i] = (d[di + 2] * excess) >> 7;
+    } else {
+      _bloomExtR[i] = _bloomExtG[i] = _bloomExtB[i] = 0;
+    }
+  }
+
+  // Pass 2 — horizontal box blur
+  for (let y = 0; y < H; y++) {
+    const row = y * W;
+    for (let x = 0; x < W; x++) {
+      let sr = 0, sg = 0, sb = 0, cnt = 0;
+      const xMin = x - R < 0 ? 0 : x - R;
+      const xMax = x + R >= W ? W - 1 : x + R;
+      for (let xi = xMin; xi <= xMax; xi++) {
+        const pi = row + xi;
+        sr += _bloomExtR[pi];
+        sg += _bloomExtG[pi];
+        sb += _bloomExtB[pi];
+        cnt++;
+      }
+      const pi = row + x;
+      _bloomBufR[pi] = sr / cnt;
+      _bloomBufG[pi] = sg / cnt;
+      _bloomBufB[pi] = sb / cnt;
+    }
+  }
+
+  // Pass 3 — vertical box blur + additive blend into main buffer
+  for (let x = 0; x < W; x++) {
+    for (let y = 0; y < H; y++) {
+      let sr = 0, sg = 0, sb = 0, cnt = 0;
+      const yMin = y - R < 0 ? 0 : y - R;
+      const yMax = y + R >= H ? H - 1 : y + R;
+      for (let yi = yMin; yi <= yMax; yi++) {
+        const pi = yi * W + x;
+        sr += _bloomBufR[pi];
+        sg += _bloomBufG[pi];
+        sb += _bloomBufB[pi];
+        cnt++;
+      }
+      const di = (y * W + x) << 2;
+      const blr = (sr / cnt * strength) | 0;
+      const blg = (sg / cnt * strength) | 0;
+      const blb = (sb / cnt * strength) | 0;
+      d[di]     = d[di]     + blr > 255 ? 255 : d[di]     + blr;
+      d[di + 1] = d[di + 1] + blg > 255 ? 255 : d[di + 1] + blg;
+      d[di + 2] = d[di + 2] + blb > 255 ? 255 : d[di + 2] + blb;
+    }
+  }
+}
 
 /** Draw aurora light curtains in the sky */
 export function renderAuroraCurtains(buf: ImageData, time: number, eventStart: number): void {

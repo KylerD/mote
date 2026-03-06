@@ -116,7 +116,9 @@ body.idle { cursor: none; }
 
   overflow: hidden;
   opacity: 0;
-  animation: world-emerge 1.5s ease-out 0.1s forwards;
+  animation:
+    world-emerge 1.5s ease-out 0.1s forwards,
+    frame-breathe 9s ease-in-out 2s infinite;
 }
 
 canvas#world {
@@ -135,12 +137,14 @@ canvas#world {
   background:
     linear-gradient(
       168deg,
-      rgba(255, 255, 255, 0.01) 0%,
-      transparent 40%,
-      transparent 60%,
-      rgba(0, 0, 0, 0.025) 100%
+      rgba(255, 255, 255, 0.022) 0%,
+      transparent 38%,
+      transparent 62%,
+      rgba(0, 0, 0, 0.035) 100%
     );
   border-radius: 4px;
+  /* Subtle inner shadow: the depth of looking into a container */
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.08);
 }
 
 /* Audio prompt — invites users to hear the world */
@@ -400,6 +404,22 @@ canvas#world {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* The terrarium breathes — a slow ambient glow pulses at the frame edge */
+@keyframes frame-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.5),
+      0 4px 24px rgba(0, 0, 0, 0.30),
+      0 0 48px rgba(220, 140, 80, 0.00);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.45),
+      0 4px 32px rgba(0, 0, 0, 0.35),
+      0 0 64px rgba(220, 140, 80, 0.07);
   }
 }
 

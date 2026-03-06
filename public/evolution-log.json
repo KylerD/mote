@@ -206,5 +206,18 @@
       "Cluster fragmentation cascade"
     ],
     "files_changed": ["src/types.ts", "src/mote.ts", "src/render-motes.ts", "src/render-bonds.ts", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "visual",
+    "title": "Screen-Space Bloom — Creatures as Light",
+    "reflection": "Added a full screen-space bloom pass: threshold bright pixels (luma > 140), apply a separable radius-4 box blur with pre-allocated Uint8 buffers (no per-frame GC), additively blend the glow back. Mote eyes, elder crowns, bond sparks, death flashes, and celestial bodies now radiate soft halos — the world feels lit from within. Bloom strength varies by phase (0.20 silence → 0.62 complexity) and spikes to 0.78 during eclipse so mote eyes become true lanterns in the dark. Click pulse gets a warm radial energy burst that also blooms, and the terrarium frame gains a slow 9-second amber breath.",
+    "looking_ahead": [
+      "WebGL compositing for real-time HDR tone-map and motion blur",
+      "Per-biome bloom tint (warm for volcanic, cool for tundra)",
+      "Interaction force-field visualization around cursor",
+      "Phase-specific particle showers (genesis stardust, dissolution ash)"
+    ],
+    "files_changed": ["src/render-effects.ts", "src/render-ui.ts", "src/main.ts", "src/style.css", "public/evolution-log.json"]
   }
 ]

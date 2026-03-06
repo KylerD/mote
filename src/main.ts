@@ -18,6 +18,7 @@ import {
   renderAuroraCurtains, renderEclipse, applyAuroraBoost,
   renderMeteorVisual, renderCraterGlow, renderPhaseFlash,
   applyVignette, applyPhaseColorGrade, createMeteorState,
+  applyBloom,
 } from "./render-effects";
 import { renderClusterGlow, renderBondLines, renderDeathParticles } from "./render-bonds";
 import { renderRipples, renderCursor, renderEventMessage, renderDebugOverlay } from "./render-ui";
@@ -177,8 +178,16 @@ function init(): void {
     renderFog(rc.buf, w.weather, w.time, w.terrain.biome);
     renderLightning(rc.buf, w.weather);
 
-    // Phase flash + vignette
+    // Phase flash + bloom + vignette
     renderPhaseFlash(rc.buf, w.phaseFlash, w.phaseIndex);
+
+    // Bloom strength varies by phase and event — creatures glow brightest at peak complexity
+    const BLOOM_BY_PHASE = [0.45, 0.40, 0.50, 0.62, 0.33, 0.20];
+    let bloomStrength = BLOOM_BY_PHASE[Math.min(5, w.phaseIndex)];
+    if (eclipseActive) bloomStrength = 0.78;     // dramatic: mote eyes as tiny lanterns
+    else if (auroraActive) bloomStrength = Math.min(0.65, bloomStrength * 1.2);
+    applyBloom(rc.buf, bloomStrength);
+
     applyVignette(rc.buf, w.phaseIndex);
     applyPhaseColorGrade(rc.buf, w.phaseIndex, w.phaseProgress);
 

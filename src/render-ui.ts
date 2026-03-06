@@ -7,22 +7,42 @@ import { drawText, drawTextRight, measureText } from "./font";
 import { isEventActive } from "./events";
 import type { ActiveEvent } from "./types";
 
-/** Render click ripples */
+/** Render click ripples — with warm energy burst on fresh clicks */
 export function renderRipples(buf: ImageData, input: Interaction, dt: number): void {
   for (let i = input.ripples.length - 1; i >= 0; i--) {
     const rp = input.ripples[i];
+    const cx = Math.round(rp.x);
+    const cy = Math.round(rp.y);
+
+    // Fresh ripple: warm energy burst at click center (bloomed → soft halo)
+    if (rp.alpha > 0.82) {
+      const burstT = (rp.alpha - 0.82) / 0.18;
+      const burstR = 5;
+      for (let dy = -burstR; dy <= burstR; dy++) {
+        for (let dx = -burstR; dx <= burstR; dx++) {
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > burstR) continue;
+          const falloff = 1 - dist / burstR;
+          const ga = Math.round(burstT * falloff * falloff * 210);
+          if (ga > 3) setPixel(buf, cx + dx, cy + dy, 255, 230, 170, ga);
+        }
+      }
+    }
+
+    // Expanding ring
     const r = Math.round(rp.radius);
-    const ra = Math.round(rp.alpha * 200);
+    const ra = Math.round(rp.alpha * 180);
     const r2inner = (r - 1) * (r - 1);
     const r2outer = (r + 1) * (r + 1);
     for (let dy = -r - 1; dy <= r + 1; dy++) {
       for (let dx = -r - 1; dx <= r + 1; dx++) {
         const d2 = dx * dx + dy * dy;
         if (d2 >= r2inner && d2 <= r2outer) {
-          setPixel(buf, Math.round(rp.x) + dx, Math.round(rp.y) + dy, 220, 224, 228, ra);
+          setPixel(buf, cx + dx, cy + dy, 220, 224, 228, ra);
         }
       }
     }
+
     rp.radius += dt * 30;
     rp.alpha -= dt * 2.2;
     if (rp.alpha <= 0) input.ripples.splice(i, 1);
