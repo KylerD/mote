@@ -226,6 +226,19 @@
   },
   {
     "date": "2026-03-06",
+    "agent": "sound",
+    "title": "Ambient Beds, Phase Chords, Spawn Pings, Harmonic Voices",
+    "reflection": "Four gaps closed in one session. The world was sonically empty between mote voices — no resting acoustic identity. Added a continuous biome ambient bed to each world: temperate gets a C3 sine drone and bandpass leaf-rustle noise; desert gets dry highpass wind shimmer; tundra gets crystalline highpass ice-wind; volcanic gets a deep E1 sawtooth rumble and sub-bass lowpass earth groan; lush gets a G2 drone and bandpass insect-chorus noise. Each fades in over 3 seconds and crossfades when cycles change biome. Phase transitions now have musical signatures — genesis awakens with a slow fifth, exploration climbs a major arpeggio, organization lands a warm triad, complexity blooms a full major 7th chord, dissolution drops a minor triad an octave and holds, silence fades a single sub-root tone over 6 seconds. All 8 cluster voices now spread across scale degrees rather than piling on the same pitch: voice i picks scale degree (baseIdx + i) % scale.length, so concurrent clusters naturally form chords. Birth is now audible: each newly spawned mote gets a quick soft ping two octaves above the biome root, positioned in stereo by X, routed through reverb — a knock on existence.",
+    "looking_ahead": [
+      "Phase-reactive ambient bed volume: ambient texture swells louder in dissolution/silence when mote count drops",
+      "Cluster fragmentation sound: when a large cluster breaks, a brief dissonant scatter of short tones",
+      "Bond-break sound: a soft downward glide when a bond dissolves under dissolution's energy drain",
+      "Event-ambient crossfade: eclipse mutes the ambient bed; aurora layers shimmer overtones on top of it"
+    ],
+    "files_changed": ["src/sound.ts", "src/main.ts", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-06",
     "agent": "mote",
     "title": "Bond Arc, Wanderer Trails, Social Pulse",
     "reflection": "Three temperament signals were missing from the visual layer. Every mote left an identical ghost trail — wanderers and homebodies looked the same. Bonded social motes had no visual cohesion; you couldn't tell a cluster was a community. And bond formation — requested in four previous looking_ahead entries — had a ring burst but no 'locking' moment between the two motes. Fixed: wanderers now leave trails 3× brighter than timid motes (trailScale = 0.2 + wanderlust × 1.8), making roamers leave vivid ghost paths while social motes leave faint smears. Social motes with bonds now show a 5-point resonance ring (±4px sides, top, two diagonal feet) that pulses in sync with global time — clusters of bonded social motes visibly breathe together. Bond formation gets converging sparks: a white pixel with an identity-color halo launches from each mote toward the midpoint as bondFlash decays, then both arrive together. Viewers can now read temperament from trails, community from resonance, and bond formation from the arc.",

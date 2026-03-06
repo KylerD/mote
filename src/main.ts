@@ -5,7 +5,7 @@ import { H } from "./config";
 import { renderTerrain } from "./terrain";
 import { createWorld, updateWorld } from "./world";
 import { cycleName } from "./names";
-import { createSoundEngine, initAudio, updateSound, updateWeatherSound, playDeath, playEventSound } from "./sound";
+import { createSoundEngine, initAudio, updateSound, updateWeatherSound, playDeath, playEventSound, playPhaseTransition } from "./sound";
 import { createInteraction, applyInteraction } from "./interaction";
 import { isEventActive, isEclipseActive } from "./events";
 import {
@@ -59,8 +59,19 @@ function init(): void {
   document.addEventListener("keydown", startAudio);
 
   // Sound update loop (~15fps, decoupled)
+  // Track phase for transition sounds; -1 until first sync so stale phases don't fire on load
+  let lastPhaseIndex = -1;
   setInterval(() => {
-    updateSound(sound, world.ref.motes, world.ref.phaseIndex, world.ref.phaseProgress, world.ref.terrain.biome);
+    const curPhase = world.ref.phaseIndex;
+    if (sound.initialized) {
+      if (curPhase !== lastPhaseIndex && lastPhaseIndex >= 0) {
+        playPhaseTransition(sound, curPhase, world.ref.terrain.biome);
+      }
+      lastPhaseIndex = curPhase;
+    } else {
+      lastPhaseIndex = curPhase; // stay in sync without playing
+    }
+    updateSound(sound, world.ref.motes, curPhase, world.ref.phaseProgress, world.ref.terrain.biome);
     updateWeatherSound(sound, world.ref.weather);
   }, 67);
 
