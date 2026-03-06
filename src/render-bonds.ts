@@ -4,7 +4,7 @@ import type { Mote, DeathRecord } from "./types";
 import { setPixel } from "./render";
 import { drawLine } from "./render";
 
-/** Draw soft glow around bonded clusters */
+/** Draw soft glow + identity ring around bonded clusters */
 export function renderClusterGlow(
   buf: ImageData,
   cluster: Mote[],
@@ -38,6 +38,53 @@ export function renderClusterGlow(
       const a = Math.round(maxAlpha * falloff * falloff);
       if (a < 2) continue;
       setPixel(buf, rcx + dx, rcy + dy, avgR, avgG, avgB, a);
+    }
+  }
+
+  // IDENTITY RING — clusters of 4+ earn a pulsing perimeter that marks their territory.
+  // Larger clusters pulse more slowly: a big community breathes with gravity.
+  if (cluster.length >= 4) {
+    const ringRadius = Math.min(22, 9 + cluster.length * 2);
+    // Pulse frequency inversely proportional to size: 4-mote cluster = fast, 10-mote = stately
+    const ringPulseHz = 3.0 / Math.max(cluster.length, 2);
+    const ringPulse = Math.sin(time * ringPulseHz + cx * 0.07) * 0.5 + 0.5;
+    const ringAlpha = Math.round(ringPulse * Math.min(65, 18 + cluster.length * 6));
+
+    // Dash count scales with cluster size — more members = denser ring
+    const dashCount = 8 + cluster.length * 2;
+    // Ring slowly rotates: large clusters rotate slower
+    const rotOffset = time * (0.25 / Math.max(cluster.length, 4));
+
+    for (let i = 0; i < dashCount; i++) {
+      // Skip every 4th dot to create gaps (dashed appearance)
+      if (i % 4 === 3) continue;
+      const angle = (i / dashCount) * Math.PI * 2 + rotOffset;
+      const rx = Math.round(cx + Math.cos(angle) * ringRadius);
+      const ry = Math.round(cy + Math.sin(angle) * ringRadius);
+      setPixel(buf, rx, ry, avgR, avgG, avgB, ringAlpha);
+      // Second pixel for slightly thicker ring on large clusters
+      if (cluster.length >= 6) {
+        const rx2 = Math.round(cx + Math.cos(angle) * (ringRadius - 1));
+        const ry2 = Math.round(cy + Math.sin(angle) * (ringRadius - 1));
+        setPixel(buf, rx2, ry2, avgR, avgG, avgB, Math.round(ringAlpha * 0.45));
+      }
+    }
+
+    // SPOKES — clusters of 6+ radiate lines from center to ring
+    if (cluster.length >= 6) {
+      const spokeCount = Math.min(6, Math.floor(cluster.length / 2));
+      const spokePulse = Math.sin(time * ringPulseHz * 0.7 + cx * 0.1) * 0.4 + 0.6;
+      const spokeAlpha = Math.round(spokePulse * Math.min(40, cluster.length * 4));
+      for (let i = 0; i < spokeCount; i++) {
+        const angle = (i / spokeCount) * Math.PI * 2 + rotOffset * 0.5;
+        // Draw 3 pixels along each spoke (inner half of ring radius)
+        for (let step = 2; step <= Math.floor(ringRadius * 0.6); step += 3) {
+          const sx = Math.round(cx + Math.cos(angle) * step);
+          const sy = Math.round(cy + Math.sin(angle) * step);
+          const falloffAlpha = Math.round(spokeAlpha * (1 - step / (ringRadius * 0.6)));
+          setPixel(buf, sx, sy, avgR, avgG, avgB, falloffAlpha);
+        }
+      }
     }
   }
 }

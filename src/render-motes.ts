@@ -216,6 +216,22 @@ export function renderMotes(
       setPixel(buf, ox + 1, oy - 1, 255, 255, 255, fa);
     }
 
+    // BOND BREAK SCATTER — 6 colored shards flying outward + brief dark core flash
+    if (m.bondBreakFlash > 0) {
+      const bf = m.bondBreakFlash * m.bondBreakFlash; // ease out
+      const shardA = Math.round(bf * 210);
+      const shardA2 = Math.round(bf * 130);
+      // Six shards in asymmetric star pattern — feels like a crack, not a perfect burst
+      setPixel(buf, ox - 4, oy - 1, cr, cg, cb, shardA2);
+      setPixel(buf, ox + 4, oy - 1, cr, cg, cb, shardA2);
+      setPixel(buf, ox - 2, oy - 4, lr, lg, lb, shardA);
+      setPixel(buf, ox + 2, oy - 4, lr, lg, lb, shardA);
+      setPixel(buf, ox - 3, oy + 2, cr, cg, cb, shardA2);
+      setPixel(buf, ox + 3, oy + 2, cr, cg, cb, shardA2);
+      // Dim center: the bond hole left behind
+      setPixel(buf, ox, oy - 1, 10, 10, 25, Math.round(m.bondBreakFlash * 140));
+    }
+
     // SPAWN MATERIALIZATION
     if (m.spawnFlash > 0) {
       const sf = m.spawnFlash * m.spawnFlash;

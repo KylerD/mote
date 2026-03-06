@@ -288,5 +288,24 @@
       "src/events.ts",
       "public/evolution-log.json"
     ]
+  },
+  {
+    "date": "2026-03-06",
+    "agent": "mote",
+    "title": "Bond Break, Cluster Territory",
+    "reflection": "Two long-requested signals were missing from the visual layer. Bond breaking had zero feedback — a community fell apart silently, with no visual consequence. And clusters of 4+ were indistinguishable from clusters of 2: the same faint soft glow, no sense of earned territory or collective identity. Fixed both. Bond breaks now scatter six colored shards outward from each mote in a crack pattern (brighter tips, asymmetric fan), with a brief dark hole at the mote's core — the bond slot going empty. The break triggers on both motes simultaneously, so viewers see mirrored scatter at each end of the snapped relationship. Cluster identity ring: clusters of 4+ now pulse a dashed perimeter ring at a frequency inversely proportional to their size — small clusters pulse fast and nervous, large clusters breathe slowly and with gravity. The ring slowly rotates, giving it the feel of an orbit or territory marker. Clusters of 6+ gain spokes radiating from the centroid, making their structure legible from across the canvas. A community of eight now looks like something worth protecting.",
+    "looking_ahead": [
+      "Hardy mote terrain resilience: brief white shield arc when standing on Cave or ShallowWater tiles — shows survival rather than just suffering",
+      "Wanderer sprite tilt: high-wanderlust motes lean forward slightly in their direction of movement (shift eye/body pixels 1px toward direction)",
+      "Bond break midpoint flash: record the bond midpoint at break time and emit a brief spark there, making the rupture point visible in space",
+      "Cluster fragmentation cascade: when a cluster of 6+ loses a bond and splits, show a ripple through remaining members (brief bondBreakFlash on all)"
+    ],
+    "files_changed": [
+      "src/types.ts",
+      "src/mote.ts",
+      "src/render-motes.ts",
+      "src/render-bonds.ts",
+      "public/evolution-log.json"
+    ]
   }
 ]
