@@ -214,8 +214,10 @@ export function generateTerrain(seed: number): Terrain {
   }
 
   // Water feature pass: noise-carved pools and dry gaps for variety
+  // Skip elevated pools for volcanic — lava pockets on land look wrong
   if (arch.waterFeatures) {
     const wf = arch.waterFeatures;
+    const isVolcanic = biome === "volcanic";
     for (let x = 0; x < W; x++) {
       const surfaceY = Math.floor(H - heights[x]);
       for (let y = surfaceY; y < H; y++) {
@@ -227,16 +229,18 @@ export function generateTerrain(seed: number): Terrain {
         const waterNoise = noise2(x * wf.freq, y * wf.freq + seed * 0.3);
 
         // Elevated pools: above the water line, noise carves pockets of water
-        if (worldY > waterLevel && worldY < waterLevel + wf.poolRange) {
+        // Skip for volcanic — elevated lava pools on land look unnatural
+        if (!isVolcanic && worldY > waterLevel && worldY < waterLevel + wf.poolRange) {
           if (waterNoise > wf.poolThreshold && tile !== Tile.Air && tile !== Tile.CaveInterior) {
             tiles[idx] = Tile.ShallowWater;
           }
         }
 
         // Dry gaps: within the water zone, noise removes water to create islands/sandbars
+        // Volcanic: use DarkGround instead of Sand to avoid grey patches next to lava
         if (worldY <= waterLevel && (tile === Tile.ShallowWater || tile === Tile.DeepWater)) {
           if (waterNoise < wf.dryThreshold) {
-            tiles[idx] = Tile.Sand;
+            tiles[idx] = isVolcanic ? Tile.DarkGround : Tile.Sand;
           }
         }
       }

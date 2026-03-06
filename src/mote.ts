@@ -225,14 +225,27 @@ export function updateMote(
   m.forceX = 0;
   m.forceY = 0;
 
-  // Water avoidance: check if heading toward water
+  // Water avoidance: check if heading toward water, but also check behind —
+  // if water is on both sides, just keep going (prevents oscillation/spazzing)
   const aheadX = Math.round(m.x + m.direction * 3);
   if (aheadX >= 0 && aheadX < W) {
     const aheadSurface = getSurfaceY(terrain, aheadX);
     const aheadTile = getTile(terrain, aheadX, aheadSurface);
     if (aheadTile === Tile.ShallowWater || aheadTile === Tile.DeepWater) {
-      m.direction *= -1;
-      m.vx = m.direction * finalSpeed;
+      // Check behind before flipping — avoid oscillation when water is on both sides
+      const behindX = Math.round(m.x - m.direction * 3);
+      if (behindX >= 0 && behindX < W) {
+        const behindSurface = getSurfaceY(terrain, behindX);
+        const behindTile = getTile(terrain, behindX, behindSurface);
+        if (behindTile !== Tile.ShallowWater && behindTile !== Tile.DeepWater) {
+          m.direction *= -1;
+          m.vx = m.direction * finalSpeed;
+        }
+        // else: water on both sides — just keep walking, don't oscillate
+      } else {
+        m.direction *= -1;
+        m.vx = m.direction * finalSpeed;
+      }
     }
   }
 
