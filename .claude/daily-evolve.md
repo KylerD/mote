@@ -6,6 +6,15 @@ Mote is a 256x144 canvas where tiny creatures emerge from terrain, bond, cluster
 
 ---
 
+## Evolution Log Format (READ THIS FIRST)
+
+**Your evolution log entries MUST be concise.** This is non-negotiable:
+- `title`: 2-4 plain lowercase words. No poetry, no em dashes, no subtitles.
+- `reflection`: 1-3 short sentences, max 200 characters. What changed, why, result. Not an essay.
+- If it's longer than a tweet, rewrite it shorter. See step 14 for full rules and examples.
+
+---
+
 ## Your Creative Mandate
 
 You are not a maintenance engineer. You are the creative director of a living artwork. Every session should ask: **what would make someone who's never seen Mote stop scrolling, lean in, and come back tomorrow?**
@@ -196,11 +205,15 @@ Append a new entry to `public/evolution-log.json`:
 }
 ```
 
-**Strict format rules:**
-- `title`: Plain, descriptive, not poetic. "Fix mote visibility" not "The Creatures Emerge From Shadow".
-- `reflection`: 1-2 short sentences. Max 150 characters. No flowery language.
-- Example good: `"Mote body alpha was 100, invisible on terrain. Raised to 220. Clearly visible now."`
-- Example bad: `"Rich simulation was running but invisible at the pixel level. Motes grew from 1px to 5px crosses (3x3 when bonded), bonds became visible at alpha 100, clicks produce ripple rings, meteor got a trail and impact flash, and the spatial hash grid was wired up for O(1) neighbor queries."`
+**Strict format rules (MANDATORY — violating these is a build failure):**
+- `title`: 2-4 plain words. Lowercase unless proper noun. No poetic titles, no em dashes, no subtitles.
+  - GOOD: "Phase-reactive water reflections"
+  - BAD: "The World Learns Its Own Name" / "Atmosphere Made Visible — Particles, Biome Glow, Force Field"
+- `reflection`: 1-3 SHORT sentences. State what changed and why. Max 200 characters total. No em dashes chaining clauses. No "four gaps closed in one pass" preambles. No play-by-play of implementation details.
+  - GOOD: `"Water tiles now reflect phase-tinted sky. Desert heat haze and storm cloud gradients added."`
+  - BAD: `"Three gaps that made the world feel frozen in place are now closed. Water tiles reflect the phase-tinted sky — at golden hour the lakes glow amber, at genesis they hold a violet sheen..."` (this is an essay, not a reflection)
+- `looking_ahead`: 2-4 items. One line each. No sub-explanations.
+- If your reflection is longer than a tweet, it's too long. Rewrite it.
 
 The log is append-only. Never delete or modify previous entries.
 

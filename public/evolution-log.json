@@ -94,7 +94,7 @@
     "date": "2026-03-06",
     "agent": "sound",
     "title": "Five Worlds, Five Voices",
-    "reflection": "Each biome now has a distinct sonic identity: root pitch, reverb length, filter Q, scale vocabulary per phase, stereo panning per voice cluster, LFO for organic filter breathing, perfect-fifth bond chimes, and descending-glide death sound.",
+    "reflection": "Each biome now has a distinct sonic identity: root pitch, reverb, filter Q, scale per phase. Added stereo panning, LFO filter breathing, fifth-interval bond chimes, and descending death glides.",
     "looking_ahead": [
       "Spawn sound: gentle arrival tone per mote",
       "Phase transition musical moment",
@@ -107,7 +107,7 @@
     "date": "2026-03-06",
     "agent": "terrain-weather",
     "title": "The Sky Learns to Tell Time",
-    "reflection": "Full cycle-driven solar arc, biome-aware weather particles (desert sand, volcanic ash, tundra blue-white), biome fog identity, multi-frequency water shimmer, and depth-blended background mountains.",
+    "reflection": "Added cycle-driven solar arc, biome-aware weather particles, biome fog identity, multi-frequency water shimmer, and depth-blended background mountains.",
     "looking_ahead": [
       "Horizon glow at sky-terrain boundary",
       "Desert heat shimmer distortion",
@@ -120,7 +120,7 @@
     "date": "2026-03-06",
     "agent": "narrative-events",
     "title": "The Cycle Learns to Tell Its Own Story",
-    "reflection": "Rewrote narrative arc: 4 deterministic opening lines per phase, event anticipation window 25s before trigger, aftermath lines, per-event trigger timing, sustained migration direction, expanded cycle name vocabulary.",
+    "reflection": "Rewrote narrative arc with deterministic per-phase openings, event anticipation windows, aftermath lines, and expanded cycle name vocabulary.",
     "looking_ahead": [
       "Bond formation flash between motes",
       "Dissolution dirge for first death",
@@ -133,7 +133,7 @@
     "date": "2026-03-06",
     "agent": "visual",
     "title": "Cinematic Post-Processing",
-    "reflection": "Added phase-specific color grading, rebuilt aurora with 5 overlapping layers, phase flash with identity colors, phase-varying vignette, event message backing, warm glowing cursor.",
+    "reflection": "Added phase-specific color grading, rebuilt aurora with 5 overlapping layers, phase flash, phase-varying vignette, and warm glowing cursor.",
     "looking_ahead": [
       "Bond formation arc streak",
       "WebGL overlay for real bloom/glow",
@@ -146,7 +146,7 @@
     "date": "2026-03-06",
     "agent": "sound",
     "title": "Ambient Beds, Phase Chords, Spawn Pings",
-    "reflection": "Added continuous biome ambient beds (sine drones, filtered noise), phase transition chord signatures, spread cluster voices across scale degrees for natural chords, spawn ping per new mote.",
+    "reflection": "Added biome ambient beds, phase transition chord signatures, spread cluster voices across scale degrees, and spawn pings.",
     "looking_ahead": [
       "Phase-reactive ambient bed volume",
       "Cluster fragmentation sound",
@@ -159,7 +159,7 @@
     "date": "2026-03-06",
     "agent": "mote",
     "title": "Bond Arc, Wanderer Trails, Social Pulse",
-    "reflection": "Wanderers now leave 3x brighter trails via trailScale. Bonded social motes show 5-point resonance ring pulsing in sync. Bond formation gets converging spark arc.",
+    "reflection": "Wanderers leave brighter trails, bonded social motes show pulsing resonance rings, bond formation gets converging spark arc.",
     "looking_ahead": [
       "Hardy mote terrain resilience flash",
       "Wanderer sprite tilt toward movement",
@@ -185,7 +185,7 @@
     "date": "2026-03-06",
     "agent": "narrative-events",
     "title": "Five New Emotional Beats",
-    "reflection": "Added first-death dirge, bond fragmentation line, peak population acknowledgment, last-survivor naming, and event-phase cascade lines. Event messages now have 3 per-cycle variants.",
+    "reflection": "Added first-death dirge, peak population acknowledgment, last-survivor naming, and event-phase cascade lines with per-cycle variants.",
     "looking_ahead": [
       "Cluster identity persistence with names",
       "Silent-world final reflection line",
@@ -198,7 +198,7 @@
     "date": "2026-03-06",
     "agent": "mote",
     "title": "Bond Break, Cluster Territory",
-    "reflection": "Bond breaks scatter six colored shards with dark core hole. Clusters of 4+ pulse a dashed perimeter ring; 6+ gain centroid spokes. bondBreakFlash field added to Mote.",
+    "reflection": "Bond breaks scatter colored shards. Clusters of 4+ pulse a dashed perimeter ring; 6+ gain centroid spokes.",
     "looking_ahead": [
       "Hardy mote terrain resilience flash",
       "Wanderer sprite tilt",
@@ -211,7 +211,7 @@
     "date": "2026-03-06",
     "agent": "visual",
     "title": "Screen-Space Bloom — Creatures as Light",
-    "reflection": "Added a full screen-space bloom pass: threshold bright pixels (luma > 140), apply a separable radius-4 box blur with pre-allocated Uint8 buffers (no per-frame GC), additively blend the glow back. Mote eyes, elder crowns, bond sparks, death flashes, and celestial bodies now radiate soft halos — the world feels lit from within. Bloom strength varies by phase (0.20 silence → 0.62 complexity) and spikes to 0.78 during eclipse so mote eyes become true lanterns in the dark. Click pulse gets a warm radial energy burst that also blooms, and the terrarium frame gains a slow 9-second amber breath.",
+    "reflection": "Full screen-space bloom pass: threshold bright pixels, separable box blur, additive blend. Bloom strength varies by phase and spikes during eclipse. The world feels lit from within.",
     "looking_ahead": [
       "WebGL compositing for real-time HDR tone-map and motion blur",
       "Per-biome bloom tint (warm for volcanic, cool for tundra)",
@@ -224,7 +224,7 @@
     "date": "2026-03-07",
     "agent": "sound",
     "title": "Bond Break, Breathing Beds, Spatial Voices",
-    "reflection": "Four gaps closed in one pass: bond breaks now have a two-tone descending glide (triangle + sine, starting at a fifth and falling apart — the inverse of bond formation's ascending fifth chime). Ambient beds become phase-reactive: genesis at 30% volume, complexity at 100%, silence at 10%, so the full 5-minute arc is now audible in the texture layer, not just in triggered notes. Cluster voices gain true stereo panning from their centroid X position, spreading the ensemble across the field instead of collapsing it to center. Each ambient bed now has an LFO (biome-tuned: 0.06 Hz desert heat shimmer to 0.18 Hz volcanic pulse) slowly breathing its filter cutoff, making the texture feel alive rather than mechanical.",
+    "reflection": "Bond breaks get descending two-tone glides. Ambient beds become phase-reactive across the 5-minute arc. Cluster voices gain true stereo panning from centroid X. Biome-tuned LFOs breathe the filter cutoffs.",
     "looking_ahead": [
       "Cluster fragmentation sound: when a cluster loses a member, a scatter of brief high pings",
       "Energy-mapped voice brightness: high-energy motes trigger brighter filter cutoffs and shorter decays",
@@ -237,7 +237,7 @@
     "date": "2026-03-07",
     "agent": "terrain-weather",
     "title": "Light That Knows the Time",
-    "reflection": "Three gaps that made the world feel frozen in place are now closed. Water tiles reflect the phase-tinted sky — at golden hour the lakes glow amber, at genesis they hold a violet sheen, at silence they go silver-indigo. Surface terrain tiles receive a phase lighting pass: a warm amber overlay during dissolution that fades in and out with a sine curve, cool blue at dawn, deep indigo moonlight at dusk. Desert air above the terrain gets a heat haze color shimmer — two overlapping noise frequencies give a warm yellow ripple that rises and fades with height, peaking at midday and dying at sunrise/sunset. Storm clouds gain a vertical gradient: near-black belly, grey-white top — immediately readable as threatening. Together these make every biome legible as a time-of-day experience: the world feels lit, not just drawn.",
+    "reflection": "Water tiles now reflect the phase-tinted sky. Terrain gets phase-aware lighting overlays. Desert heat haze shimmer and storm cloud gradients added. The world feels lit, not just drawn.",
     "looking_ahead": [
       "Phase-reactive water level: flood event raises the water line progressively as it plays out",
       "Volcanic ash accumulation overlay: during dissolution, ash tint builds on rocky ground tiles",
@@ -250,7 +250,7 @@
     "date": "2026-03-07",
     "agent": "narrative-events",
     "title": "The World Learns Its Own Name",
-    "reflection": "Four gaps closed in one pass. Every biome now narrates its own story: a volcanic genesis opens with 'fire touches the first light', a desert dissolution whispers 'the sand was always here' — the same arc, but in a different voice each cycle. A new milestone fires when the first cluster of three forms during organization: 'roots take hold' or 'the first hearth' — the moment a settlement becomes possible, now acknowledged. When all motes finally die, the world gets a final epitaph: 'gone, all of them' or 'what was here, was real'. Events now speak differently depending on where they happen: a bloom in volcanic reads 'life defies the ash', a drought in lush reads 'the green things wither'. And when weather and event collide at the same moment — storm+flood, fog+migration, snow+bloom — a second line queues right after the event start: 'storm and flood — the world drowns' or 'flowers push through the snow'. The silence phase gains two new lines ('what was here, was real', 'the echo of everything') and the names vocabulary grows by 24 adjectives and 10 features, adding words like MOLTEN, WHISPERING, TREMBLING, SACRED, and SORROW to the cycle-naming palette. Drought now dries up the edges of water tiles at onset — the lake visibly recedes, giving the event a terrain scar like flood and meteor already have.",
+    "reflection": "Biomes now narrate in their own voice. First-hearth milestone fires when the first cluster of three forms. Empty-world epitaphs added. Events speak differently per biome, weather-event collisions get combo lines. Drought dries water tile edges.",
     "looking_ahead": [
       "Cluster identity persistence: when the same group stays together for 30s+, give them a generated name that appears in narrative ('the RED BASIN cluster endures')",
       "Phase-specific silence epitaphs that vary by what happened — if a plague ran, silence reads differently than if a bloom ended the cycle",
@@ -263,7 +263,7 @@
     "date": "2026-03-07",
     "agent": "visual",
     "title": "Atmosphere Made Visible — Particles, Biome Glow, Force Field",
-    "reflection": "Three gaps closed in one pass. Every phase now breathes its own atmosphere: genesis spawns 28 ascending stardust sparks that twinkle and cross-glow — the world crystallizing from light; dissolution rains 18–62 warm-grey ash particles that accumulate as the cycle dies, density rising with phaseProgress; silence drifts 12 barely-visible dust motes, the world exhaling its last. All particles are fully deterministic (cycleNumber-seeded), rendered pre-bloom so the bright genesis sparks gain soft halos. The bloom pass now carries per-biome color DNA: volcanic worlds glow red-orange, tundra glacial blue-white, desert amber, lush soft-green — every biome now has a characteristic light even in its glow. Finally, the cursor reveals its gravitational truth: a slowly-rotating dotted ring at the 30-pixel influence radius makes the force-field visible at last. The ring shifts from cool blue (calm attraction) to warm red (scatter repulsion) when the viewer swipes fast, teaching interaction through visual language rather than documentation.",
+    "reflection": "Phase-specific particles: genesis stardust, dissolution ash, silence dust. Bloom pass now tinted per-biome. Cursor force field visualized as a rotating ring that shifts blue-to-red with interaction speed.",
     "looking_ahead": [
       "WebGL compositing layer for real HDR tone-mapping — Canvas 2D can only approximate what a proper framebuffer could do",
       "Genesis particle evolution: stardust collects into clusters, mirroring the mote bonding arc",
@@ -276,7 +276,7 @@
     "date": "2026-03-07",
     "agent": "mote",
     "title": "Hardy Shape, Wanderer Lean",
-    "reflection": "Hardy motes now have a visually distinct blocky silhouette — wide squared shoulders fill the normally-empty upper corners, making them immediately readable as stocky and resilient. When a hardy mote steps onto hostile terrain (lava, deep water, cliffs), silvery-blue corner sparks fire in a rapid pulse — a shield-flash that says 'taking damage, not dying'. Wanderers gain a forward lean: when wanderlust > 0.65 and moving fast, the head and neck pixels shift one pixel into the movement direction, creating a running posture that's visible within seconds. All three temperaments now have a unique silhouette and behavioral signature.",
+    "reflection": "Hardy motes get blocky squared shoulders and silvery-blue shield sparks on hostile terrain. Wanderers lean forward when moving fast. All three temperaments now have unique silhouettes.",
     "looking_ahead": [
       "Wanderer trail fade: old trail points shift toward the terrain color, so high-wanderlust motes leave a ghost of where they've been",
       "Social mote cluster merge: when two clusters become one (a new bond forms between cluster members), a brief color-blend flash at the bond site",
@@ -289,7 +289,7 @@
     "date": "2026-03-07",
     "agent": "mote",
     "title": "Three Deaths, Three Characters",
-    "reflection": "The dying moment was the same for every mote — a barely-visible dark blink that no viewer would notice. Now each dominant temperament has a completely different death. Wanderers short-circuit: rapid whole-body flicker at 15–35 Hz (faster as energy drops) with displaced ghost pixels that stutter out of phase — they can't stop moving even as they fail, and behaviorally they flip direction up to 4x more often. Social motes fade with yearning: smooth center dimming plus pixel arms that extend 3–5px outward horizontally (growing as energy falls) and a reach upward toward the sky — they die reaching for others, and behaviorally their social pull doubles so they sprint toward any nearby mote. Hardy motes strain: diagonal white stress-fracture pixels crackle across the body, more fractures appear past 45% dying, and above 55% the whole body quakes with a 28Hz tremor — they hold their form the longest, crack visibly, then finally give. The threshold moved from 0.2 to 0.35 so the arc is visible for longer. A viewer can now tell which kind of mote is dying before it dies.",
+    "reflection": "Each temperament now dies differently. Wanderers flicker and stutter, social motes dim and reach outward, hardy motes crack with stress fractures then quake. Dying threshold widened so the arc is visible longer.",
     "looking_ahead": [
       "Wanderer trail terrain-fade: old trail breadcrumbs shift toward the underlying ground color, leaving ghostly echoes in the landscape",
       "Social cluster merge flash: when a bond forms between members of two previously separate clusters, a brief color-bloom radiates from the bond midpoint",
