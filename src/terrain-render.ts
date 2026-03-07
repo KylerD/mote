@@ -429,6 +429,43 @@ function renderSurfaceDetail(buf: ImageData, terrain: Terrain): void {
 }
 
 /**
+ * Volcanic ash accumulation — during dissolution/silence, ash progressively coats
+ * the ground in volcanic biomes. Surface tiles grey-shift toward dark warm ash,
+ * as if the world's fires are banking and the fallout is settling.
+ * Call after terrain + weather are composited, before motes.
+ */
+export function applyVolcanicAsh(buf: ImageData, terrain: Terrain, cycleProgress: number): void {
+  if (terrain.biome !== "volcanic") return;
+
+  const ashStart = 0.68;
+  const ashStrength = Math.max(0, Math.min(1, (cycleProgress - ashStart) / 0.24));
+  if (ashStrength < 0.02) return;
+
+  // Ash color: warm dark grey — volcanic ash has a faint reddish warmth
+  const ashR = 58, ashG = 50, ashB = 45;
+  const d = buf.data;
+
+  for (let x = 0; x < W; x++) {
+    const surfaceY = getSurfaceY(terrain, x);
+    // Coat surface tile and one pixel above (exposed tops of spires, cliffs)
+    for (let dy = -1; dy <= 0; dy++) {
+      const y = surfaceY + dy;
+      if (y < 0 || y >= H) continue;
+      const tile = terrain.tiles[y * W + x] as Tile;
+      // Skip air and water/lava — ash only settles on solid surfaces
+      if (tile === Tile.Air || tile === Tile.DeepWater || tile === Tile.ShallowWater) continue;
+
+      // Surface tile gets heavier coat, pixel above gets lighter dusting
+      const blendStr = dy === 0 ? ashStrength * 0.40 : ashStrength * 0.16;
+      const pi = (y * W + x) * 4;
+      d[pi]     = Math.round(d[pi]     * (1 - blendStr) + ashR * blendStr);
+      d[pi + 1] = Math.round(d[pi + 1] * (1 - blendStr) + ashG * blendStr);
+      d[pi + 2] = Math.round(d[pi + 2] * (1 - blendStr) + ashB * blendStr);
+    }
+  }
+}
+
+/**
  * Desert heat haze — warm shimmering glow in the air above hot desert terrain.
  * Call after terrain + weather are composited, before motes are drawn.
  * Only active in hot phases (exploration through dissolution).

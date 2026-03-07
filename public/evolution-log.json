@@ -452,5 +452,25 @@
       "src/sound.ts",
       "public/evolution-log.json"
     ]
+  },
+  {
+    "date": "2026-03-07",
+    "agent": "terrain-weather",
+    "title": "Tundra Aurora, Ash Fall, Biome Clouds",
+    "reflection": "Tundra biome finally has its night sky: three ribbons of aurora (green, cyan-blue, violet) that undulate as curtains of light during dissolution and silence. Volcanic dissolution is now a slow burial — ground tiles grey toward ash as the cycle ends. Each biome's clouds now have their own character: dusty ochre for desert, icy-blue for tundra, sooty grey for volcanic, humid-bright for lush.",
+    "looking_ahead": [
+      "Phase-reactive water level: flood event raises the shoreline visibly as it plays out — shallow tiles appear at terrain edges",
+      "Rain puddles: small water-colour patches on flat ground during rain, a frame or two of sparkle then fade",
+      "Tundra aurora interaction: when a large cluster forms under the aurora, the aurora briefly brightens above them",
+      "Volcanic sky darkening: as ash accumulates, the sky itself should dim and redden slightly — the world choking on its own output"
+    ],
+    "files_changed": [
+      "src/weather-render.ts",
+      "src/terrain-render.ts",
+      "src/terrain.ts",
+      "src/weather.ts",
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   }
 ]

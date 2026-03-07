@@ -16,6 +16,7 @@ export type { Weather, WeatherType };
 export {
   renderCelestial, renderClouds, renderParticles,
   renderLightning, renderFog, applyWeatherDarkening,
+  applyTundraAurora,
 } from "./weather-render";
 
 // Biome -> weather probability weights [clear, rain, storm, snow, overcast, fog]

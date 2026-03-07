@@ -171,7 +171,7 @@ export function renderCelestial(buf: ImageData, weather: Weather, time: number, 
 }
 
 /** Render clouds — call after terrain for overlay effect */
-export function renderClouds(buf: ImageData, weather: Weather, time: number): void {
+export function renderClouds(buf: ImageData, weather: Weather, time: number, biome: Biome = "temperate"): void {
   for (const cloud of weather.clouds) {
     const cx = cloud.x;
     const cy = cloud.y;
@@ -208,15 +208,103 @@ export function renderClouds(buf: ImageData, weather: Weather, time: number): vo
           const v = Math.round(130 - vertT * 80);
           cr = v - 8; cg = v; cb = v + 12;
         } else if (weather.type === "overcast") {
-          // Overcast: flat mid-grey with slight dark belly
+          // Overcast: flat mid-grey with slight dark belly — slightly biome-tinted
           const v = Math.round(158 - vertT * 28);
-          cr = v; cg = v + 2; cb = v + 8;
+          if (biome === "desert") {
+            cr = v + 10; cg = v + 4; cb = v - 8;   // warm ochre haze
+          } else if (biome === "volcanic") {
+            cr = v - 5; cg = v - 6; cb = v - 4;    // darker ashen
+          } else {
+            cr = v; cg = v + 2; cb = v + 8;
+          }
         } else {
-          // Clear/fog/snow: bright white, slight blue tint at top
+          // Clear/fog/snow: biome-tinted clouds
           const blueBoost = Math.round((1 - vertT) * 18);
-          cr = 205; cg = 210; cb = 218 + blueBoost;
+          if (biome === "desert") {
+            // Dusty warm ochre — sun-bleached clouds
+            cr = 212; cg = 203; cb = 184 + Math.round(blueBoost * 0.3);
+          } else if (biome === "tundra") {
+            // Icy pale blue — cold high-altitude
+            cr = 185; cg = 198; cb = 222 + blueBoost;
+          } else if (biome === "volcanic") {
+            // Ashen grey — heavy with particulates
+            cr = 172; cg = 168; cb = 166 + Math.round(blueBoost * 0.4);
+          } else if (biome === "lush") {
+            // Bright with faint green tint — humid tropical
+            cr = 200; cg = 215; cb = 208 + Math.round(blueBoost * 0.5);
+          } else {
+            // Temperate: clean white
+            cr = 205; cg = 210; cb = 218 + blueBoost;
+          }
         }
         setPixel(buf, px, py, cr, cg, cb, a);
+      }
+    }
+  }
+}
+
+/**
+ * Tundra ambient aurora — softly glowing curtains of light in the night sky.
+ * Activates during dissolution/silence in tundra biome. Three ribbon bands:
+ * dominant green, cyan-blue accent, violet fringe — each undulating independently.
+ * Call after renderCelestial so aurora overlays the star field.
+ */
+export function applyTundraAurora(
+  buf: ImageData,
+  biome: Biome,
+  time: number,
+  cycleProgress: number,
+  weatherType: string,
+): void {
+  if (biome !== "tundra") return;
+
+  // Aurora fades in during dissolution, peaks at full silence
+  const fadeIn = Math.max(0, Math.min(1, (cycleProgress - 0.70) / 0.12));
+  if (fadeIn <= 0) return;
+
+  // Heavy cloud cover kills the aurora; light rain/fog dims it
+  if (weatherType === "storm" || weatherType === "overcast") return;
+  const wf = weatherType === "rain" ? 0.30 : weatherType === "fog" ? 0.55 : 1.0;
+
+  const d = buf.data;
+
+  // Three aurora ribbons: [baseY, yAmplitude, xFrequency, xSpeed, bandWidth, r, g, b]
+  // Positions are fractions of H; colors are peak additive RGB
+  const ribbons: [number, number, number, number, number, number, number, number][] = [
+    [H * 0.11, H * 0.036, 0.040,  0.30, H * 0.088, 28, 190, 105],  // green (dominant)
+    [H * 0.17, H * 0.028, 0.058, -0.24, H * 0.055, 40, 122, 222],  // cyan-blue
+    [H * 0.13, H * 0.022, 0.030,  0.38, H * 0.042, 158, 44, 215],  // violet accent
+  ];
+
+  for (let x = 0; x < W; x++) {
+    // Curtain intensity varies along X — creates shimmering column structures
+    const curtainX = noise2(x * 0.08 + time * 0.06, 47.3) * 0.5 + 0.5;
+    const xStr = curtainX * curtainX; // sharpen variation
+
+    for (const [yBase, yAmp, freq, spd, bw, rr, gg, bb] of ribbons) {
+      // Dual-frequency undulation — primary wave + harmonic for organic feel
+      const yc = yBase
+        + Math.sin(x * freq + time * spd) * yAmp
+        + Math.sin(x * freq * 0.52 + time * spd * 1.7 + 2.1) * yAmp * 0.35;
+
+      const yMin = Math.max(0, Math.floor(yc - bw * 2.6));
+      const yMax = Math.min(Math.floor(H * 0.50), Math.ceil(yc + bw * 2.6));
+
+      for (let y = yMin; y <= yMax; y++) {
+        const dy = Math.abs(y - yc);
+        // Gaussian falloff from band center
+        const falloff = Math.exp(-(dy * dy) / (bw * bw * 0.52));
+        if (falloff < 0.04) continue;
+
+        // Vertical curtain shimmer — makes it look like draped light
+        const shimmer = noise2(x * 0.22 + time * 0.18, y * 0.14 + time * 0.10) * 0.5 + 0.5;
+        const str = falloff * shimmer * xStr * fadeIn * wf;
+        if (str < 0.04) continue;
+
+        const pi = (y * W + x) * 4;
+        d[pi]     = Math.min(255, d[pi]     + Math.round(rr * str * 0.70));
+        d[pi + 1] = Math.min(255, d[pi + 1] + Math.round(gg * str * 0.70));
+        d[pi + 2] = Math.min(255, d[pi + 2] + Math.round(bb * str * 0.70));
       }
     }
   }
