@@ -42,6 +42,7 @@ export function createMote(
     bondTimer: 0,
     bondFlash: 0,
     bondBreakFlash: 0,
+    hardinessFlash: 0,
     grounded: false,
     direction: rng() < 0.5 ? -1 : 1,
     spawnFlash: 1.0,
@@ -98,6 +99,13 @@ export function updateMote(
   } else if (tileEnergy < 0) {
     const hardResist = 1 - m.temperament.hardiness * 0.4;
     m.energy += tileEnergy * 0.03 * dt * hardResist;
+  }
+
+  // Hardy flash — lights up when a resistant mote weathers hostile terrain
+  if (tileEnergy < -0.1 && m.temperament.hardiness > 0.45) {
+    m.hardinessFlash = Math.min(1, m.hardinessFlash + dt * 6);
+  } else {
+    m.hardinessFlash = Math.max(0, m.hardinessFlash - dt * 4);
   }
 
   if (m.energy <= 0) {

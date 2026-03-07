@@ -96,6 +96,7 @@ export interface Mote {
   forceX: number;
   forceY: number;
   bondBreakFlash: number;
+  hardinessFlash: number;
 }
 
 // ---- Physics ----

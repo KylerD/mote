@@ -78,17 +78,23 @@ export function renderMotes(
     const oy = Math.round(m.y);
     const dir = m.direction;
 
+    // WANDERER LEAN — high-wanderlust motes tilt head forward when moving fast
+    // lean=±1 shifts head/neck pixels in movement direction; body/feet stay planted
+    const lean = (m.temperament.wanderlust > 0.65 && Math.abs(m.vx) > 2.5)
+      ? dir
+      : 0;
+
     // Brighter core color
     const lr = Math.min(255, Math.round(cr * 1.4));
     const lg = Math.min(255, Math.round(cg * 1.4));
     const lb = Math.min(255, Math.round(cb * 1.4));
 
-    // DARK OUTLINE — near-opaque for strong contrast
-    setPixel(buf, ox - 1, oy - 3, 4, 4, 8, 245);
-    setPixel(buf, ox, oy - 3, 4, 4, 8, 245);
-    setPixel(buf, ox + 1, oy - 3, 4, 4, 8, 245);
-    setPixel(buf, ox - 2, oy - 2, 4, 4, 8, 245);
-    setPixel(buf, ox + 2, oy - 2, 4, 4, 8, 245);
+    // DARK OUTLINE — head area shifts with lean; body/feet anchored
+    setPixel(buf, ox - 1 + lean, oy - 3, 4, 4, 8, 245);
+    setPixel(buf, ox + lean,     oy - 3, 4, 4, 8, 245);
+    setPixel(buf, ox + 1 + lean, oy - 3, 4, 4, 8, 245);
+    setPixel(buf, ox - 2 + lean, oy - 2, 4, 4, 8, 245);
+    setPixel(buf, ox + 2 + lean, oy - 2, 4, 4, 8, 245);
     setPixel(buf, ox - 3, oy - 1, 4, 4, 8, 230);
     setPixel(buf, ox + 3, oy - 1, 4, 4, 8, 230);
     setPixel(buf, ox - 3, oy, 4, 4, 8, 230);
@@ -99,19 +105,19 @@ export function renderMotes(
     setPixel(buf, ox - 1, oy + 2, 4, 4, 8, 200);
     setPixel(buf, ox + 1, oy + 2, 4, 4, 8, 200);
 
-    // HEAD — solid body, no breathe on core
-    setPixel(buf, ox - 1, oy - 2, cr, cg, cb, 180);
-    setPixel(buf, ox, oy - 2, lr, lg, lb, 240);
-    setPixel(buf, ox + 1, oy - 2, cr, cg, cb, 180);
+    // HEAD — shifts with lean
+    setPixel(buf, ox - 1 + lean, oy - 2, cr, cg, cb, 180);
+    setPixel(buf, ox + lean,     oy - 2, lr, lg, lb, 240);
+    setPixel(buf, ox + 1 + lean, oy - 2, cr, cg, cb, 180);
 
-    // FACE — solid
+    // FACE — shifts with lean
     setPixel(buf, ox - 2, oy - 1, cr, cg, cb, 120);
-    setPixel(buf, ox - 1, oy - 1, cr, cg, cb, 210);
-    setPixel(buf, ox, oy - 1, lr, lg, lb, 245);
-    setPixel(buf, ox + 1, oy - 1, cr, cg, cb, 210);
+    setPixel(buf, ox - 1 + lean, oy - 1, cr, cg, cb, 210);
+    setPixel(buf, ox + lean,     oy - 1, lr, lg, lb, 245);
+    setPixel(buf, ox + 1 + lean, oy - 1, cr, cg, cb, 210);
     setPixel(buf, ox + 2, oy - 1, cr, cg, cb, 120);
 
-    // GLOWING EYES
+    // GLOWING EYES — follow the lean
     const blinkCycle = Math.sin(m.age * 0.8 + m.temperament.sociability * 10);
     const eyeOpen = blinkCycle > -0.92;
     if (eyeOpen) {
@@ -121,11 +127,11 @@ export function renderMotes(
       const eyeG = Math.min(255, Math.round(cg * 0.3 + 180));
       const eyeB = Math.min(255, Math.round(cb * 0.3 + 180));
       if (dir > 0) {
-        setPixel(buf, ox, oy - 1, eyeR, eyeG, eyeB, eyeBright);
-        setPixel(buf, ox + 1, oy - 1, eyeR, eyeG, eyeB, eyeBright);
+        setPixel(buf, ox + lean,     oy - 1, eyeR, eyeG, eyeB, eyeBright);
+        setPixel(buf, ox + 1 + lean, oy - 1, eyeR, eyeG, eyeB, eyeBright);
       } else {
-        setPixel(buf, ox - 1, oy - 1, eyeR, eyeG, eyeB, eyeBright);
-        setPixel(buf, ox, oy - 1, eyeR, eyeG, eyeB, eyeBright);
+        setPixel(buf, ox - 1 + lean, oy - 1, eyeR, eyeG, eyeB, eyeBright);
+        setPixel(buf, ox + lean,     oy - 1, eyeR, eyeG, eyeB, eyeBright);
       }
     }
 
@@ -148,18 +154,42 @@ export function renderMotes(
       setPixel(buf, ox + 1, oy + 1, cr, cg, cb, 150);
     }
 
-    // INNER GLOW — breathe affects this aura layer only
+    // INNER GLOW — breathe affects this aura layer only; follows lean
     const heartPulse = Math.sin(m.age * 4 + m.temperament.hardiness * 5) * 0.3 + 0.7;
     const heartA = Math.round(200 * heartPulse * m.energy * breathe);
-    setPixel(buf, ox, oy - 1, lr, lg, lb, heartA);
+    setPixel(buf, ox + lean, oy - 1, lr, lg, lb, heartA);
 
-    // ELDER CROWN
+    // HARDY WIDE SHOULDERS — angular, blocky silhouette for hardy temperament.
+    // Fills the normally-empty upper corners, making hardy motes look squarer/sturdier.
+    const isHardy = m.temperament.hardiness > 0.55;
+    if (isHardy) {
+      const hs = (m.temperament.hardiness - 0.55) / 0.45; // 0→1
+      const shoulderA = Math.round(hs * 175);
+      setPixel(buf, ox - 2, oy - 2, cr, cg, cb, shoulderA);
+      setPixel(buf, ox + 2, oy - 2, cr, cg, cb, shoulderA);
+      setPixel(buf, ox - 2, oy + 1, cr, cg, cb, Math.round(shoulderA * 0.55));
+      setPixel(buf, ox + 2, oy + 1, cr, cg, cb, Math.round(shoulderA * 0.55));
+    }
+
+    // HARDY SHIELD FLASH — silvery-blue corner sparks when resisting hostile terrain
+    if (m.hardinessFlash > 0) {
+      const pulse = Math.sin(m.age * 14) * 0.3 + 0.7;
+      const shieldA = Math.round(m.hardinessFlash * pulse * 200);
+      if (shieldA > 3) {
+        setPixel(buf, ox - 3, oy - 3, 160, 210, 255, shieldA);
+        setPixel(buf, ox + 3, oy - 3, 160, 210, 255, shieldA);
+        setPixel(buf, ox - 3, oy + 1, 160, 210, 255, Math.round(shieldA * 0.65));
+        setPixel(buf, ox + 3, oy + 1, 160, 210, 255, Math.round(shieldA * 0.65));
+      }
+    }
+
+    // ELDER CROWN — follows lean
     if (isElder) {
       const elderGlow = Math.sin(m.age * 1.5) * 0.15 + 0.85;
       const ga = Math.round(200 * elderGlow);
-      setPixel(buf, ox, oy - 3, 210, 180, 60, ga);
-      setPixel(buf, ox - 1, oy - 3, 210, 180, 60, Math.round(ga * 0.6));
-      setPixel(buf, ox + 1, oy - 3, 210, 180, 60, Math.round(ga * 0.6));
+      setPixel(buf, ox + lean,     oy - 3, 210, 180, 60, ga);
+      setPixel(buf, ox - 1 + lean, oy - 3, 210, 180, 60, Math.round(ga * 0.6));
+      setPixel(buf, ox + 1 + lean, oy - 3, 210, 180, 60, Math.round(ga * 0.6));
     }
 
     // WALKING DUST
@@ -179,13 +209,13 @@ export function renderMotes(
       }
     }
 
-    // BOND-SEEKING GLOW — breathe affects this
+    // BOND-SEEKING GLOW — follows lean
     if (m.bondTimer > 0.3 && m.bondFlash === 0) {
       const seekPulse = Math.sin(m.age * 8) * 0.5 + 0.5;
       const sa = Math.round(seekPulse * 60 * breathe);
-      setPixel(buf, ox, oy - 3, lr, lg, lb, sa);
-      setPixel(buf, ox - 1, oy - 3, lr, lg, lb, Math.round(sa * 0.4));
-      setPixel(buf, ox + 1, oy - 3, lr, lg, lb, Math.round(sa * 0.4));
+      setPixel(buf, ox + lean,     oy - 3, lr, lg, lb, sa);
+      setPixel(buf, ox - 1 + lean, oy - 3, lr, lg, lb, Math.round(sa * 0.4));
+      setPixel(buf, ox + 1 + lean, oy - 3, lr, lg, lb, Math.round(sa * 0.4));
     }
 
     // SOCIAL RESONANCE — bonded social motes pulse in sync with global time

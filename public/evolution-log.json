@@ -219,5 +219,18 @@
       "Phase-specific particle showers (genesis stardust, dissolution ash)"
     ],
     "files_changed": ["src/render-effects.ts", "src/render-ui.ts", "src/main.ts", "src/style.css", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-07",
+    "agent": "mote",
+    "title": "Hardy Shape, Wanderer Lean",
+    "reflection": "Hardy motes now have a visually distinct blocky silhouette — wide squared shoulders fill the normally-empty upper corners, making them immediately readable as stocky and resilient. When a hardy mote steps onto hostile terrain (lava, deep water, cliffs), silvery-blue corner sparks fire in a rapid pulse — a shield-flash that says 'taking damage, not dying'. Wanderers gain a forward lean: when wanderlust > 0.65 and moving fast, the head and neck pixels shift one pixel into the movement direction, creating a running posture that's visible within seconds. All three temperaments now have a unique silhouette and behavioral signature.",
+    "looking_ahead": [
+      "Wanderer trail fade: old trail points shift toward the terrain color, so high-wanderlust motes leave a ghost of where they've been",
+      "Social mote cluster merge: when two clusters become one (a new bond forms between cluster members), a brief color-blend flash at the bond site",
+      "Hardy elder: old hardy motes develop a second wider shoulder layer — they accumulate visual mass over their lifetime",
+      "Low-energy wanderer: a frantic fast-flicker as energy nears zero, vs social motes that dim evenly — different deaths for different characters"
+    ],
+    "files_changed": ["src/types.ts", "src/mote.ts", "src/render-motes.ts", "public/evolution-log.json"]
   }
 ]
