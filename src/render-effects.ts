@@ -1,7 +1,7 @@
 // render-effects.ts — Visual effects: eclipse, aurora, meteor, impact, crater, vignette, phase flash, bloom.
 
 import { W, H } from "./config";
-import type { Mote, ActiveEvent } from "./types";
+import type { Mote, ActiveEvent, Biome } from "./types";
 import { setPixel } from "./render";
 import { getMeteorPosition } from "./events";
 
@@ -486,12 +486,33 @@ export function renderAtmosphericParticles(
   }
 }
 
-/** Vignette — darken edges, strength varies by phase */
-export function applyVignette(buf: ImageData, phaseIndex: number): void {
+/** Vignette — darken edges with phase-colored tint. Each phase has a distinct atmospheric hue. */
+export function applyVignette(buf: ImageData, phaseIndex: number, phaseProgress: number): void {
   // Minimum brightness at extreme corners per phase (lower = darker edges)
   // silence is most dramatic; exploration is most open
   const VIGNETTE_FLOORS = [0.57, 0.62, 0.56, 0.55, 0.46, 0.32];
   const floor = VIGNETTE_FLOORS[Math.min(5, Math.max(0, phaseIndex))];
+
+  // Per-phase edge tint: [r, g, b, strength] — colors the shadow at the vignette boundary.
+  // The tint is additive into the darkened edge zone, painting mood without blowing out the center.
+  //   genesis:     deep violet — the world just kindled, starlike
+  //   exploration: no tint    — open sky, neutral
+  //   organization: soft jade — life organizing, green haze at periphery
+  //   complexity:  warm amber  — peak warmth, campfire at the edge
+  //   dissolution: amber-red   — decay bleeds to the horizon
+  //   silence:     cold indigo — void closes in, blue absence
+  const TINTS: [number, number, number, number][] = [
+    [ 22,  0, 55, 0.55],
+    [  0,  0,  0, 0.00],
+    [  0, 18,  8, 0.30],
+    [ 30, 13,  0, 0.45],
+    [ 50,  9,  0, 0.65],
+    [  0,  8, 45, 0.80],
+  ];
+  const [tr, tg, tb, ts] = TINTS[Math.min(5, Math.max(0, phaseIndex))];
+  // Blend tint in gradually over first 25% of the phase so transitions feel smooth
+  const tintStrength = ts * Math.min(1, phaseProgress / 0.25);
+
   const cx = W / 2;
   const cy = H / 2;
   const maxDist = Math.sqrt(cx * cx + cy * cy);
@@ -504,10 +525,75 @@ export function applyVignette(buf: ImageData, phaseIndex: number): void {
       const dist = Math.sqrt(dx * dx + dy * dy) / maxDist;
       const fade = dist < 0.65 ? 1 : 1 - (dist - 0.65) * 1.2;
       const f = Math.max(floor, fade);
+      // How much darkness is in this pixel's zone (0 at center, up to 1−floor at extreme corner)
+      const darkness = 1 - f;
+      const tint = darkness * tintStrength;
       const i = (y * W + x) * 4;
-      d[i]     = d[i]     * f;
-      d[i + 1] = d[i + 1] * f;
-      d[i + 2] = d[i + 2] * f;
+      d[i]     = Math.min(255, Math.max(0, d[i]     * f + tr * tint)) | 0;
+      d[i + 1] = Math.min(255, Math.max(0, d[i + 1] * f + tg * tint)) | 0;
+      d[i + 2] = Math.min(255, Math.max(0, d[i + 2] * f + tb * tint)) | 0;
+    }
+  }
+}
+
+/**
+ * Cluster radiance — soft ambient light pools emanating from large bonded clusters.
+ * Each cluster centroid glows with biome-warm light, creating a camp-fire-in-darkness
+ * effect. Rendered pre-bloom so the light feeds into the glow pass.
+ *
+ * Phase multiplier ensures radiance peaks at complexity and fades in dissolution/silence.
+ */
+export function renderClusterRadiance(
+  buf: ImageData,
+  clusters: Mote[][],
+  biome: Biome,
+  phaseIndex: number,
+  time: number,
+): void {
+  // Phase multiplier — radiance grows with mote social activity
+  const PHASE_STRENGTH = [0.0, 0.25, 0.65, 1.0, 0.45, 0.15];
+  const phaseStr = PHASE_STRENGTH[Math.min(5, Math.max(0, phaseIndex))];
+  if (phaseStr < 0.01) return;
+
+  // Per-biome light color — warm tone matching each biome's character
+  const BIOME_LIGHT: Record<string, [number, number, number]> = {
+    temperate: [210, 195, 145],
+    desert:    [245, 185,  70],
+    tundra:    [130, 195, 245],
+    volcanic:  [255, 115,  35],
+    lush:      [155, 225, 100],
+  };
+  const [lr, lg, lb] = BIOME_LIGHT[biome] ?? [210, 195, 145];
+
+  for (const cluster of clusters) {
+    if (cluster.length < 4) continue;
+
+    // Centroid of the cluster
+    let cx = 0, cy = 0;
+    for (const m of cluster) { cx += m.x; cy += m.y; }
+    cx /= cluster.length; cy /= cluster.length;
+
+    // Radius and peak alpha scale with cluster size
+    const glowRadius = Math.min(32, 10 + cluster.length * 2.5);
+    const peakAlpha  = Math.min(26, 5 + cluster.length * 2.2) * phaseStr;
+    // Slow pulse: large clusters breathe more slowly, like a settled community
+    const pulseHz = 1.8 / Math.max(cluster.length, 3);
+    const pulse = Math.sin(time * pulseHz + cx * 0.06) * 0.12 + 0.88;
+
+    const rcx = Math.round(cx);
+    const rcy = Math.round(cy);
+    const r2 = glowRadius * glowRadius;
+
+    for (let dy = -Math.ceil(glowRadius); dy <= Math.ceil(glowRadius); dy++) {
+      for (let dx = -Math.ceil(glowRadius); dx <= Math.ceil(glowRadius); dx++) {
+        const d2 = dx * dx + dy * dy;
+        if (d2 > r2) continue;
+        const falloff = 1 - Math.sqrt(d2) / glowRadius;
+        // Cubic falloff = very soft, wide spread. No harsh edges.
+        const a = Math.round(peakAlpha * falloff * falloff * falloff * pulse);
+        if (a < 2) continue;
+        setPixel(buf, rcx + dx, rcy + dy, lr, lg, lb, a);
+      }
     }
   }
 }

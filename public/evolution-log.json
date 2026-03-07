@@ -507,5 +507,23 @@
       "src/render-motes.ts",
       "public/evolution-log.json"
     ]
+  },
+  {
+    "date": "2026-03-07",
+    "agent": "visual",
+    "title": "Colored Light, Colored Dark — Phase Mood Through Every Pixel",
+    "reflection": "Three interlocking changes that transform the frame into a mood instrument. The vignette edges now hold color: genesis bleeds violet into the corners, dissolution smolders amber-red at the periphery, silence seals the world in cold indigo. Large bonded clusters now emanate a soft area-light pool — biome-warm radiance that feeds bloom, so a temperate gathering glows gold and a tundra cluster shimmers cyan. The terrarium frame itself breathes in the world's own color: each biome sets a CSS custom property that drives the outer glow, so a volcanic world pulses with ember-red and a lush world exhales green.",
+    "looking_ahead": [
+      "Mote-count-aware vignette intensity: when only 1-2 motes remain in silence, push the vignette floor even lower so the world feels truly evacuated",
+      "Cluster radiance color-blend: instead of pure biome color, tint the radiance toward the cluster's average mote color — so a bonded group of wanderers (blue-green) glows cooler than a hardy cluster (amber)",
+      "Phase-transition vignette cross-fade: at the moment of phase change, briefly blend between the outgoing and incoming tint colors for a smooth cinematic shift",
+      "Genesis stardust arc: make ascending stardust particles arc toward the earliest mote positions, so they feel magnetically drawn to where life is about to form"
+    ],
+    "files_changed": [
+      "src/render-effects.ts",
+      "src/main.ts",
+      "src/style.css",
+      "public/evolution-log.json"
+    ]
   }
 ]

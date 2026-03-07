@@ -407,19 +407,19 @@ canvas#world {
   }
 }
 
-/* The terrarium breathes — a slow ambient glow pulses at the frame edge */
+/* The terrarium breathes — ambient glow color changes per biome via --frame-glow */
 @keyframes frame-breathe {
   0%, 100% {
     box-shadow:
       0 0 0 1px rgba(0, 0, 0, 0.5),
       0 4px 24px rgba(0, 0, 0, 0.30),
-      0 0 48px rgba(220, 140, 80, 0.00);
+      0 0 48px transparent;
   }
   50% {
     box-shadow:
       0 0 0 1px rgba(0, 0, 0, 0.45),
       0 4px 32px rgba(0, 0, 0, 0.35),
-      0 0 64px rgba(220, 140, 80, 0.07);
+      0 0 72px var(--frame-glow, rgba(220, 140, 80, 0.07));
   }
 }
 

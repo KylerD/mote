@@ -19,7 +19,7 @@ import {
   renderAuroraCurtains, renderEclipse, applyAuroraBoost,
   renderMeteorVisual, renderCraterGlow, renderPhaseFlash,
   applyVignette, applyPhaseColorGrade, createMeteorState,
-  applyBloom, renderAtmosphericParticles,
+  applyBloom, renderAtmosphericParticles, renderClusterRadiance,
 } from "./render-effects";
 import { renderClusterGlow, renderBondLines, renderDeathParticles } from "./render-bonds";
 import { renderRipples, renderCursor, renderEventMessage, renderDebugOverlay } from "./render-ui";
@@ -43,6 +43,22 @@ function init(): void {
   // DOM info elements
   const elCycleName = document.getElementById("cycle-name");
   const elPhase = document.getElementById("cycle-phase");
+
+  // Biome-reactive frame glow — set once; biome is fixed for the cycle
+  const frameEl = document.getElementById("frame");
+  if (frameEl) {
+    const BIOME_GLOWS: Record<string, string> = {
+      temperate: "rgba(180, 190, 140, 0.10)",
+      desert:    "rgba(240, 175, 65,  0.11)",
+      tundra:    "rgba(100, 185, 245, 0.10)",
+      volcanic:  "rgba(255,  70, 25,  0.10)",
+      lush:      "rgba(100, 210, 120, 0.10)",
+    };
+    frameEl.style.setProperty(
+      "--frame-glow",
+      BIOME_GLOWS[world.ref.terrain.biome] ?? "rgba(220, 140, 80, 0.07)",
+    );
+  }
 
   // Audio init on first interaction
   const audioPrompt = document.getElementById("audio-prompt");
@@ -188,6 +204,9 @@ function init(): void {
     // Phase-specific atmospheric particles — rendered pre-bloom so they glow
     renderAtmosphericParticles(rc.buf, w.phaseIndex, w.phaseProgress, w.time, w.cycleNumber);
 
+    // Cluster radiance — soft area light from large bonded clusters, feeds into bloom
+    renderClusterRadiance(rc.buf, w.clusters, w.terrain.biome, w.phaseIndex, w.time);
+
     // Bloom strength varies by phase and event — creatures glow brightest at peak complexity
     const BLOOM_BY_PHASE = [0.45, 0.40, 0.50, 0.62, 0.33, 0.20];
     let bloomStrength = BLOOM_BY_PHASE[Math.min(5, w.phaseIndex)];
@@ -205,7 +224,7 @@ function init(): void {
     }
     applyBloom(rc.buf, bloomStrength, bloomTintR, bloomTintG, bloomTintB);
 
-    applyVignette(rc.buf, w.phaseIndex);
+    applyVignette(rc.buf, w.phaseIndex, w.phaseProgress);
     applyPhaseColorGrade(rc.buf, w.phaseIndex, w.phaseProgress);
 
     // Event message
