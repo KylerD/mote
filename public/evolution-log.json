@@ -8,7 +8,15 @@
       "Sound envelopes for bond formation/breaking",
       "Event permanence: meteor craters, flood channels"
     ],
-    "files_changed": ["CLAUDE.md", "public/evolution-log.json", ".claude/daily-evolve.md", ".github/workflows/daily-evolve.yml", "journal.html", "src/style.css", "index.html"]
+    "files_changed": [
+      "CLAUDE.md",
+      "public/evolution-log.json",
+      ".claude/daily-evolve.md",
+      ".github/workflows/daily-evolve.yml",
+      "journal.html",
+      "src/style.css",
+      "index.html"
+    ]
   },
   {
     "date": "2026-03-02",
@@ -19,7 +27,10 @@
       "Activate spatial hash grid for performance",
       "Event permanence: terrain marks that persist through the cycle"
     ],
-    "files_changed": ["src/main.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-03",
@@ -30,7 +41,10 @@
       "Activate spatial hash grid",
       "Event permanence: crater tiles, waterlogged terrain"
     ],
-    "files_changed": ["src/main.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-03",
@@ -41,7 +55,13 @@
       "Death particles on mote expiration",
       "Settlement markers with structural shapes"
     ],
-    "files_changed": ["src/main.ts", "src/mote.ts", "src/interaction.ts", "src/world.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/main.ts",
+      "src/mote.ts",
+      "src/interaction.ts",
+      "src/world.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-04",
@@ -52,7 +72,11 @@
       "Sound envelopes for bond chimes",
       "Mote age visibility: gold tinge for elders"
     ],
-    "files_changed": ["src/terrain.ts", "src/main.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/terrain.ts",
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-04",
@@ -64,7 +88,15 @@
       "Visible trails and history accumulating through the cycle",
       "Sound evolution: phase transitions with musical moments"
     ],
-    "files_changed": ["src/main.ts", "src/world.ts", "src/style.css", "index.html", "CLAUDE.md", ".claude/daily-evolve.md", "public/evolution-log.json"]
+    "files_changed": [
+      "src/main.ts",
+      "src/world.ts",
+      "src/style.css",
+      "index.html",
+      "CLAUDE.md",
+      ".claude/daily-evolve.md",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-05",
@@ -75,7 +107,33 @@
       "Creature memory and meaningful return behaviors",
       "Sound evolution: phase transitions with musical moments"
     ],
-    "files_changed": ["src/config.ts", "src/types.ts", "src/terrain.ts", "src/terrain-gen.ts", "src/terrain-query.ts", "src/terrain-render.ts", "src/weather.ts", "src/weather-render.ts", "src/narrative.ts", "src/render-motes.ts", "src/render-effects.ts", "src/render-bonds.ts", "src/render-ui.ts", "src/main.ts", "src/render.ts", "src/palette.ts", "src/world.ts", "src/mote.ts", "src/events.ts", "src/sound.ts", "src/interaction.ts", "src/physics.ts", "src/font.ts", "CLAUDE.md", "public/evolution-log.json"]
+    "files_changed": [
+      "src/config.ts",
+      "src/types.ts",
+      "src/terrain.ts",
+      "src/terrain-gen.ts",
+      "src/terrain-query.ts",
+      "src/terrain-render.ts",
+      "src/weather.ts",
+      "src/weather-render.ts",
+      "src/narrative.ts",
+      "src/render-motes.ts",
+      "src/render-effects.ts",
+      "src/render-bonds.ts",
+      "src/render-ui.ts",
+      "src/main.ts",
+      "src/render.ts",
+      "src/palette.ts",
+      "src/world.ts",
+      "src/mote.ts",
+      "src/events.ts",
+      "src/sound.ts",
+      "src/interaction.ts",
+      "src/physics.ts",
+      "src/font.ts",
+      "CLAUDE.md",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-06",
@@ -88,7 +146,11 @@
       "Cluster identity: large clusters develop a shared color aura",
       "Hardy motes: visual resilience cue on hostile terrain"
     ],
-    "files_changed": ["src/world.ts", "src/render-bonds.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/world.ts",
+      "src/render-bonds.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-06",
@@ -101,7 +163,11 @@
       "Cluster fragmentation sound",
       "Biome ambient texture beds"
     ],
-    "files_changed": ["src/sound.ts", "src/main.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/sound.ts",
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-06",
@@ -114,7 +180,12 @@
       "Volcanic lava pools as terrain feature",
       "Phase-reactive terrain during events"
     ],
-    "files_changed": ["src/weather-render.ts", "src/terrain-render.ts", "src/main.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/weather-render.ts",
+      "src/terrain-render.ts",
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-06",
@@ -127,7 +198,13 @@
       "Event cascade narrative for phase overlaps",
       "Cluster identity names in narrative text"
     ],
-    "files_changed": ["src/narrative.ts", "src/events.ts", "src/world.ts", "src/names.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/narrative.ts",
+      "src/events.ts",
+      "src/world.ts",
+      "src/names.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-06",
@@ -140,7 +217,12 @@
       "Phase-specific particle showers",
       "Terrain color overlays per biome"
     ],
-    "files_changed": ["src/render-effects.ts", "src/render-ui.ts", "src/main.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/render-effects.ts",
+      "src/render-ui.ts",
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-06",
@@ -153,7 +235,11 @@
       "Bond-break downward glide",
       "Event-ambient crossfade"
     ],
-    "files_changed": ["src/sound.ts", "src/main.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/sound.ts",
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-06",
@@ -166,7 +252,12 @@
       "Cluster identity halo for 4+ groups",
       "Bond break visual scatter"
     ],
-    "files_changed": ["src/render-bonds.ts", "src/render-motes.ts", "src/main.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/render-bonds.ts",
+      "src/render-motes.ts",
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-06",
@@ -179,7 +270,11 @@
       "Volcanic ash accumulation overlay",
       "Lush bloom event flower multiplication"
     ],
-    "files_changed": ["src/terrain-gen.ts", "src/terrain-render.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/terrain-gen.ts",
+      "src/terrain-render.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-06",
@@ -192,7 +287,11 @@
       "Biome-aware dissolution text",
       "Weather-event overlap narrative"
     ],
-    "files_changed": ["src/narrative.ts", "src/events.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/narrative.ts",
+      "src/events.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-06",
@@ -205,12 +304,18 @@
       "Bond break midpoint flash",
       "Cluster fragmentation cascade"
     ],
-    "files_changed": ["src/types.ts", "src/mote.ts", "src/render-motes.ts", "src/render-bonds.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/types.ts",
+      "src/mote.ts",
+      "src/render-motes.ts",
+      "src/render-bonds.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-06",
     "agent": "visual",
-    "title": "Screen-Space Bloom — Creatures as Light",
+    "title": "Screen-Space Bloom \u2014 Creatures as Light",
     "reflection": "Full screen-space bloom pass: threshold bright pixels, separable box blur, additive blend. Bloom strength varies by phase and spikes during eclipse. The world feels lit from within.",
     "looking_ahead": [
       "WebGL compositing for real-time HDR tone-map and motion blur",
@@ -218,7 +323,13 @@
       "Interaction force-field visualization around cursor",
       "Phase-specific particle showers (genesis stardust, dissolution ash)"
     ],
-    "files_changed": ["src/render-effects.ts", "src/render-ui.ts", "src/main.ts", "src/style.css", "public/evolution-log.json"]
+    "files_changed": [
+      "src/render-effects.ts",
+      "src/render-ui.ts",
+      "src/main.ts",
+      "src/style.css",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-07",
@@ -231,7 +342,10 @@
       "Per-biome phase transition variants: the dissolution chord in volcanic should be more dissonant than temperate",
       "Mote-count-aware master mix: scale voice gain inversely with total mote count so complexity doesn't over-saturate"
     ],
-    "files_changed": ["src/sound.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/sound.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-07",
@@ -244,7 +358,13 @@
       "Rain puddles: small water patches form on flat ground during rain, persist for a few seconds",
       "Tundra aurora: the northern lights effect (currently eclipse-only) should trigger in tundra fog/clear nights"
     ],
-    "files_changed": ["src/terrain-render.ts", "src/terrain.ts", "src/weather-render.ts", "src/main.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/terrain-render.ts",
+      "src/terrain.ts",
+      "src/weather-render.ts",
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-07",
@@ -253,24 +373,34 @@
     "reflection": "Biomes now narrate in their own voice. First-hearth milestone fires when the first cluster of three forms. Empty-world epitaphs added. Events speak differently per biome, weather-event collisions get combo lines. Drought dries water tile edges.",
     "looking_ahead": [
       "Cluster identity persistence: when the same group stays together for 30s+, give them a generated name that appears in narrative ('the RED BASIN cluster endures')",
-      "Phase-specific silence epitaphs that vary by what happened — if a plague ran, silence reads differently than if a bloom ended the cycle",
+      "Phase-specific silence epitaphs that vary by what happened \u2014 if a plague ran, silence reads differently than if a bloom ended the cycle",
       "Biome-aware aftermath: drought aftermath in desert vs tundra should feel different",
       "A 'near miss' narrative moment: if a cluster almost reaches 6 but dissolves first, acknowledge the loss"
     ],
-    "files_changed": ["src/narrative.ts", "src/events.ts", "src/names.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/narrative.ts",
+      "src/events.ts",
+      "src/names.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-07",
     "agent": "visual",
-    "title": "Atmosphere Made Visible — Particles, Biome Glow, Force Field",
+    "title": "Atmosphere Made Visible \u2014 Particles, Biome Glow, Force Field",
     "reflection": "Phase-specific particles: genesis stardust, dissolution ash, silence dust. Bloom pass now tinted per-biome. Cursor force field visualized as a rotating ring that shifts blue-to-red with interaction speed.",
     "looking_ahead": [
-      "WebGL compositing layer for real HDR tone-mapping — Canvas 2D can only approximate what a proper framebuffer could do",
+      "WebGL compositing layer for real HDR tone-mapping \u2014 Canvas 2D can only approximate what a proper framebuffer could do",
       "Genesis particle evolution: stardust collects into clusters, mirroring the mote bonding arc",
-      "Dissolution ash accumulation on terrain tiles: as ash falls, the ground darkens slightly — the scar of a dying cycle",
+      "Dissolution ash accumulation on terrain tiles: as ash falls, the ground darkens slightly \u2014 the scar of a dying cycle",
       "Phase-reactive vignette color: silence vignette should be dark-blue, dissolution amber-red, not just darker"
     ],
-    "files_changed": ["src/render-effects.ts", "src/render-ui.ts", "src/main.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/render-effects.ts",
+      "src/render-ui.ts",
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-07",
@@ -280,10 +410,15 @@
     "looking_ahead": [
       "Wanderer trail fade: old trail points shift toward the terrain color, so high-wanderlust motes leave a ghost of where they've been",
       "Social mote cluster merge: when two clusters become one (a new bond forms between cluster members), a brief color-blend flash at the bond site",
-      "Hardy elder: old hardy motes develop a second wider shoulder layer — they accumulate visual mass over their lifetime",
-      "Low-energy wanderer: a frantic fast-flicker as energy nears zero, vs social motes that dim evenly — different deaths for different characters"
+      "Hardy elder: old hardy motes develop a second wider shoulder layer \u2014 they accumulate visual mass over their lifetime",
+      "Low-energy wanderer: a frantic fast-flicker as energy nears zero, vs social motes that dim evenly \u2014 different deaths for different characters"
     ],
-    "files_changed": ["src/types.ts", "src/mote.ts", "src/render-motes.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/types.ts",
+      "src/mote.ts",
+      "src/render-motes.ts",
+      "public/evolution-log.json"
+    ]
   },
   {
     "date": "2026-03-07",
@@ -293,9 +428,29 @@
     "looking_ahead": [
       "Wanderer trail terrain-fade: old trail breadcrumbs shift toward the underlying ground color, leaving ghostly echoes in the landscape",
       "Social cluster merge flash: when a bond forms between members of two previously separate clusters, a brief color-bloom radiates from the bond midpoint",
-      "Hardy elder accumulated mass: motes past age 30 gain a second, wider shoulder layer — visual weight that grows with resilience",
-      "Death inheritance: when a mote dies, the nearest living mote briefly flashes the dead mote's color — loss made visible in survivors"
+      "Hardy elder accumulated mass: motes past age 30 gain a second, wider shoulder layer \u2014 visual weight that grows with resilience",
+      "Death inheritance: when a mote dies, the nearest living mote briefly flashes the dead mote's color \u2014 loss made visible in survivors"
     ],
-    "files_changed": ["src/render-motes.ts", "src/mote.ts", "public/evolution-log.json"]
+    "files_changed": [
+      "src/render-motes.ts",
+      "src/mote.ts",
+      "public/evolution-log.json"
+    ]
+  },
+  {
+    "date": "2026-03-07",
+    "agent": "sound",
+    "title": "Five Deaths, Choir Clusters, Volcanic Pulse, Last Survivor",
+    "reflection": "Each biome now has its own death voice: volcanic cracks and thuds, desert tolls like a distant bell, tundra pings a crystalline ice note with long reverb, lush dissolves into a warm chord, temperate sighs with two voices falling apart. Large clusters grow a 5th harmonic partial that fires stochastically, giving bonded groups choral depth at peak complexity. Volcanic biome gains periodic lava-bubble pops that add industrial texture between notes. The silence phase now holds a long, quietly fading drone when only 1-2 motes remain \u2014 the sound of a world breathing its last.",
+    "looking_ahead": [
+      "Desert shimmer accent: very high harmonic pings at low probability, adding the sound of heat haze",
+      "Bond formation biome tuning: the ascending fifth chime should use the biome wave type (bell for desert, crystal for tundra)",
+      "Chorus on cluster growth event: a special sound when a cluster jumps from 4 to 8+, like a crowd finding its voice",
+      "Phase 4-5 reverb swell: as dissolution deepens, very gently increase reverb tail length so everything sounds more distant and ghostly"
+    ],
+    "files_changed": [
+      "src/sound.ts",
+      "public/evolution-log.json"
+    ]
   }
 ]

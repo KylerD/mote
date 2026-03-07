@@ -252,6 +252,8 @@ const engineCurrentBiome = new WeakMap<SoundEngine, Biome | null>();
 const engineAmbientBed = new WeakMap<SoundEngine, AmbientBed>();
 const engineSpawnCooldown = new WeakMap<SoundEngine, number>();
 const engineBondBreakCooldown = new WeakMap<SoundEngine, number>();
+const engineVolcanicAccentTime = new WeakMap<SoundEngine, number>();
+const engineLonelyDroneTime = new WeakMap<SoundEngine, number>();
 
 // Phase multipliers for ambient bed gain — drives the sonic arc
 const PHASE_AMBIENT_MULT = [0.30, 0.60, 0.85, 1.00, 0.65, 0.10];
@@ -490,6 +492,11 @@ export function updateSound(
         const pan = (cx / W * 2 - 1) * profile.panStrength;
 
         triggerNote(engine, freq, waveform, noteGain, decay, filterFreq, detune, false, pan);
+        // Harmonic enrichment: clusters of 6+ gain a quiet 5th partial → ensemble depth
+        if (sz >= 6 && Math.random() < 0.42) {
+          triggerNote(engine, freq * Math.pow(2, 7 / 12), "sine",
+            noteGain * 0.28, decay * 1.5, filterFreq * 0.55, 0, true, pan * 0.65);
+        }
       }
     } else {
       slot.lastNoteTime = 0;
@@ -541,6 +548,57 @@ export function updateSound(
     if (freshMote) {
       playSpawnPing(engine, freshMote.x / W, 1 - freshMote.y / H, scale, profile);
       engineSpawnCooldown.set(engine, now);
+    }
+  }
+
+  // Volcanic lava pops — periodic low-frequency transients, like bubbles of magma surfacing
+  if (biome === "volcanic") {
+    const lastAccent = engineVolcanicAccentTime.get(engine) ?? 0;
+    if (now - lastAccent > 2.2 + Math.random() * 4.5) {
+      engineVolcanicAccentTime.set(engine, now);
+      const aCtx = engine.ctx;
+      const popLen = Math.floor(aCtx.sampleRate * 0.11);
+      const popBuf = aCtx.createBuffer(1, popLen, aCtx.sampleRate);
+      const popData = popBuf.getChannelData(0);
+      for (let i = 0; i < popLen; i++) popData[i] = (Math.random() * 2 - 1) * Math.exp(-i / (popLen * 0.22));
+      const popSrc = aCtx.createBufferSource();
+      popSrc.buffer = popBuf;
+      const popFilter = aCtx.createBiquadFilter();
+      popFilter.type = "bandpass";
+      popFilter.frequency.value = 150 + Math.random() * 160;
+      popFilter.Q.value = 3.2;
+      const popGain = aCtx.createGain();
+      const popVol = (0.007 + Math.random() * 0.011) * profile.masterMult;
+      popGain.gain.setValueAtTime(popVol, now);
+      popGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      popSrc.connect(popFilter);
+      popFilter.connect(popGain);
+      popGain.connect(engine.compressor);
+      popSrc.start(now);
+    }
+  }
+
+  // Silence loner: when the last 1–2 motes remain in dissolution or silence,
+  // a quiet sustained tone holds the space — loneliness made audible
+  if (phaseIndex >= 4 && motes.length >= 1 && motes.length <= 2) {
+    const lastLonely = engineLonelyDroneTime.get(engine) ?? 0;
+    if (now - lastLonely > 22.0) {
+      engineLonelyDroneTime.set(engine, now);
+      const lCtx = engine.ctx;
+      const m = motes[0];
+      const lonelyFreq = profile.rootFreq * (1.0 + (1 - m.y / H) * 0.4);
+      const lOsc = lCtx.createOscillator();
+      const lGain = lCtx.createGain();
+      lOsc.type = "sine";
+      lOsc.frequency.value = lonelyFreq;
+      lGain.gain.setValueAtTime(0.0, now);
+      lGain.gain.linearRampToValueAtTime(0.016 * profile.masterMult, now + 3.0);
+      lGain.gain.setValueAtTime(0.016 * profile.masterMult, now + 10.0);
+      lGain.gain.exponentialRampToValueAtTime(0.001, now + 22.0);
+      lOsc.connect(lGain);
+      lGain.connect(engine.reverb);
+      lOsc.start(now);
+      lOsc.stop(now + 23.0);
     }
   }
 }
@@ -724,30 +782,153 @@ function playBondBreak(
   osc2.stop(now + 0.35);
 }
 
-/** Descending glide on mote death — loss made audible, biome-tuned */
+/** Death sound — distinct per biome, loss made audible in each world's own voice */
 export function playDeath(engine: SoundEngine, yNorm: number): void {
+  if (!engine.initialized) return;
   const biome = engineCurrentBiome.get(engine) ?? "temperate";
   const p = BIOME_SOUND[biome];
   const ctx = engine.ctx;
   const now = ctx.currentTime;
 
-  const startFreq = p.rootFreq * (1 + yNorm * 0.6);
-  const endFreq = startFreq * 0.63;
+  switch (biome) {
+    case "volcanic": {
+      // Crack + low thud: a mote shatters like cooling lava
+      const bufLen = Math.floor(ctx.sampleRate * 0.14);
+      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufLen * 0.18));
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const filt = ctx.createBiquadFilter();
+      filt.type = "lowpass";
+      filt.frequency.value = 280;
+      const gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.040, now);
+      gn.gain.exponentialRampToValueAtTime(0.001, now + 0.50);
+      src.connect(filt);
+      filt.connect(gn);
+      gn.connect(engine.compressor);
+      src.start(now);
+      // Sub-bass thud follows crack
+      const thud = ctx.createOscillator();
+      const thudGain = ctx.createGain();
+      thud.type = "sine";
+      thud.frequency.setValueAtTime(70, now + 0.02);
+      thud.frequency.exponentialRampToValueAtTime(26, now + 0.38);
+      thudGain.gain.setValueAtTime(0.038, now + 0.02);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+      thud.connect(thudGain);
+      thudGain.connect(engine.compressor);
+      thud.start(now + 0.02);
+      thud.stop(now + 0.45);
+      break;
+    }
 
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(startFreq, now);
-  osc.frequency.exponentialRampToValueAtTime(endFreq, now + 0.9);
+    case "desert": {
+      // Bell toll: long, reverberant, no glide — a note struck once in vast silence
+      const freq = p.rootFreq * (2.0 + yNorm * 0.5);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.030, now);
+      gain.gain.setValueAtTime(0.030, now + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 3.2);
+      osc.connect(gain);
+      gain.connect(engine.reverb);
+      osc.start(now);
+      osc.stop(now + 3.4);
+      // Faint 3rd harmonic — bell shimmer
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.value = freq * 3.0;
+      gain2.gain.setValueAtTime(0.008, now);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.4);
+      osc2.connect(gain2);
+      gain2.connect(engine.reverb);
+      osc2.start(now);
+      osc2.stop(now + 1.6);
+      break;
+    }
 
-  gain.gain.setValueAtTime(0.022, now);
-  gain.gain.setValueAtTime(0.022, now + 0.05);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+    case "tundra": {
+      // Ice crystal: brief high ping + crystalline reverb tail — cold and precise
+      const freq = p.rootFreq * 4.0 * (1 + yNorm * 0.25);
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.028, now);
+      gain.gain.exponentialRampToValueAtTime(0.003, now + 0.05);
+      gain.gain.linearRampToValueAtTime(0.003, now + 0.25);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
+      osc.connect(gain);
+      gain.connect(engine.reverb);
+      osc.start(now);
+      osc.stop(now + 2.4);
+      // Second crystalline partial — very faint upper tone
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.value = freq * Math.pow(2, 5 / 12);
+      gain2.gain.setValueAtTime(0.010, now);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+      osc2.connect(gain2);
+      gain2.connect(engine.reverb);
+      osc2.start(now);
+      osc2.stop(now + 1.7);
+      break;
+    }
 
-  osc.connect(gain);
-  gain.connect(engine.reverb);
-  osc.start(now);
-  osc.stop(now + 1.1);
+    case "lush": {
+      // Warm chord dissolve: root + 5th + octave softly collapsing — organic, bittersweet
+      const baseFreq = p.rootFreq * (1.0 + yNorm * 0.55);
+      for (const [semitones, vol, dur] of [[0, 0.022, 1.9], [7, 0.016, 1.6], [12, 0.011, 1.3]] as [number, number, number][]) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = baseFreq * Math.pow(2, semitones / 12);
+        gain.gain.setValueAtTime(vol, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        osc.connect(gain);
+        gain.connect(engine.reverb);
+        osc.start(now);
+        osc.stop(now + dur + 0.1);
+      }
+      break;
+    }
+
+    default: { // temperate — descending sigh: two voices falling together, then gone
+      const startFreq = p.rootFreq * (1 + yNorm * 0.6);
+      const endFreq = startFreq * 0.63;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(startFreq, now);
+      osc.frequency.exponentialRampToValueAtTime(endFreq, now + 0.9);
+      gain.gain.setValueAtTime(0.022, now);
+      gain.gain.setValueAtTime(0.022, now + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.0);
+      osc.connect(gain);
+      gain.connect(engine.reverb);
+      osc.start(now);
+      osc.stop(now + 1.1);
+      // Soft 5th following the descent — two voices parting
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(startFreq * Math.pow(2, 7 / 12), now);
+      osc2.frequency.exponentialRampToValueAtTime(endFreq * Math.pow(2, 7 / 12), now + 0.7);
+      gain2.gain.setValueAtTime(0.009, now);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+      osc2.connect(gain2);
+      gain2.connect(engine.reverb);
+      osc2.start(now);
+      osc2.stop(now + 0.80);
+      break;
+    }
+  }
 }
 
 /** Different sound per event type */
