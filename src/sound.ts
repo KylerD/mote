@@ -147,6 +147,8 @@ interface AmbientBed {
   textureSource: AudioBufferSourceNode;
   textureFilter: BiquadFilterNode;
   textureGain: GainNode;
+  lfoOsc: OscillatorNode | null;
+  lfoGain: GainNode | null;
 }
 
 interface BiomeAmbientConfig {
@@ -157,28 +159,35 @@ interface BiomeAmbientConfig {
   noiseFreq: number;
   noiseQ: number;
   noiseTargetGain: number;
+  lfoRate: number;   // Hz — LFO speed for filter breathing
+  lfoDepth: number;  // Hz — how much the LFO sweeps the filter cutoff
 }
 
 const BIOME_AMBIENT: Record<Biome, BiomeAmbientConfig> = {
   temperate: {
     droneFreq: 130.81, droneTargetGain: 0.006, droneWave: "sine",
     noiseFilterType: "bandpass", noiseFreq: 900, noiseQ: 1.5, noiseTargetGain: 0.004,
+    lfoRate: 0.12, lfoDepth: 180,  // slow organic breathing
   },
   desert: {
     droneFreq: 0, droneTargetGain: 0, droneWave: "sine",
     noiseFilterType: "highpass", noiseFreq: 3000, noiseQ: 0.8, noiseTargetGain: 0.004,
+    lfoRate: 0.06, lfoDepth: 380,  // very slow heat shimmer — wide sweep
   },
   tundra: {
     droneFreq: 0, droneTargetGain: 0, droneWave: "sine",
     noiseFilterType: "highpass", noiseFreq: 2400, noiseQ: 1.5, noiseTargetGain: 0.006,
+    lfoRate: 0.08, lfoDepth: 210,  // icy, measured pulse
   },
   volcanic: {
     droneFreq: 41.2, droneTargetGain: 0.008, droneWave: "sawtooth",
     noiseFilterType: "lowpass", noiseFreq: 70, noiseQ: 2.5, noiseTargetGain: 0.014,
+    lfoRate: 0.18, lfoDepth: 18,   // faster but tiny range — can't let filter go below 0
   },
   lush: {
     droneFreq: 98, droneTargetGain: 0.005, droneWave: "sine",
     noiseFilterType: "bandpass", noiseFreq: 2200, noiseQ: 1.2, noiseTargetGain: 0.005,
+    lfoRate: 0.10, lfoDepth: 240,  // lush organic sway
   },
 };
 
@@ -199,6 +208,16 @@ function createAmbientBed(ctx: AudioContext, biome: Biome, destination: AudioNod
   textureGain.connect(destination);
   textureSource.start(now);
 
+  // LFO: slowly modulates the texture filter cutoff for organic breathing
+  const lfoOsc = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  lfoOsc.type = "sine";
+  lfoOsc.frequency.value = cfg.lfoRate;
+  lfoGain.gain.value = cfg.lfoDepth;
+  lfoOsc.connect(lfoGain);
+  lfoGain.connect(textureFilter.frequency);
+  lfoOsc.start(now);
+
   let droneOsc: OscillatorNode | null = null;
   let droneGain: GainNode | null = null;
   if (cfg.droneFreq > 0) {
@@ -213,7 +232,7 @@ function createAmbientBed(ctx: AudioContext, biome: Biome, destination: AudioNod
     droneOsc.start(now);
   }
 
-  return { droneOsc, droneGain, textureSource, textureFilter, textureGain };
+  return { droneOsc, droneGain, textureSource, textureFilter, textureGain, lfoOsc, lfoGain };
 }
 
 function stopAmbientBed(bed: AmbientBed, now: number): void {
@@ -222,6 +241,7 @@ function stopAmbientBed(bed: AmbientBed, now: number): void {
   if (bed.droneGain) bed.droneGain.gain.linearRampToValueAtTime(0, now + fadeTime);
   try { bed.textureSource.stop(now + fadeTime + 0.1); } catch (_) { /* already stopped */ }
   if (bed.droneOsc) { try { bed.droneOsc.stop(now + fadeTime + 0.1); } catch (_) { /* already stopped */ } }
+  if (bed.lfoOsc) { try { bed.lfoOsc.stop(now + fadeTime + 0.1); } catch (_) { /* already stopped */ } }
 }
 
 // ---- Module-level engine augmentation ----
@@ -231,6 +251,10 @@ function stopAmbientBed(bed: AmbientBed, now: number): void {
 const engineCurrentBiome = new WeakMap<SoundEngine, Biome | null>();
 const engineAmbientBed = new WeakMap<SoundEngine, AmbientBed>();
 const engineSpawnCooldown = new WeakMap<SoundEngine, number>();
+const engineBondBreakCooldown = new WeakMap<SoundEngine, number>();
+
+// Phase multipliers for ambient bed gain — drives the sonic arc
+const PHASE_AMBIENT_MULT = [0.30, 0.60, 0.85, 1.00, 0.65, 0.10];
 
 // Per-voice note scheduling state
 interface VoiceSlot {
@@ -321,6 +345,7 @@ function triggerNote(
   filterFreq: number,
   detuneCents = 0,
   useReverb = false,
+  pan = 0,
 ): void {
   const ctx = engine.ctx;
   const now = ctx.currentTime;
@@ -328,6 +353,7 @@ function triggerNote(
   const osc = ctx.createOscillator();
   const gainNode = ctx.createGain();
   const filter = ctx.createBiquadFilter();
+  const panner = ctx.createStereoPanner();
 
   osc.type = waveform;
   osc.frequency.value = freq;
@@ -336,6 +362,8 @@ function triggerNote(
   filter.type = "lowpass";
   filter.frequency.value = filterFreq;
   filter.Q.value = 1.5;
+
+  panner.pan.value = Math.max(-1, Math.min(1, pan));
 
   // ADSR: 20ms attack, sustain at peak, then decay
   const attack = 0.02;
@@ -347,7 +375,8 @@ function triggerNote(
 
   osc.connect(filter);
   filter.connect(gainNode);
-  gainNode.connect(useReverb ? engine.reverb : engine.compressor);
+  gainNode.connect(panner);
+  panner.connect(useReverb ? engine.reverb : engine.compressor);
   osc.start(now);
   osc.stop(now + attack + sustainTime + decay + 0.05);
 }
@@ -406,6 +435,17 @@ export function updateSound(
     engineCurrentBiome.set(engine, biome);
   }
 
+  // Phase-reactive ambient bed — drives the full sonic arc (quiet genesis → full complexity → silent silence)
+  const ambBed = engineAmbientBed.get(engine);
+  const ambCfg = BIOME_AMBIENT[biome];
+  if (ambBed) {
+    const phaseMult = PHASE_AMBIENT_MULT[phaseIndex];
+    ambBed.textureGain.gain.linearRampToValueAtTime(ambCfg.noiseTargetGain * phaseMult, now + 2.5);
+    if (ambBed.droneGain && ambCfg.droneTargetGain > 0) {
+      ambBed.droneGain.gain.linearRampToValueAtTime(ambCfg.droneTargetGain * phaseMult, now + 2.5);
+    }
+  }
+
   // Interpolate phase volume with biome multiplier
   const targetVol = (pa.volume * (1 - phaseProgress) + nextPa.volume * phaseProgress) * profile.masterMult;
   engine.masterGain.gain.linearRampToValueAtTime(targetVol, now + 0.5);
@@ -446,9 +486,10 @@ export function updateSound(
         const sz = cluster.length;
         const waveform = sz < 4 ? profile.waveSmall : sz < 8 ? profile.waveMed : profile.waveLarge;
         const noteGain = Math.log2(cluster.length + 1) / Math.log2(MAX_VOICES + 1) * totalEnergy * 0.15;
-        const detune = (cx / W - 0.5) * profile.detuneRange;
+        const detune = (cx / W - 0.5) * profile.detuneRange * 0.5; // halved: panning now carries the spatial load
+        const pan = (cx / W * 2 - 1) * profile.panStrength;
 
-        triggerNote(engine, freq, waveform, noteGain, decay, filterFreq, detune);
+        triggerNote(engine, freq, waveform, noteGain, decay, filterFreq, detune, false, pan);
       }
     } else {
       slot.lastNoteTime = 0;
@@ -478,6 +519,18 @@ export function updateSound(
     if (m.bondFlash > 0.9) {
       playBondForm(engine, 1 - m.y / H, scale, profile);
       break;
+    }
+  }
+
+  // Bond break sounds — two tones falling apart (inverse of bond formation)
+  const bondBreakCooldown = engineBondBreakCooldown.get(engine) ?? 0;
+  if (now - bondBreakCooldown > 0.20) {
+    for (const m of motes) {
+      if (m.bondBreakFlash > 0.9) {
+        playBondBreak(engine, 1 - m.y / H, scale, profile);
+        engineBondBreakCooldown.set(engine, now);
+        break;
+      }
     }
   }
 
@@ -627,6 +680,48 @@ export function playBondForm(
   gain2.connect(engine.reverb);
   osc2.start(now + 0.065);
   osc2.stop(now + 0.7);
+}
+
+/** Two tones falling apart on bond break — inverse of playBondForm */
+function playBondBreak(
+  engine: SoundEngine,
+  yNorm: number,
+  scale: number[],
+  profile: BiomeSoundProfile,
+): void {
+  const ctx = engine.ctx;
+  const now = ctx.currentTime;
+
+  const idx = Math.floor(yNorm * scale.length) % scale.length;
+  const freq = profile.rootFreq * Math.pow(2, scale[idx] / 12) * 2;
+
+  // First tone: slides a minor third downward — the lower voice breaking away
+  const osc1 = ctx.createOscillator();
+  const gain1 = ctx.createGain();
+  osc1.type = "triangle";
+  osc1.frequency.setValueAtTime(freq, now);
+  osc1.frequency.exponentialRampToValueAtTime(freq * Math.pow(2, -3 / 12), now + 0.30);
+  gain1.gain.setValueAtTime(0.001, now);
+  gain1.gain.linearRampToValueAtTime(0.020, now + 0.015);
+  gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+  osc1.connect(gain1);
+  gain1.connect(engine.reverb);
+  osc1.start(now);
+  osc1.stop(now + 0.40);
+
+  // Second tone: starts at a fifth, drops below the root — the two voices diverging
+  const osc2 = ctx.createOscillator();
+  const gain2 = ctx.createGain();
+  osc2.type = "sine";
+  osc2.frequency.setValueAtTime(freq * Math.pow(2, 7 / 12), now + 0.03);
+  osc2.frequency.exponentialRampToValueAtTime(freq * Math.pow(2, -2 / 12), now + 0.26);
+  gain2.gain.setValueAtTime(0.001, now + 0.03);
+  gain2.gain.linearRampToValueAtTime(0.014, now + 0.055);
+  gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.30);
+  osc2.connect(gain2);
+  gain2.connect(engine.reverb);
+  osc2.start(now + 0.03);
+  osc2.stop(now + 0.35);
 }
 
 /** Descending glide on mote death — loss made audible, biome-tuned */

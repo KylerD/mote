@@ -222,6 +222,19 @@
   },
   {
     "date": "2026-03-07",
+    "agent": "sound",
+    "title": "Bond Break, Breathing Beds, Spatial Voices",
+    "reflection": "Four gaps closed in one pass: bond breaks now have a two-tone descending glide (triangle + sine, starting at a fifth and falling apart — the inverse of bond formation's ascending fifth chime). Ambient beds become phase-reactive: genesis at 30% volume, complexity at 100%, silence at 10%, so the full 5-minute arc is now audible in the texture layer, not just in triggered notes. Cluster voices gain true stereo panning from their centroid X position, spreading the ensemble across the field instead of collapsing it to center. Each ambient bed now has an LFO (biome-tuned: 0.06 Hz desert heat shimmer to 0.18 Hz volcanic pulse) slowly breathing its filter cutoff, making the texture feel alive rather than mechanical.",
+    "looking_ahead": [
+      "Cluster fragmentation sound: when a cluster loses a member, a scatter of brief high pings",
+      "Energy-mapped voice brightness: high-energy motes trigger brighter filter cutoffs and shorter decays",
+      "Per-biome phase transition variants: the dissolution chord in volcanic should be more dissonant than temperate",
+      "Mote-count-aware master mix: scale voice gain inversely with total mote count so complexity doesn't over-saturate"
+    ],
+    "files_changed": ["src/sound.ts", "public/evolution-log.json"]
+  },
+  {
+    "date": "2026-03-07",
     "agent": "mote",
     "title": "Hardy Shape, Wanderer Lean",
     "reflection": "Hardy motes now have a visually distinct blocky silhouette — wide squared shoulders fill the normally-empty upper corners, making them immediately readable as stocky and resilient. When a hardy mote steps onto hostile terrain (lava, deep water, cliffs), silvery-blue corner sparks fire in a rapid pulse — a shield-flash that says 'taking damage, not dying'. Wanderers gain a forward lean: when wanderlust > 0.65 and moving fast, the head and neck pixels shift one pixel into the movement direction, creating a running posture that's visible within seconds. All three temperaments now have a unique silhouette and behavioral signature.",
