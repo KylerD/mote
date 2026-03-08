@@ -336,6 +336,23 @@ function clusterEnduranceText(centroidX: number, cycleNumber: number): string {
   }
 }
 
+/**
+ * Fired during dissolution when the named cluster (that held for 30s+) finally breaks apart.
+ * Uses the same positional logic as clusterEnduranceText — the farewell mirrors the welcome.
+ */
+function clusterFarewellText(pos: "west" | "center" | "east", cycleNumber: number): string {
+  if (pos === "west") {
+    const pool = ["the western few have gone", "the west has let go", "what held in the west is scattered"];
+    return pool[Math.abs(cycleNumber * 6271) % pool.length];
+  } else if (pos === "east") {
+    const pool = ["the eastern few have gone", "the east has let go", "what held in the east is scattered"];
+    return pool[Math.abs(cycleNumber * 7331) % pool.length];
+  } else {
+    const pool = ["the center could not hold", "what gathered there is gone", "the heart of it empties"];
+    return pool[Math.abs(cycleNumber * 8221) % pool.length];
+  }
+}
+
 /** Silence opener when no bonds ever formed — a lonely cycle */
 const SILENCE_LONELY_TEXTS = [
   "a world that never bonded",
@@ -359,6 +376,62 @@ const SILENCE_ELDER_TEXTS = [
   "the last witness endures",
   "the oldest one carries it forward",
 ];
+
+/**
+ * Second silence beat — fires ~8 seconds after silence entry.
+ * Generic fallback; biome overrides take precedence.
+ */
+const SILENCE_SECOND_BEAT = [
+  "this, too, will be the past",
+  "the world holds the shape of what was",
+  "it was enough",
+  "something is always left",
+];
+
+/** Per-biome second beat — the silence has settled; what does the world notice? */
+const BIOME_SILENCE_SECOND_BEAT: Partial<Record<Biome, string[]>> = {
+  temperate: [
+    "the quiet keeps its own time",
+    "this is what remains of it",
+    "the ordinary holds its shape",
+  ],
+  volcanic: [
+    "the caldera is still",
+    "only smoke remembers",
+    "the ash will settle flat",
+  ],
+  desert: [
+    "the sand has always been here",
+    "the dunes will not remember them",
+    "silence deeper than the heat",
+  ],
+  tundra: [
+    "the ice keeps what the warm could not",
+    "cold is the last record",
+    "the frost holds nothing",
+  ],
+  lush: [
+    "seeds in the silence",
+    "the green will return to this",
+    "the forest is already forgetting",
+  ],
+};
+
+/** Biome-aware half-gone lines — what takes them differs per landscape */
+const BIOME_DISSOLUTION_HALF_GONE: Partial<Record<Biome, string[]>> = {
+  volcanic: ["ash takes the rest", "the caldera empties", "fire claims the last of them"],
+  tundra:   ["the cold takes them one by one", "winter outpaces them now"],
+  desert:   ["the sun outpaces them", "the vast silence wins"],
+  lush:     ["even abundance empties", "the green world thins"],
+};
+
+/** Biome-aware bonds-breaking lines */
+const BIOME_DISSOLUTION_BONDS_BREAKING: Partial<Record<Biome, string[]>> = {
+  volcanic: ["the heat undoes everything", "fire claims what fire made"],
+  tundra:   ["cold drives them apart", "ice accepts no bonds"],
+  desert:   ["the vast undoes the close", "distance returns"],
+  lush:     ["even the green world unravels", "abundance cannot hold them"],
+};
 
 // --- State ---
 
@@ -397,6 +470,9 @@ export interface NarrativeState {
   trackedClusterMotes: Mote[] | null;
   trackedClusterStart: number;
   narratedClusterIdentity: boolean;
+  clusterFarewellPos: "west" | "center" | "east" | null;
+  narratedClusterFarewell: boolean;
+  narratedSilenceSecondBeat: boolean;
   el: HTMLElement | null;
 }
 
@@ -429,6 +505,9 @@ export function createNarrative(): NarrativeState {
     trackedClusterMotes: null,
     trackedClusterStart: 0,
     narratedClusterIdentity: false,
+    clusterFarewellPos: null,
+    narratedClusterFarewell: false,
+    narratedSilenceSecondBeat: false,
     el: document.getElementById("narrative"),
   };
 }
@@ -463,6 +542,9 @@ export function updateNarrative(ns: NarrativeState, w: World): void {
     ns.trackedClusterMotes = null;
     ns.trackedClusterStart = 0;
     ns.narratedClusterIdentity = false;
+    ns.clusterFarewellPos = null;
+    ns.narratedClusterFarewell = false;
+    ns.narratedSilenceSecondBeat = false;
     ns.queue = [];
     ns.el.textContent = "";
     ns.el.style.opacity = "0";
@@ -643,6 +725,9 @@ export function updateNarrative(ns: NarrativeState, w: World): void {
             let cx = 0;
             for (const m of largest) cx += m.x;
             cx /= largest.length;
+            // Record position for the farewell line when this cluster eventually breaks
+            const fpos = cx / W;
+            ns.clusterFarewellPos = fpos < 0.35 ? "west" : fpos > 0.65 ? "east" : "center";
             pushNarrative(ns, clusterEnduranceText(cx, w.cycleNumber), now);
           }
         } else {
@@ -676,8 +761,14 @@ export function updateNarrative(ns: NarrativeState, w: World): void {
     w.phaseName === "dissolution"
   ) {
     ns.narratedBondsBreaking = true;
-    const pick = Math.abs((w.cycleNumber * 999929) % DISSOLUTION_BONDS_BREAKING_TEXTS.length);
-    pushNarrative(ns, DISSOLUTION_BONDS_BREAKING_TEXTS[pick], now);
+    const biomeBonds = BIOME_DISSOLUTION_BONDS_BREAKING[w.terrain.biome];
+    if (biomeBonds) {
+      const pick = Math.abs((w.cycleNumber * 999929) % biomeBonds.length);
+      pushNarrative(ns, biomeBonds[pick], now);
+    } else {
+      const pick = Math.abs((w.cycleNumber * 999929) % DISSOLUTION_BONDS_BREAKING_TEXTS.length);
+      pushNarrative(ns, DISSOLUTION_BONDS_BREAKING_TEXTS[pick], now);
+    }
   }
 
   // Dissolution: half gone — the world has lost half its peak population
@@ -689,8 +780,14 @@ export function updateNarrative(ns: NarrativeState, w: World): void {
     w.phaseName === "dissolution"
   ) {
     ns.narratedHalfGone = true;
-    const pick = Math.abs((w.cycleNumber * 999901) % DISSOLUTION_HALF_GONE_TEXTS.length);
-    pushNarrative(ns, DISSOLUTION_HALF_GONE_TEXTS[pick], now);
+    const biomeHalfGone = BIOME_DISSOLUTION_HALF_GONE[w.terrain.biome];
+    if (biomeHalfGone) {
+      const pick = Math.abs((w.cycleNumber * 999901) % biomeHalfGone.length);
+      pushNarrative(ns, biomeHalfGone[pick], now);
+    } else {
+      const pick = Math.abs((w.cycleNumber * 999901) % DISSOLUTION_HALF_GONE_TEXTS.length);
+      pushNarrative(ns, DISSOLUTION_HALF_GONE_TEXTS[pick], now);
+    }
   }
 
   // Near-miss: peak cluster was 4–5 but never reached 6 — acknowledge the almost
@@ -705,6 +802,18 @@ export function updateNarrative(ns: NarrativeState, w: World): void {
     ns.narratedNearMiss = true;
     const pick = Math.abs((w.cycleNumber * 999889) % NEAR_MISS_TEXTS.length);
     pushNarrative(ns, NEAR_MISS_TEXTS[pick], now);
+  }
+
+  // Cluster farewell — when the named cluster (30s+ endurance) finally breaks apart
+  if (
+    !ns.narratedClusterFarewell &&
+    ns.narratedClusterIdentity &&
+    ns.clusterFarewellPos !== null &&
+    w.phaseName === "dissolution" &&
+    maxCluster < 3
+  ) {
+    ns.narratedClusterFarewell = true;
+    pushNarrative(ns, clusterFarewellText(ns.clusterFarewellPos, w.cycleNumber), now);
   }
 
   // Last mote — the final witness
@@ -727,6 +836,19 @@ export function updateNarrative(ns: NarrativeState, w: World): void {
     ns.narratedEmptyWorld = true;
     const pick = Math.abs((w.cycleNumber * 999907) % EMPTY_WORLD_TEXTS.length);
     pushNarrative(ns, EMPTY_WORLD_TEXTS[pick], now);
+  }
+
+  // Second silence beat — ~8 seconds after silence entry, the world settles into itself
+  if (
+    !ns.narratedSilenceSecondBeat &&
+    w.phaseName === "silence" &&
+    w.phaseProgress >= 0.33
+  ) {
+    ns.narratedSilenceSecondBeat = true;
+    const biomePool = BIOME_SILENCE_SECOND_BEAT[w.terrain.biome];
+    const pool = biomePool ?? SILENCE_SECOND_BEAT;
+    const pick = Math.abs((w.cycleNumber * 999859) % pool.length);
+    pushNarrative(ns, pool[pick], now);
   }
 
   // --- Event anticipation (~25s before trigger) ---

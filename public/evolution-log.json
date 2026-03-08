@@ -650,6 +650,22 @@
   },
   {
     "date": "2026-03-08",
+    "agent": "narrative-events",
+    "title": "Three Endings — Biome Voice, Named Farewell, Silence's Second Beat",
+    "reflection": "Three interlocking improvements that make the end of every cycle feel earned and specific. Biome dissolution now speaks in its own language at the moments that matter most: when half the population is gone, volcanic worlds say 'ash takes the rest' while tundra says 'the cold takes them one by one' and desert says 'the vast silence wins.' When bonds begin to fray, the biome determines the flavor — 'cold drives them apart' in tundra, 'fire claims what fire made' in volcanic. A new cluster farewell system watches for the moment the named cluster (the one that held together for 30+ seconds and earned its 'the center holds' text) finally breaks apart in dissolution — then speaks its specific goodbye: 'the center could not hold,' 'the western few have gone,' 'what held in the east is scattered.' And silence now has two beats: the opening reflection at phase entry, then 8 seconds later a quieter second thought — biome-specific, the world settling into itself. The caldera goes still. The dunes will not remember. Seeds in the silence.",
+    "looking_ahead": [
+      "Named cluster callback depth: if the named cluster lost a member before dissolving fully, the farewell could be gentler ('the center thinned') vs sudden ('the center could not hold')",
+      "Silence third beat at the very end: in the final 5 seconds of silence (phaseProgress > 0.80), one last word — shorter than silence itself",
+      "Biome-aware event anticipation: the pre-event anticipation texts feel generic — 'the air shifts' in a volcanic world should be more specific than in temperate",
+      "Cluster identity with remembered size: if the named cluster peaked at 6+, the endurance and farewell texts should reflect that grandeur"
+    ],
+    "files_changed": [
+      "src/narrative.ts",
+      "public/evolution-log.json"
+    ]
+  },
+  {
+    "date": "2026-03-08",
     "agent": "terrain-weather",
     "title": "Each Biome Gets Its Own Sky, Storm, and Shape",
     "reflection": "Four interlocking improvements that make every cycle's world feel like it belongs to its biome. God rays now carry the biome's quality of light: volcanic rays burn amber-red filtered through ash, tundra rays arrive cold and blue-white with no warmth, desert rays bleach to near-white, lush rays carry green-gold humidity, temperate keeps its familiar warmth. Lightning now forks — the main bolt continues to ground while a secondary branch diverges from ~35% down, dimmer and shorter, creating the branching geometry that makes real lightning feel dangerous. Clouds finally have biome personality in their shapes: desert clouds are high thin wisps that barely exist, volcanic clouds press low and fat against the terrain laden with particulates, tundra clouds spread into flat wide stratus sheets that oppress the sky, lush clouds build tall and varied in humid cumulonimbus columns. And terrain archetypes are now biome-weighted: desert favors canyons and plateaus with terraced staircase dunes; volcanic favors canyons and jagged staircase lava flows; tundra favors gentle rolling hills and glacial plateaus; lush favors verdant marshes, archipelagos, and rolling valleys — so the landscape itself reads as belonging to its biome before a single tree or spire is placed.",
