@@ -3,7 +3,7 @@
 import { noise2 } from "./noise";
 import { W, H } from "./config";
 import { Tile } from "./types";
-import type { Terrain, RGB, BiomePalette } from "./types";
+import type { Terrain, RGB, BiomePalette, Weather } from "./types";
 import { setPixel } from "./render";
 import { PAL, lerpColor } from "./palette";
 import { getSurfaceY } from "./terrain-query";
@@ -208,6 +208,19 @@ export function renderTerrain(
               g = Math.max(0,   g - 12 * gf);
               b = Math.min(255, b + 55 * gf);
             }
+          }
+        }
+
+        // Volcanic sky reddening — ash and smoke tint the sky warm amber-grey
+        // during dissolution/silence, strongest near the horizon where ash settles
+        if (biome === "volcanic") {
+          const ashSkyStr = Math.max(0, Math.min(1, (cycleProgress - 0.68) / 0.32)) * 0.50;
+          if (ashSkyStr > 0.01) {
+            const altFade = Math.min(1, y / (H * 0.52)); // 0 at zenith, 1 near horizon
+            const blend = ashSkyStr * altFade;
+            r = r + (92 - r) * blend;
+            g = g + (50 - g) * blend;
+            b = b + (38 - b) * blend;
           }
         }
 
@@ -507,6 +520,57 @@ export function applyHeatHaze(buf: ImageData, terrain: Terrain, time: number, cy
       d[pi]     = Math.min(255, d[pi]     + Math.round(hazeStr * 26));
       d[pi + 1] = Math.min(255, d[pi + 1] + Math.round(hazeStr * 13));
       d[pi + 2] = Math.max(0,   d[pi + 2] - Math.round(hazeStr * 9));
+    }
+  }
+}
+
+/**
+ * Rain puddles — small shimmering water patches on flat ground during rain/storm.
+ * Only on flat, dry-land surfaces above the water line.
+ * Animated ripple shimmer from simulated raindrop impacts.
+ * Call after applyWeatherDarkening so puddles share the darkened tone.
+ */
+export function renderRainPuddles(
+  buf: ImageData,
+  terrain: Terrain,
+  weather: Weather,
+  time: number,
+): void {
+  if (weather.type !== "rain" && weather.type !== "storm") return;
+  if (terrain.biome === "volcanic") return; // lava doesn't puddle
+
+  const { tiles, heights, waterLevel, seed } = terrain;
+
+  for (let x = 1; x < W - 1; x++) {
+    // Only flat terrain — adjacent columns within 1.5px of each other
+    if (Math.abs(heights[x + 1] - heights[x]) > 1.5 || Math.abs(heights[x - 1] - heights[x]) > 1.5) continue;
+
+    const surfY = getSurfaceY(terrain, x);
+    const worldH = H - surfY;
+    if (worldH <= waterLevel + 2) continue; // too close to water — already wet
+
+    const tile = tiles[surfY * W + x] as Tile;
+    if (tile !== Tile.Ground && tile !== Tile.Sand) continue;
+
+    // Deterministic puddle placement — only some flat tiles get puddles
+    const pNoise = noise2(x * 0.65, seed * 0.88 + 97);
+    if (pNoise < 0.12) continue; // ~44% of flat tiles
+
+    // Animated ripple: two overlapping wave frequencies
+    const ripA = Math.sin(x * 0.42 + time * 3.8) * 0.5 + 0.5;
+    const ripB = Math.sin(x * 0.71 - time * 4.5 + 1.6) * 0.5 + 0.5;
+    const shimmer = ripA * 0.60 + ripB * 0.40;
+
+    const a = Math.round(shimmer * weather.intensity * 60);
+    if (a < 5) continue;
+
+    // Blue-grey puddle surface
+    setPixel(buf, x, surfY, 105, 130, 162, a);
+
+    // Raindrop impact highlight: bright flash at wave peak
+    if (shimmer > 0.80) {
+      const ha = Math.round((shimmer - 0.80) / 0.20 * 110);
+      if (surfY > 0) setPixel(buf, x, surfY - 1, 158, 185, 215, ha);
     }
   }
 }

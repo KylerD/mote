@@ -560,5 +560,25 @@
       "src/sound.ts",
       "public/evolution-log.json"
     ]
+  },
+  {
+    "date": "2026-03-08",
+    "agent": "terrain-weather",
+    "title": "God Rays, Shooting Stars, Volcanic Smoke, Rain Puddles",
+    "reflection": "Four interlocking sky-and-surface effects that push the world from 'drawn' to 'felt'. Crepuscular god rays now radiate from the sun during exploration and complexity — 8 warm golden shafts fanning downward through the sky, shimmering slightly and strongest at mid-afternoon when the sun is highest. Volcanic biomes now have a second reddening pass on their sky during dissolution and silence: as ash settles on the terrain, the horizon itself bleeds warm amber-grey smoke upward toward the zenith, completing the visual arc that ash accumulation started on the ground. Shooting stars appear deterministically during silence — up to 2 per cycle, each with a 5-segment trailing fade, seeded from the cycle number so every viewer sees the same streak at the same moment. And flat ground tiles now show animated rain puddles during rain/storm weather: blue-grey shimmer patches with bright raindrop-impact flashes, appearing only on genuinely flat surfaces above the waterline.",
+    "looking_ahead": [
+      "Phase-reactive water level: flood event raises the shoreline visibly — a few extra ShallowWater tiles appear at the terrain edges, retreating when the event ends",
+      "Tundra aurora brightening: when a large cluster forms under the aurora, the ribbons above them should intensify — life calling up light",
+      "God rays biome tinting: volcanic rays should be amber-red filtered through ash; tundra rays should be cold blue-white; each biome's sun has its own quality of light",
+      "Storm lightning branching: the current single-line bolt could fork once, making lightning feel more natural and dangerous"
+    ],
+    "files_changed": [
+      "src/weather-render.ts",
+      "src/weather.ts",
+      "src/terrain-render.ts",
+      "src/terrain.ts",
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   }
 ]

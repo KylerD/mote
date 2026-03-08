@@ -390,6 +390,135 @@ export function renderLightning(buf: ImageData, weather: Weather): void {
   }
 }
 
+/** Simple integer hash for deterministic random from a seed value */
+function seedHash(n: number): number {
+  let x = (n ^ 0x9e3779b9) >>> 0;
+  x = ((x ^ (x >>> 16)) * 0x45d9f3b) >>> 0;
+  x = ((x ^ (x >>> 16)) * 0x45d9f3b) >>> 0;
+  x = (x ^ (x >>> 16)) >>> 0;
+  return x / 0xffffffff;
+}
+
+/**
+ * God rays — crepuscular light shafts radiating from the sun downward through the sky.
+ * Strongest when the sun is high (exploration through complexity phases).
+ * Blocked by storm, overcast, and fog. Dimmed by rain and snow.
+ * Call after renderCelestial, before renderClouds.
+ */
+export function applyGodRays(
+  buf: ImageData,
+  weather: Weather,
+  time: number,
+  cycleProgress: number,
+): void {
+  if (weather.type === "storm" || weather.type === "overcast" || weather.type === "fog") return;
+
+  const { x: cx, y: cy, visible, horizonGlow } = getSunArc(cycleProgress);
+  // Only when sun is reasonably high — low-sun rays intersect terrain
+  if (!visible || horizonGlow < 0.15) return;
+
+  // Strength scales with sun height; strongest at mid-afternoon
+  const baseStr = horizonGlow * 0.44;
+  const weatherMod = (weather.type === "rain" || weather.type === "snow") ? 0.28 : 1.0;
+  const rayStr = baseStr * weatherMod;
+  if (rayStr < 0.04) return;
+
+  const d = buf.data;
+  // Clamp ray pixels to sky area — don't bleed into terrain
+  const RAY_MAX_Y = Math.floor(H * 0.58);
+  const RAY_LEN = 42;
+
+  // 8 ray directions fanning below the sun, degrees from straight down (screen-space)
+  const ANGLES = [-50, -30, -16, -5, 5, 16, 30, 50];
+
+  for (const angleDeg of ANGLES) {
+    const rad = angleDeg * Math.PI / 180;
+    const stepX = Math.sin(rad);
+    const stepY = Math.cos(rad); // +y = downward in screen coords
+
+    // Slow shimmer per ray for living atmospheric feel
+    const shimmer = Math.sin(time * 0.55 + angleDeg * 0.21) * 0.18 + 0.82;
+    const rFinal = rayStr * shimmer;
+
+    for (let step = 5; step < RAY_LEN; step++) {
+      const rx = cx + Math.round(stepX * step);
+      const ry = cy + Math.round(stepY * step);
+      if (rx < 0 || rx >= W || ry < 0 || ry > RAY_MAX_Y) continue;
+
+      const falloff = (1 - step / RAY_LEN) * (1 - step / RAY_LEN);
+      const a = Math.round(rFinal * falloff * 60);
+      if (a < 2) continue;
+
+      const pi = (ry * W + rx) * 4;
+      // Warm golden sunlight tint
+      d[pi]     = Math.min(255, d[pi]     + Math.round(a * 1.10));
+      d[pi + 1] = Math.min(255, d[pi + 1] + Math.round(a * 0.82));
+      d[pi + 2] = Math.min(255, d[pi + 2] + Math.round(a * 0.30));
+
+      // Soft 1px glow beside each ray for feathered edge
+      if (rx + 1 < W) {
+        const pi2 = (ry * W + rx + 1) * 4;
+        const a2 = Math.round(a * 0.28);
+        d[pi2]     = Math.min(255, d[pi2]     + Math.round(a2 * 1.10));
+        d[pi2 + 1] = Math.min(255, d[pi2 + 1] + Math.round(a2 * 0.82));
+        d[pi2 + 2] = Math.min(255, d[pi2 + 2] + Math.round(a2 * 0.30));
+      }
+    }
+  }
+}
+
+/**
+ * Shooting stars during silence — brief bright diagonal streaks across the night sky.
+ * Deterministic from cycleNumber so all viewers see the same events at the same time.
+ * Up to 2 shooting stars per cycle, each appearing in the 24-second silence window.
+ * Call after renderCelestial, before renderClouds.
+ */
+export function renderShootingStars(
+  buf: ImageData,
+  cycleProgress: number,
+  cycleNumber: number,
+  weatherType: string,
+): void {
+  if (cycleProgress < 0.92) return;
+  if (weatherType === "storm" || weatherType === "overcast") return;
+
+  const tInSilence = (cycleProgress - 0.92) / 0.08; // 0→1 across the silence window
+  const wMod = weatherType === "fog" ? 0.30 : 1.0;
+
+  for (let i = 0; i < 2; i++) {
+    const base = cycleNumber * 1777 + i * 317;
+
+    // Each star occupies a random sub-window inside silence
+    const startT  = seedHash(base + 1) * 0.58;               // 0–58% into silence
+    const durT    = 0.07 + seedHash(base + 2) * 0.18;        // 7–25% of silence (≈2–6s)
+    const localT  = (tInSilence - startT) / durT;
+    if (localT < 0 || localT > 1) continue;
+
+    // Start/end positions — bias toward upper-left → lower-right
+    const sx = Math.round(W * (0.06 + seedHash(base + 3) * 0.60));
+    const sy = Math.round(H * (0.03 + seedHash(base + 4) * 0.25));
+    const ex = Math.round(sx + (22 + seedHash(base + 5) * 38) * (seedHash(base + 8) > 0.35 ? 1 : -1));
+    const ey = Math.round(sy + 10 + seedHash(base + 6) * 22);
+
+    const px = Math.round(sx + (ex - sx) * localT);
+    const py = Math.round(sy + (ey - sy) * localT);
+
+    // Head: bright white-gold, fades toward end of streak
+    const headA = Math.round((1 - localT * 0.65) * 235 * wMod);
+    if (headA > 3) setPixel(buf, px, py, 255, 252, 228, headA);
+
+    // Trail: 5 segments stepping back along the trajectory
+    for (let t = 1; t <= 5; t++) {
+      const tp = Math.max(0, localT - t * 0.09);
+      const tx = Math.round(sx + (ex - sx) * tp);
+      const ty = Math.round(sy + (ey - sy) * tp);
+      const ta = Math.round((1 - localT * 0.5) * (185 - t * 38) * wMod);
+      if (ta < 4) break;
+      setPixel(buf, tx, ty, 218, 214, 198, ta);
+    }
+  }
+}
+
 /** Apply fog overlay — biome-tinted semi-transparent layer */
 export function renderFog(buf: ImageData, weather: Weather, time: number, biome: Biome = "temperate"): void {
   if (weather.fogDensity <= 0) return;

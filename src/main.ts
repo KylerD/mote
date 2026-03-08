@@ -2,7 +2,7 @@
 
 import { createRenderContext, present } from "./render";
 import { H } from "./config";
-import { renderTerrain, applyHeatHaze, applyVolcanicAsh } from "./terrain";
+import { renderTerrain, applyHeatHaze, applyVolcanicAsh, renderRainPuddles } from "./terrain";
 import { createWorld, updateWorld } from "./world";
 import { cycleName } from "./names";
 import { createSoundEngine, initAudio, updateSound, updateWeatherSound, playDeath, playEventSound, playPhaseTransition } from "./sound";
@@ -11,7 +11,7 @@ import { isEventActive, isEclipseActive } from "./events";
 import {
   renderCelestial, renderClouds, renderParticles,
   renderLightning, renderFog, applyWeatherDarkening,
-  applyTundraAurora,
+  applyTundraAurora, applyGodRays, renderShootingStars,
 } from "./weather";
 import { createNarrative, updateNarrative } from "./narrative";
 import { computeMoteColor, renderMoteTrails, renderMotes } from "./render-motes";
@@ -137,9 +137,12 @@ function init(): void {
 
     // Weather background
     renderCelestial(rc.buf, w.weather, w.time, w.cycleProgress);
+    applyGodRays(rc.buf, w.weather, w.time, w.cycleProgress);
+    renderShootingStars(rc.buf, w.cycleProgress, w.cycleNumber, w.weather.type);
     applyTundraAurora(rc.buf, w.terrain.biome, w.time, w.cycleProgress, w.weather.type);
     renderClouds(rc.buf, w.weather, w.time, w.terrain.biome);
     applyWeatherDarkening(rc.buf, w.weather);
+    renderRainPuddles(rc.buf, w.terrain, w.weather, w.time);
     applyHeatHaze(rc.buf, w.terrain, w.time, w.cycleProgress);
     applyVolcanicAsh(rc.buf, w.terrain, w.cycleProgress);
 
