@@ -257,6 +257,8 @@ const engineLonelyDroneTime = new WeakMap<SoundEngine, number>();
 const engineDesertShimmerTime = new WeakMap<SoundEngine, number>();
 const engineMilestone4Time = new WeakMap<SoundEngine, number>();
 const engineMilestone8Time = new WeakMap<SoundEngine, number>();
+const engineTundraWindTime = new WeakMap<SoundEngine, number>();
+const engineVolcanicRumbleTime = new WeakMap<SoundEngine, number>();
 
 // Phase multipliers for ambient bed gain — drives the sonic arc
 const PHASE_AMBIENT_MULT = [0.30, 0.60, 0.85, 1.00, 0.65, 0.10];
@@ -647,6 +649,65 @@ export function updateSound(
       lOsc.stop(now + 23.0);
     }
   }
+
+  // Tundra silence: two detuned sines that rise and fall like a cold wind breathing —
+  // the frozen world's last exhale. Long arc (26s), fully wet in reverb.
+  if (biome === "tundra" && phaseIndex === 5) {
+    const lastWind = engineTundraWindTime.get(engine) ?? 0;
+    if (now - lastWind > 28.0) {
+      engineTundraWindTime.set(engine, now);
+      const wCtx = engine.ctx;
+      for (const [detune, pan, vol] of [[-9, -0.45, 0.012], [9, 0.45, 0.010]] as [number, number, number][]) {
+        const wOsc = wCtx.createOscillator();
+        const wGain = wCtx.createGain();
+        const wPan = wCtx.createStereoPanner();
+        wOsc.type = "sine";
+        wOsc.frequency.value = profile.rootFreq * 2;
+        wOsc.detune.value = detune;
+        wPan.pan.value = pan;
+        // Slow rise → hold → fall: a breath that fills the silence then recedes
+        wGain.gain.setValueAtTime(0.0, now);
+        wGain.gain.linearRampToValueAtTime(vol, now + 9.0);
+        wGain.gain.setValueAtTime(vol, now + 17.0);
+        wGain.gain.linearRampToValueAtTime(0.0, now + 26.0);
+        wOsc.connect(wGain);
+        wGain.connect(wPan);
+        wPan.connect(engine.reverb);
+        wOsc.start(now);
+        wOsc.stop(now + 27.0);
+      }
+    }
+  }
+
+  // Volcanic dissolution: sub-bass rumbles that grow more frequent as the world ends.
+  // Interval shrinks from 8s → 2s as phaseProgress approaches 1.
+  if (biome === "volcanic" && phaseIndex === 4) {
+    const lastRumble = engineVolcanicRumbleTime.get(engine) ?? 0;
+    const rumbleInterval = 8.0 - phaseProgress * 6.0;
+    if (now - lastRumble > rumbleInterval) {
+      engineVolcanicRumbleTime.set(engine, now);
+      const rCtx = engine.ctx;
+      const rOsc = rCtx.createOscillator();
+      const rFilter = rCtx.createBiquadFilter();
+      const rGain = rCtx.createGain();
+      rOsc.type = "sawtooth";
+      // Pitch creeps up slightly as dissolution deepens — pressure building
+      const rPitch = 36 + phaseProgress * 14;
+      rOsc.frequency.setValueAtTime(rPitch, now);
+      rOsc.frequency.exponentialRampToValueAtTime(rPitch * 0.52, now + 1.5);
+      rFilter.type = "lowpass";
+      rFilter.frequency.value = 85 + phaseProgress * 45;
+      const rVol = (0.018 + phaseProgress * 0.034) * profile.masterMult;
+      rGain.gain.setValueAtTime(0.0, now);
+      rGain.gain.linearRampToValueAtTime(rVol, now + 0.06);
+      rGain.gain.exponentialRampToValueAtTime(0.001, now + 1.6);
+      rOsc.connect(rFilter);
+      rFilter.connect(rGain);
+      rGain.connect(engine.compressor);
+      rOsc.start(now);
+      rOsc.stop(now + 1.7);
+    }
+  }
 }
 
 /** Individual mote chirp — varies by temperament */
@@ -829,46 +890,160 @@ export function playBondForm(
   }
 }
 
-/** Two tones falling apart on bond break — inverse of playBondForm */
+/** Two tones falling apart on bond break — voiced per biome, mirror of playBondForm */
 function playBondBreak(
   engine: SoundEngine,
   yNorm: number,
   scale: number[],
   profile: BiomeSoundProfile,
 ): void {
+  const biome = engineCurrentBiome.get(engine) ?? "temperate";
   const ctx = engine.ctx;
   const now = ctx.currentTime;
-
   const idx = Math.floor(yNorm * scale.length) % scale.length;
   const freq = profile.rootFreq * Math.pow(2, scale[idx] / 12) * 2;
 
-  // First tone: slides a minor third downward — the lower voice breaking away
-  const osc1 = ctx.createOscillator();
-  const gain1 = ctx.createGain();
-  osc1.type = "triangle";
-  osc1.frequency.setValueAtTime(freq, now);
-  osc1.frequency.exponentialRampToValueAtTime(freq * Math.pow(2, -3 / 12), now + 0.30);
-  gain1.gain.setValueAtTime(0.001, now);
-  gain1.gain.linearRampToValueAtTime(0.020, now + 0.015);
-  gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-  osc1.connect(gain1);
-  gain1.connect(engine.reverb);
-  osc1.start(now);
-  osc1.stop(now + 0.40);
+  switch (biome) {
+    case "desert": {
+      // Single long descending bell toll — a note that rang, then faded alone
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now);
+      osc.frequency.exponentialRampToValueAtTime(freq * Math.pow(2, -4 / 12), now + 3.5);
+      gain.gain.setValueAtTime(0.018, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 3.8);
+      osc.connect(gain);
+      gain.connect(engine.reverb);
+      osc.start(now);
+      osc.stop(now + 4.0);
+      // Faint 3rd harmonic shimmer fades quickly
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.value = freq * 3.0;
+      gain2.gain.setValueAtTime(0.006, now);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+      osc2.connect(gain2);
+      gain2.connect(engine.reverb);
+      osc2.start(now);
+      osc2.stop(now + 1.0);
+      break;
+    }
 
-  // Second tone: starts at a fifth, drops below the root — the two voices diverging
-  const osc2 = ctx.createOscillator();
-  const gain2 = ctx.createGain();
-  osc2.type = "sine";
-  osc2.frequency.setValueAtTime(freq * Math.pow(2, 7 / 12), now + 0.03);
-  osc2.frequency.exponentialRampToValueAtTime(freq * Math.pow(2, -2 / 12), now + 0.26);
-  gain2.gain.setValueAtTime(0.001, now + 0.03);
-  gain2.gain.linearRampToValueAtTime(0.014, now + 0.055);
-  gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.30);
-  osc2.connect(gain2);
-  gain2.connect(engine.reverb);
-  osc2.start(now + 0.03);
-  osc2.stop(now + 0.35);
+    case "tundra": {
+      // Two crystalline tones slide apart in opposite directions — cracking ice
+      const high = freq * 2.0;
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(high, now);
+      osc1.frequency.exponentialRampToValueAtTime(high * Math.pow(2, 5 / 12), now + 0.8); // slides up
+      gain1.gain.setValueAtTime(0.001, now);
+      gain1.gain.linearRampToValueAtTime(0.018, now + 0.01);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 1.6);
+      osc1.connect(gain1);
+      gain1.connect(engine.reverb);
+      osc1.start(now);
+      osc1.stop(now + 1.7);
+
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(high * Math.pow(2, 7 / 12), now);
+      osc2.frequency.exponentialRampToValueAtTime(high * Math.pow(2, -2 / 12), now + 0.9); // slides down
+      gain2.gain.setValueAtTime(0.001, now);
+      gain2.gain.linearRampToValueAtTime(0.014, now + 0.01);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+      osc2.connect(gain2);
+      gain2.connect(engine.reverb);
+      osc2.start(now);
+      osc2.stop(now + 1.3);
+      break;
+    }
+
+    case "volcanic": {
+      // Sharp noise crack followed by a fast sub-bass drop — a bond shattering like cooling rock
+      const bufLen = Math.floor(ctx.sampleRate * 0.08);
+      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufLen * 0.15));
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const filt = ctx.createBiquadFilter();
+      filt.type = "bandpass";
+      filt.frequency.value = 900;
+      filt.Q.value = 2.0;
+      const gn = ctx.createGain();
+      gn.gain.setValueAtTime(0.025, now);
+      gn.gain.exponentialRampToValueAtTime(0.001, now + 0.20);
+      src.connect(filt);
+      filt.connect(gn);
+      gn.connect(engine.compressor);
+      src.start(now);
+      // Sub drop: a pitch falling off a cliff
+      const sub = ctx.createOscillator();
+      const subGain = ctx.createGain();
+      sub.type = "sine";
+      sub.frequency.setValueAtTime(80, now + 0.02);
+      sub.frequency.exponentialRampToValueAtTime(28, now + 0.38);
+      subGain.gain.setValueAtTime(0.030, now + 0.02);
+      subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+      sub.connect(subGain);
+      subGain.connect(engine.compressor);
+      sub.start(now + 0.02);
+      sub.stop(now + 0.45);
+      break;
+    }
+
+    case "lush": {
+      // Three voices that were in harmony drift apart — warm dissolution
+      for (const [semi, delay, dur] of [[0, 0.0, 1.3], [4, 0.04, 1.0], [7, 0.02, 0.8]] as [number, number, number][]) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freq * Math.pow(2, semi / 12), now + delay);
+        osc.frequency.exponentialRampToValueAtTime(freq * Math.pow(2, (semi - 2) / 12), now + delay + dur);
+        gain.gain.setValueAtTime(0.001, now + delay);
+        gain.gain.linearRampToValueAtTime(0.016 - semi * 0.001, now + delay + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
+        osc.connect(gain);
+        gain.connect(engine.reverb);
+        osc.start(now + delay);
+        osc.stop(now + delay + dur + 0.05);
+      }
+      break;
+    }
+
+    default: { // temperate — minor third downward glide, fifth drops below root
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "triangle";
+      osc1.frequency.setValueAtTime(freq, now);
+      osc1.frequency.exponentialRampToValueAtTime(freq * Math.pow(2, -3 / 12), now + 0.30);
+      gain1.gain.setValueAtTime(0.001, now);
+      gain1.gain.linearRampToValueAtTime(0.020, now + 0.015);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.connect(gain1);
+      gain1.connect(engine.reverb);
+      osc1.start(now);
+      osc1.stop(now + 0.40);
+
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(freq * Math.pow(2, 7 / 12), now + 0.03);
+      osc2.frequency.exponentialRampToValueAtTime(freq * Math.pow(2, -2 / 12), now + 0.26);
+      gain2.gain.setValueAtTime(0.001, now + 0.03);
+      gain2.gain.linearRampToValueAtTime(0.014, now + 0.055);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.30);
+      osc2.connect(gain2);
+      gain2.connect(engine.reverb);
+      osc2.start(now + 0.03);
+      osc2.stop(now + 0.35);
+      break;
+    }
+  }
 }
 
 /** Death sound — distinct per biome, loss made audible in each world's own voice */
@@ -1435,10 +1610,19 @@ export function playPhaseTransition(engine: SoundEngine, phaseIndex: number, bio
   const ctx = engine.ctx;
   const now = ctx.currentTime;
 
-  const note = (semitones: number, octaveMult: number, delay: number, duration: number, maxGain: number) => {
+  // Per-biome waveform selection for phase transitions:
+  // volcanic gets harsh sawtooth at dissolution/silence; tundra/desert stay pure sine;
+  // lush gets triangle at complexity/organization for warmth; temperate always sine.
+  const transitionWave = (phase: number): OscillatorType => {
+    if (biome === "volcanic") return phase >= 4 ? "sawtooth" : "triangle";
+    if (biome === "lush")     return phase >= 2 ? "triangle" : "sine";
+    return "sine";
+  };
+
+  const note = (semitones: number, octaveMult: number, delay: number, duration: number, maxGain: number, wave?: OscillatorType) => {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = "sine";
+    osc.type = wave ?? transitionWave(phaseIndex);
     osc.frequency.value = p.rootFreq * Math.pow(2, semitones / 12) * octaveMult;
     gain.gain.setValueAtTime(0.001, now + delay);
     gain.gain.linearRampToValueAtTime(maxGain, now + delay + 0.07);

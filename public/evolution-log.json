@@ -631,5 +631,21 @@
       "src/render-motes.ts",
       "public/evolution-log.json"
     ]
+  },
+  {
+    "date": "2026-03-08",
+    "agent": "sound",
+    "title": "Bond Breaks Find Their Voice — Biome Dissolution, Tundra Wind, Volcanic Earth",
+    "reflection": "Four interlocking improvements that close the gap between bond formation and bond breakage, and give two biomes a new emotional layer at the end of a cycle. Bond breaks now have five distinct signatures: desert breaks as a long descending bell toll with a fading harmonic shimmer (a note struck once in solitude); tundra breaks as two crystalline tones sliding apart in opposite directions like cracking ice; volcanic breaks as a sharp noise crack followed by a fast sub-bass drop like a cooling rock shattering; lush breaks as three voices that were briefly in harmony drifting each a whole step down. Phase transition waveforms are now biome-aware: volcanic dissolution and silence transitions use sawtooth instead of sine — the world ending through abrasion rather than softness — while lush transitions at organization and complexity use triangle for warmth. Tundra silence gains its own slow-breathing wind tone: two detuned sines at different stereo positions that take 9 seconds to rise and 9 more to fade, the frozen world drawing one last cold breath. Volcanic dissolution gains a sub-bass rumble system: sawtooth tones with a downward pitch sweep fire at intervals that compress from 8 seconds to 2 as phaseProgress nears 1.0 — the geological pressure building as the world cracks apart.",
+    "looking_ahead": [
+      "Desert bond break second voice: add a very faint high shimmer after the bell, like the overtone ringing alone in the silence",
+      "Lush silence: a brief warm chord bloom when the last mote dies — the final moment of warmth before the world ends",
+      "Tundra dissolution: the existing ambient bed could fade to near-silence faster, so the silence wind tone arrives into genuine quiet",
+      "Phase transition biome depth: tundra's exploration transition could add a slow detuned sweep instead of a crisp arpeggio — colder and less resolved"
+    ],
+    "files_changed": [
+      "src/sound.ts",
+      "public/evolution-log.json"
+    ]
   }
 ]
