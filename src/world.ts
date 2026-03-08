@@ -230,9 +230,10 @@ export function updateWorld(world: World, dt: number): void {
         time: world.time,
       });
 
-      // Death inheritance: nearest living mote within 55px briefly carries the dead mote's color
+      // Death inheritance: age-scaled radius — elders are missed from further away
+      const inheritRadius = 55 + Math.min(25, m.age * 1.5);
       let nearest: typeof world.motes[0] | null = null;
-      let nearestD2 = 55 * 55;
+      let nearestD2 = inheritRadius * inheritRadius;
       for (const other of world.motes) {
         if (other === m || other.energy <= 0) continue;
         const dx = other.x - m.x;
@@ -245,6 +246,21 @@ export function updateWorld(world: World, dt: number): void {
         nearest.inheritR = dr;
         nearest.inheritG = dg;
         nearest.inheritB = db;
+      }
+
+      // Cluster mourning: when a cluster loses a member, all survivors carry the dead mote's color
+      for (const cluster of world.clusters) {
+        if (cluster.includes(m)) {
+          for (const other of cluster) {
+            if (other !== m && other.energy > 0) {
+              other.mourningFlash = 1.0;
+              other.mourningR = dr;
+              other.mourningG = dg;
+              other.mourningB = db;
+            }
+          }
+          break;
+        }
       }
     }
   }

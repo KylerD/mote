@@ -47,6 +47,10 @@ export function createMote(
     inheritR: 0,
     inheritG: 0,
     inheritB: 0,
+    mourningFlash: 0,
+    mourningR: 0,
+    mourningG: 0,
+    mourningB: 0,
     grounded: false,
     direction: rng() < 0.5 ? -1 : 1,
     spawnFlash: 1.0,
@@ -77,6 +81,7 @@ export function updateMote(
   m.bondFlash = Math.max(0, m.bondFlash - dt * 3);
   m.bondBreakFlash = Math.max(0, m.bondBreakFlash - dt * 2.5);
   m.inheritFlash = Math.max(0, m.inheritFlash - dt * 0.65); // ~1.5s grief window
+  m.mourningFlash = Math.max(0, m.mourningFlash - dt * 0.5); // ~2s community mourning
 
   // Record trail breadcrumbs
   m.trailTimer += dt;

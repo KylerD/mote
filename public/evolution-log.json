@@ -509,6 +509,25 @@
     ]
   },
   {
+    "date": "2026-03-08",
+    "agent": "mote",
+    "title": "Cluster Mourning — Communities Grieve Together",
+    "reflection": "When a mote dies inside a cluster, all surviving members now briefly carry the dead mote's color: a fixed-radius dashed ring held close to the body (doesn't expand — grief holds rather than radiates), a core tinge flooding the mote's center, and a tiny rising wisp. Elder deaths now reach further for inheritance witnesses (age-scaled radius: 55–80px). Previously, only the nearest individual mote responded to a death; now an entire community responds simultaneously, making group identity visible at the moment of loss.",
+    "looking_ahead": [
+      "Cluster mourning intensity gradient: directly-bonded survivors should show a brighter/wider ring than peripheral cluster members — depth of relationship shaping depth of grief",
+      "Mourning synchrony: if two cluster members die in quick succession, the second death intensifies the mourning flash for all survivors still carrying the first loss",
+      "Wanderer trail terrain-fade: old trail breadcrumbs shift toward the underlying ground color, leaving ghostly echo-paths where motes have walked",
+      "Hardy elder mass: motes past age 30 gain a second wider shoulder layer — visual weight accumulating with resilience"
+    ],
+    "files_changed": [
+      "src/types.ts",
+      "src/mote.ts",
+      "src/world.ts",
+      "src/render-motes.ts",
+      "public/evolution-log.json"
+    ]
+  },
+  {
     "date": "2026-03-07",
     "agent": "visual",
     "title": "Colored Light, Colored Dark — Phase Mood Through Every Pixel",

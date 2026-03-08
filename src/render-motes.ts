@@ -335,6 +335,43 @@ export function renderMotes(
       setPixel(buf, ox, oy - 1, 10, 10, 25, Math.round(m.bondBreakFlash * 140));
     }
 
+    // CLUSTER MOURNING — all surviving cluster members briefly carry the dead mote's color.
+    // A stationary ring held close to the body (doesn't expand — grief holds, it doesn't radiate),
+    // body tinge, and a rising wisp like a thought going up to where the spirit went.
+    if (m.mourningFlash > 0) {
+      const mf = m.mourningFlash;
+      const mfC = mf * mf; // quadratic ease-out: bold at peak, graceful fade
+      const ringA = Math.round(mfC * 200);
+      const bodyA = Math.round(mfC * 130);
+      // Stationary ring at fixed radius — held close, doesn't expand (unlike inheritance ring)
+      if (ringA > 5) {
+        const RING_R = 5;
+        for (let i = 0; i < 16; i++) {
+          if (i % 4 === 3) continue; // gap pattern: dashed, not solid
+          const angle = (i / 16) * Math.PI * 2;
+          setPixel(buf,
+            ox + Math.cos(angle) * RING_R,
+            (oy - 1) + Math.sin(angle) * RING_R,
+            m.mourningR, m.mourningG, m.mourningB, ringA,
+          );
+        }
+      }
+      // Body tinge — mote briefly shows the lost one's color in its core
+      if (bodyA > 5) {
+        setPixel(buf, ox,     oy - 2, m.mourningR, m.mourningG, m.mourningB, Math.round(bodyA * 0.65));
+        setPixel(buf, ox - 1, oy - 1, m.mourningR, m.mourningG, m.mourningB, Math.round(bodyA * 0.4));
+        setPixel(buf, ox,     oy - 1, m.mourningR, m.mourningG, m.mourningB, bodyA);
+        setPixel(buf, ox + 1, oy - 1, m.mourningR, m.mourningG, m.mourningB, Math.round(bodyA * 0.4));
+        setPixel(buf, ox,     oy,     m.mourningR, m.mourningG, m.mourningB, Math.round(bodyA * 0.5));
+        // Rising wisp — a brief upward tendril, like a thought going skyward
+        if (mf > 0.5) {
+          const wA = Math.round((mf - 0.5) / 0.5 * 85);
+          setPixel(buf, ox, oy - 4, m.mourningR, m.mourningG, m.mourningB, wA);
+          setPixel(buf, ox, oy - 5, m.mourningR, m.mourningG, m.mourningB, Math.round(wA * 0.4));
+        }
+      }
+    }
+
     // DEATH INHERITANCE — nearest witness briefly carries the dead mote's color
     // An expanding ring of grief: the color of loss radiating outward from the survivor
     if (m.inheritFlash > 0) {

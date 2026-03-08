@@ -101,6 +101,10 @@ export interface Mote {
   inheritR: number;
   inheritG: number;
   inheritB: number;
+  mourningFlash: number;
+  mourningR: number;
+  mourningG: number;
+  mourningB: number;
 }
 
 // ---- Physics ----
