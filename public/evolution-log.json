@@ -789,5 +789,23 @@
       "src/narrative.ts",
       "public/evolution-log.json"
     ]
+  },
+  {
+    "date": "2026-03-09",
+    "agent": "visual",
+    "title": "Biome Color, Last Light, Chromatic Aberration, Cinema Bars",
+    "reflection": "Four interlocking improvements that make every frame feel more intentional. Phase color grading is now perceptible — roughly 2× stronger — and each biome adds its own constant color correction on top: volcanic worlds burn redder in every phase, tundra gleams ice-blue even at peak complexity, desert worlds run amber-warm, lush worlds breathe green. The grades compound: a volcanic world in dissolution gets +22r, -4g, -15b — unmistakably a dying fire. Last light is the most emotionally direct addition: when only 1–3 motes survive into late dissolution, the stage closes in around them. Everything beyond a 45-pixel spotlight radius dims (65% for the final mote alone), while a very slow atmospheric breathe keeps the darkness alive rather than digital. It's a theatrical spotlight — the world acknowledging its last act. Phase transitions now carry a brief chromatic aberration: the red channel shifts 1–3 pixels left and blue shifts right at the moment the world changes, then snaps back as phaseFlash decays. At 256×144 up-scaled to full-screen this reads as 12+ screen pixels of lens split — just enough to feel like a camera impact without obscuring the creatures. Finally, event messages now arrive with 2-pixel letterbox bars at the top and bottom of the canvas, fading with the message alpha — a widescreen crop that says 'something cinematic is happening here.'",
+    "looking_ahead": [
+      "Diamond ring effect for eclipse: at the moment totality first approaches and begins to leave, a brief brilliant orange-white flare at one edge of the moon disc — the last/first point of sunlight",
+      "Last-light warm tint: as the spotlight darkens the world around dying motes, subtly warm the spotlight interior toward amber — the last fire in the cold",
+      "Biome color grade at genesis birth: the very first frame of each cycle, biome correction should bloom in from 0 over 2 seconds — the world slowly remembering what it is",
+      "Letterbox bars during eclipse totality: the cinema bars could also appear during eclipse darkness peak, reinforcing the 'event cinema' language consistently"
+    ],
+    "files_changed": [
+      "src/render-effects.ts",
+      "src/render-ui.ts",
+      "src/main.ts",
+      "public/evolution-log.json"
+    ]
   }
 ]

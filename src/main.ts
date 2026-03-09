@@ -20,6 +20,7 @@ import {
   renderMeteorVisual, renderCraterGlow, renderPhaseFlash,
   applyVignette, applyPhaseColorGrade, createMeteorState,
   applyBloom, renderAtmosphericParticles, renderClusterRadiance,
+  applyChromaticAberration, applyLastLight,
 } from "./render-effects";
 import { renderClusterGlow, renderBondLines, renderDeathParticles, renderSilenceConstellation } from "./render-bonds";
 import { renderRipples, renderCursor, renderEventMessage, renderDebugOverlay } from "./render-ui";
@@ -236,13 +237,19 @@ function init(): void {
     }
     applyBloom(rc.buf, bloomStrength, bloomTintR, bloomTintG, bloomTintB);
 
+    // Chromatic aberration — brief lens-shock at phase transitions
+    applyChromaticAberration(rc.buf, w.phaseFlash);
+
     // Detect phase transitions and update the cross-fade tracker
     if (w.phaseIndex !== vigLastSeenPhase) {
       vigPrevPhaseIndex = vigLastSeenPhase;
       vigLastSeenPhase = w.phaseIndex;
     }
     applyVignette(rc.buf, w.phaseIndex, w.phaseProgress, w.motes.length, vigPrevPhaseIndex, w.phaseFlash);
-    applyPhaseColorGrade(rc.buf, w.phaseIndex, w.phaseProgress);
+    applyPhaseColorGrade(rc.buf, w.phaseIndex, w.phaseProgress, w.terrain.biome);
+
+    // Last-light — cinematic spotlight on the final survivors
+    applyLastLight(rc.buf, w.motes, w.phaseIndex, w.phaseProgress, w.time);
 
     // Event message
     renderEventMessage(rc.buf, w.event, w.time);

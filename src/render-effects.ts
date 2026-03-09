@@ -14,6 +14,8 @@ const _bloomExtB = new Uint8Array(_BLOOM_N);
 const _bloomBufR = new Uint8Array(_BLOOM_N);
 const _bloomBufG = new Uint8Array(_BLOOM_N);
 const _bloomBufB = new Uint8Array(_BLOOM_N);
+// Chromatic aberration: one row of (R, _, B, _) data — reused per frame
+const _caRowBuf = new Uint8Array(W * 4);
 
 /**
  * Screen-space bloom: threshold bright pixels, apply separable box blur,
@@ -382,31 +384,61 @@ export function renderMeteorVisual(
   }
 }
 
-/** Per-phase color grade — subtle warm/cool tint applied to the final composed frame */
-export function applyPhaseColorGrade(buf: ImageData, phaseIndex: number, phaseProgress: number): void {
-  // Additive RGB shifts [r, g, b] for each phase — small but perceptible
+/**
+ * Per-phase color grade with biome correction — perceptible warm/cool tint applied
+ * to the final composed frame.  Two layers:
+ *
+ * 1. Phase grade   — blends in over first 25% of each phase; drives the emotional arc
+ *                    (violet genesis → amber complexity → cold-blue silence)
+ * 2. Biome overlay — always-on correction giving each world a characteristic color
+ *                    temperature (volcanic reds, tundra ice-blues, desert ambers, etc.)
+ *
+ * Both layers are strictly additive so they never crush blacks or blow out highlights.
+ */
+export function applyPhaseColorGrade(
+  buf: ImageData,
+  phaseIndex: number,
+  phaseProgress: number,
+  biome = "",
+): void {
+  // Phase grades: ~2× stronger than the original — now perceptible at a glance.
+  // Each phase has a distinct emotional color temperature.
   const GRADES: [number, number, number][] = [
-    [ 0,  0,  7],  // 0 genesis:      cool violet cast
-    [ 3,  1, -2],  // 1 exploration:  slight warm push
-    [ 0,  0,  0],  // 2 organization: neutral (skip)
-    [ 4,  2, -3],  // 3 complexity:   vivid warm peak
-    [ 7, -1, -5],  // 4 dissolution:  amber decline
-    [-3, -2,  6],  // 5 silence:      cold blue absence
+    [  0,   0,  14],  // 0 genesis:      deep violet — the world igniting from cold
+    [  6,   2,  -4],  // 1 exploration:  warm amber push — life spreading outward
+    [  0,   0,   0],  // 2 organization: neutral (skip — the world is steady)
+    [  9,   4,  -6],  // 3 complexity:   vivid warm peak — community at its hottest
+    [ 14,  -2, -10],  // 4 dissolution:  hot amber-red — the world burning out
+    [ -6,  -4,  12],  // 5 silence:      cold winter blue — absence made visible
   ];
-  const [dr, dg, db] = GRADES[Math.min(5, Math.max(0, phaseIndex))];
-  if (dr === 0 && dg === 0 && db === 0) return;
-  // Blend in gradually — full strength by 25% into the phase
-  const blend = Math.min(1, phaseProgress / 0.25);
-  const fr = Math.round(dr * blend);
-  const fg = Math.round(dg * blend);
-  const fb = Math.round(db * blend);
-  if (fr === 0 && fg === 0 && fb === 0) return;
+
+  // Per-biome additive overlay — gives each world a characteristic color cast.
+  // Applied at full strength always (not phase-gated) — the biome never stops being itself.
+  // Values are moderate so they enhance rather than override terrain/mote colors.
+  const BIOME_GRADE: Record<string, [number, number, number]> = {
+    volcanic:  [  8,  -2,  -5],  // hot red-orange cast
+    tundra:    [ -4,   1,  10],  // cold ice-blue
+    desert:    [  6,   3,  -6],  // dry amber warmth
+    lush:      [ -2,   6,  -3],  // green vitality
+    temperate: [  0,   0,   0],  // neutral
+  };
+
+  const pi = Math.min(5, Math.max(0, phaseIndex));
+  const [pr, pg, pb] = GRADES[pi];
+  const [br, bg, bb] = BIOME_GRADE[biome] ?? [0, 0, 0];
+
+  // Phase grade fades in over first 25% of the phase; biome correction is constant.
+  const phaseBlend = Math.min(1, phaseProgress / 0.25);
+  const totalR = Math.round(pr * phaseBlend) + br;
+  const totalG = Math.round(pg * phaseBlend) + bg;
+  const totalB = Math.round(pb * phaseBlend) + bb;
+  if (totalR === 0 && totalG === 0 && totalB === 0) return;
 
   const d = buf.data;
   for (let i = 0; i < d.length; i += 4) {
-    d[i]     = Math.min(255, Math.max(0, d[i]     + fr));
-    d[i + 1] = Math.min(255, Math.max(0, d[i + 1] + fg));
-    d[i + 2] = Math.min(255, Math.max(0, d[i + 2] + fb));
+    d[i]     = Math.min(255, Math.max(0, d[i]     + totalR));
+    d[i + 1] = Math.min(255, Math.max(0, d[i + 1] + totalG));
+    d[i + 2] = Math.min(255, Math.max(0, d[i + 2] + totalB));
   }
 }
 
@@ -712,6 +744,127 @@ export function applyVignette(
       d[i]     = Math.min(255, Math.max(0, d[i]     * f + xtr * tintFactor)) | 0;
       d[i + 1] = Math.min(255, Math.max(0, d[i + 1] * f + xtg * tintFactor)) | 0;
       d[i + 2] = Math.min(255, Math.max(0, d[i + 2] * f + xtb * tintFactor)) | 0;
+    }
+  }
+}
+
+/**
+ * Last-light cinematic spotlight — when the world has only 1–3 motes left during
+ * late-game phases, the stage darkens around the survivors.
+ *
+ * Areas far from any living mote are progressively dimmed; the motes themselves
+ * remain fully lit.  Creates a theatrical "spotlight on the last act" as the
+ * cycle winds toward silence.
+ *
+ * Activates during:
+ *   - dissolution phase (fades in over first 30% of the phase)
+ *   - final 20% of complexity when ≤3 motes remain
+ *
+ * Darkness scales with remaining count: 3→25%, 2→45%, 1→65%.
+ */
+export function applyLastLight(
+  buf: ImageData,
+  motes: Mote[],
+  phaseIndex: number,
+  phaseProgress: number,
+  time: number,
+): void {
+  const count = motes.length;
+  if (count === 0 || count > 3) return;
+  if (phaseIndex < 3) return;
+  // Late complexity: only last 20% of the phase
+  if (phaseIndex === 3 && phaseProgress < 0.80) return;
+
+  // Max darkness outside the spotlight by remaining mote count
+  const baseDarkness = count === 1 ? 0.65 : count === 2 ? 0.45 : 0.25;
+
+  // Fade in — dissolution ramps over first 30% of phase; late-complexity quick ramp
+  let fadeIn: number;
+  if (phaseIndex === 4) {
+    fadeIn = Math.min(1, phaseProgress * 3.0);
+  } else {
+    // phaseIndex === 3, phaseProgress ∈ [0.80, 1.00]
+    fadeIn = (phaseProgress - 0.80) / 0.20;
+  }
+  const maxDarkness = baseDarkness * fadeIn;
+  if (maxDarkness < 0.02) return;
+
+  // Spotlight geometry
+  const spotR   = 45;               // full spotlight circle radius in px
+  const spotR2  = spotR * spotR;
+  const innerR2 = (spotR * 0.35) * (spotR * 0.35);   // full brightness core
+
+  // Very slow atmospheric breathing — the darkness feels alive, not digital
+  const breathe = Math.sin(time * 0.55) * 0.025 + 0.975;
+
+  const d = buf.data;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      // Distance to nearest surviving mote (squared, to avoid sqrt in most cases)
+      let minD2 = Infinity;
+      for (const m of motes) {
+        const ddx = x - m.x;
+        const ddy = y - m.y;
+        const d2  = ddx * ddx + ddy * ddy;
+        if (d2 < minD2) minD2 = d2;
+      }
+
+      let brightness: number;
+      if (minD2 <= innerR2) {
+        brightness = 1.0;                             // full light at core
+      } else if (minD2 <= spotR2) {
+        // Smooth ease-in-out falloff from inner edge to spotlight boundary
+        const t       = (minD2 - innerR2) / (spotR2 - innerR2);  // 0→1
+        const smoothT = t * t * (3 - 2 * t);          // smoothstep
+        brightness    = 1.0 - smoothT * maxDarkness;
+      } else {
+        brightness = (1.0 - maxDarkness) * breathe;   // uniform dim beyond spotlight
+      }
+
+      const i = (y * W + x) * 4;
+      d[i]     = (d[i]     * brightness + 0.5) | 0;
+      d[i + 1] = (d[i + 1] * brightness + 0.5) | 0;
+      d[i + 2] = (d[i + 2] * brightness + 0.5) | 0;
+    }
+  }
+}
+
+/**
+ * Chromatic aberration — brief lateral colour fringing at the moment of a
+ * phase transition.  Simulates a lens impact: red channel slides left one pixel,
+ * blue slides right, while green stays anchored.
+ *
+ * The effect fires when phaseFlash > 0.05 and decays exactly with the flash.
+ * At peak (phaseFlash = 1.0) the shift is 3 px; at 0.40 it's 1 px; below 0.05
+ * the function returns immediately so there is zero per-frame cost during normal play.
+ *
+ * At 256×144 up-scaled to 1024+ px on screen, even a 3-pixel canvas-space shift
+ * reads as 12+ screen pixels — visibly filmic without being distracting.
+ */
+export function applyChromaticAberration(buf: ImageData, phaseFlash: number): void {
+  if (phaseFlash < 0.05) return;
+  // Shift ramps 0 → 3 pixels as phaseFlash goes from 0.05 → 1.0
+  const shiftF = (phaseFlash - 0.05) / 0.95;
+  const shift  = Math.max(1, Math.round(shiftF * 3));
+
+  const d = buf.data;
+  for (let y = 0; y < H; y++) {
+    const rowBase = y * W;
+    // Snapshot R and B values for this row before writing
+    for (let x = 0; x < W; x++) {
+      const si         = (rowBase + x) * 4;
+      _caRowBuf[x * 4]     = d[si];        // R
+      _caRowBuf[x * 4 + 2] = d[si + 2];   // B  (G stays — green is the reference channel)
+    }
+    // Write shifted channels back; green channel is untouched
+    for (let x = 0; x < W; x++) {
+      const di = (rowBase + x) * 4;
+      // Red from x + shift (red image shifts left → fringes on left sides of bright edges)
+      const rx = x + shift < W ? x + shift : W - 1;
+      d[di]     = _caRowBuf[rx * 4];
+      // Blue from x − shift (blue image shifts right)
+      const bx  = x - shift >= 0 ? x - shift : 0;
+      d[di + 2] = _caRowBuf[bx * 4 + 2];
     }
   }
 }

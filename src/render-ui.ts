@@ -121,7 +121,7 @@ const EVENT_ACCENTS: Record<string, [number, number, number]> = {
   drought:    [220, 160,  50],
 };
 
-/** Render event message — cinematic text card with gradient backing and event accent glow */
+/** Render event message — cinematic text card with gradient backing, accent glow, and letterbox bars */
 export function renderEventMessage(
   buf: ImageData,
   event: ActiveEvent | null,
@@ -133,6 +133,16 @@ export function renderEventMessage(
   const msgY = Math.floor(H * 0.3);
   const alpha = event.messageAlpha;
   const [ar, ag, ab] = EVENT_ACCENTS[event.type] ?? [220, 200, 160];
+
+  // 0 — Letterbox bars: thin black bands at canvas top and bottom — cinematic crop effect.
+  // Fade with the message so they arrive and leave gracefully.
+  const barA = Math.round(alpha * 185);
+  for (let bx = 0; bx < W; bx++) {
+    setPixel(buf, bx,     0, 0, 0, 0, barA);
+    setPixel(buf, bx,     1, 0, 0, 0, barA);
+    setPixel(buf, bx, H - 1, 0, 0, 0, barA);
+    setPixel(buf, bx, H - 2, 0, 0, 0, barA);
+  }
 
   // 1 — Full-width dark gradient bar: opaque at center, fading to transparent at canvas edges
   const barY0 = msgY - 5;
