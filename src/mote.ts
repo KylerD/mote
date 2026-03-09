@@ -212,13 +212,32 @@ export function updateMote(
     }
   }
 
-  // Dying social motes reach desperately toward any connection
+  // Dying social motes: bonded → seek their specific partners; unbonded → boost general pull
   if (
     m.temperament.sociability > m.temperament.wanderlust &&
     m.temperament.sociability > m.temperament.hardiness &&
     m.energy < 0.3
   ) {
-    socialAttract *= 1 + (1 - m.energy / 0.3) * m.temperament.sociability * 2;
+    const dp = 1 - m.energy / 0.3;
+    if (m.bonds.length > 0) {
+      // Find the nearest bonded partner and pull strongly toward them — a last walk
+      let nearestBond: Mote | null = null;
+      let nearestBondDist = Infinity;
+      for (const b of m.bonds) {
+        const bdx = b.x - m.x;
+        const bdy = b.y - m.y;
+        const d = Math.sqrt(bdx * bdx + bdy * bdy);
+        if (d < nearestBondDist) { nearestBondDist = d; nearestBond = b; }
+      }
+      if (nearestBond && nearestBondDist > 5) {
+        const bdx = nearestBond.x - m.x;
+        // Directed force overrides random walking — the dying mote walks toward its partner
+        socialFx += (bdx / nearestBondDist) * dp * m.temperament.sociability * 20;
+      }
+    } else {
+      // No bonds — desperately boost general social attraction
+      socialAttract *= 1 + dp * m.temperament.sociability * 2;
+    }
   }
 
   // Clamp accumulated attraction so groups don't death-ball

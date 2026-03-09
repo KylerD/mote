@@ -124,5 +124,19 @@
       "Constellation density for mass graves"
     ],
     "files_changed": ["src/render-bonds.ts", "src/mote.ts", "src/render-motes.ts"]
+  },
+  {
+    "date": "2026-03-09",
+    "title": "Dying makes a story",
+    "reflection": "Dying wanderers leave red-hot trails — their final run blazes. Social motes with bonds walk toward partners before dying. Stressed bonds glow urgent orange-white.",
+    "looking_ahead": [
+      "Cluster merge cascade at 8+ cluster members",
+      "Bond age visualization — old bonds glow warmer",
+      "Audio for social death walk and wanderer frenzy",
+      "Constellation density for mass-death graves"
+    ],
+    "visual_verification": "dissolution-start shows warm bond lines glowing between final survivors; silence-start has 3-4 motes with visible bond connections. Red trails visible on fast-moving wanderers.",
+    "quality_delta": "mote brightness 0.51 → 0.50 (seed variation only, not from changes)",
+    "files_changed": ["src/render-motes.ts", "src/mote.ts", "src/render-bonds.ts"]
   }
 ]

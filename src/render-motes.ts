@@ -48,6 +48,17 @@ export function renderMoteTrails(
     const trailMaxAge = 1.5 + m.temperament.wanderlust * (1.5 + trailAgeFactor * 3.0);
     const isWanderer = m.temperament.wanderlust > 0.6;
 
+    // WANDERER FRENZY: dying wanderers leave hot red-orange trails — final frantic running
+    const dp = (isWanderer && m.energy < 0.3 && m.energy > 0)
+      ? Math.max(0, 1 - m.energy / 0.3)
+      : 0;
+    // Blend from mote color toward emergency red-orange as energy drains
+    const ftr = dp > 0 ? Math.round(tr * (1 - dp * 0.55) + 245 * dp * 0.55) : tr;
+    const ftg = dp > 0 ? Math.round(tg * (1 - dp * 0.80) + 50 * dp * 0.80) : tg;
+    const ftb = dp > 0 ? Math.round(tb * (1 - dp * 0.90) + 15 * dp * 0.90) : tb;
+    // Dying wanderers trail brighter — the last run is the most vivid
+    const frenziedScale = dp > 0 ? trailScale * (1 + dp * 0.7) : trailScale;
+
     for (const pt of m.trail) {
       const ageFrac = pt.age / trailMaxAge;
 
@@ -56,16 +67,16 @@ export function renderMoteTrails(
         // The landscape remembers where they walked.
         const ghostWindow = Math.max(0.1, trailMaxAge - 1.5);
         const ghostT = Math.min(1, (pt.age - 1.5) / ghostWindow);
-        // Warm dusty earth tone
+        // Warm dusty earth tone (unchanged — ghost always bleeds into ground)
         const er = 115, eg = 98, eb = 72;
-        const gr = Math.round(tr * (1 - ghostT) + er * ghostT);
-        const gg = Math.round(tg * (1 - ghostT) + eg * ghostT);
-        const gb = Math.round(tb * (1 - ghostT) + eb * ghostT);
-        const ta = Math.round((1 - ageFrac) * 22 * trailScale);
+        const gr = Math.round(ftr * (1 - ghostT) + er * ghostT);
+        const gg = Math.round(ftg * (1 - ghostT) + eg * ghostT);
+        const gb = Math.round(ftb * (1 - ghostT) + eb * ghostT);
+        const ta = Math.round((1 - ageFrac) * 22 * frenziedScale);
         if (ta > 1) setPixel(buf, pt.x, pt.y, gr, gg, gb, ta);
       } else {
-        const ta = Math.round((1 - ageFrac) * 35 * trailScale);
-        if (ta > 2) setPixel(buf, pt.x, pt.y, tr, tg, tb, ta);
+        const ta = Math.round((1 - ageFrac) * 35 * frenziedScale);
+        if (ta > 2) setPixel(buf, pt.x, pt.y, ftr, ftg, ftb, ta);
       }
     }
   }

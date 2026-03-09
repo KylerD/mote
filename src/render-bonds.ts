@@ -116,9 +116,35 @@ export function renderBondLines(
       const flash = Math.max(m.bondFlash, bonded.bondFlash);
       const bondPulse = Math.sin(time * 3 + m.x * 0.05 + bonded.x * 0.05) * 0.15 + 0.85;
       const bondAlpha = Math.round((160 + flash * 95) * bondPulse);
-      drawLine(buf, m.x, m.y, bonded.x, bonded.y, avgR, avgG, avgB, bondAlpha);
-      const glowAlpha = Math.round(bondAlpha * 0.35);
-      drawLine(buf, m.x, m.y - 1, bonded.x, bonded.y - 1, avgR, avgG, avgB, glowAlpha);
+
+      // STRESSED BOND: when either mote is dying, the bond glows with urgent warmth.
+      // The relationship shows its strain — the line between them burns brighter as time runs out.
+      const stressLevel = Math.max(
+        m.energy < 0.3 ? 1 - m.energy / 0.3 : 0,
+        bonded.energy < 0.3 ? 1 - bonded.energy / 0.3 : 0,
+      );
+      let br = avgR, bg = avgG, bb = avgB;
+      let finalAlpha = bondAlpha;
+      if (stressLevel > 0) {
+        // Shift toward hot orange-white as stress peaks — the bond fights to hold
+        br = Math.min(255, avgR + Math.round(stressLevel * (255 - avgR) * 0.65));
+        bg = Math.min(255, avgG + Math.round(stressLevel * (110 - avgG) * 0.35));
+        bb = Math.max(0, avgB - Math.round(stressLevel * avgB * 0.55));
+        // Fast urgent pulse (3x normal speed) — the bond flickers with effort
+        const stressPulse = Math.sin(time * 10 + m.x * 0.1) * 0.25 + 0.75;
+        finalAlpha = Math.min(255, Math.round(bondAlpha * (1 + stressLevel * 0.65) * stressPulse));
+      }
+
+      drawLine(buf, m.x, m.y, bonded.x, bonded.y, br, bg, bb, finalAlpha);
+      const glowAlpha = Math.round(finalAlpha * 0.35);
+      drawLine(buf, m.x, m.y - 1, bonded.x, bonded.y - 1, br, bg, bb, glowAlpha);
+      // Extra thickness pixel for stressed bonds — makes them physically wider, unmissable
+      if (stressLevel > 0.25) {
+        const extraAlpha = Math.round(stressLevel * 70 * (Math.sin(time * 10 + m.x * 0.1) * 0.2 + 0.8));
+        if (extraAlpha > 4) {
+          drawLine(buf, m.x, m.y + 1, bonded.x, bonded.y + 1, br, bg, bb, extraAlpha);
+        }
+      }
 
       // Bond formation arc: two sparks converge from each mote toward midpoint
       if (flash > 0.02) {
