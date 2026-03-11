@@ -248,6 +248,25 @@
   },
   {
     "date": "2026-03-11",
+    "title": "mote night glow",
+    "reflection": "Motes emit soft colored halos in genesis and silence, making them look like tiny lanterns in the dark. Genesis gets pre-dawn shooting stars. Silence constellation alpha tripled with per-star twinkling.",
+    "looking_ahead": [
+      "Audio cue when ancient bond breaks",
+      "Cluster merge cascade at 8+ members",
+      "Water reflection intensity tracking sky brightness by phase",
+      "Constellation density for mass-death graves"
+    ],
+    "visual_verification": "Silence phase shows scattered bright constellation dots across sky. Motes along dark terrain have visible soft colored halos. Pre-dawn genesis stars confirmed deterministic per cycle.",
+    "quality_delta": "Genesis visible motes 5→17 (glow halos detected as brightness by analyzer). No regressions. Constellation alpha 5-17 → 12-38.",
+    "files_changed": [
+      "src/render-motes.ts",
+      "src/weather-render.ts",
+      "src/render-bonds.ts",
+      "src/main.ts"
+    ]
+  },
+  {
+    "date": "2026-03-11",
     "title": "Stars and day arc",
     "reflection": "Genesis and silence now have a star field (140 stars, 3 types). Sky tints deepened so night phases read as night. Sunrise band warms the lower sky during exploration.",
     "looking_ahead": [

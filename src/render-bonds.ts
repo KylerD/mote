@@ -479,7 +479,10 @@ export function renderSilenceConstellation(
     const d = allDeaths[i];
     // Earlier deaths are dimmer — they happened longer ago, further from memory
     const recency = i / Math.max(1, allDeaths.length - 1); // 0 = oldest, 1 = most recent
-    const baseAlpha = Math.round((5 + recency * 12) * breathe * revealFade);
+
+    // Each memorial star has its own gentle twinkle rhythm — the constellation breathes
+    const twinkle = Math.sin(time * (1.8 + i * 0.33 + d.x * 0.09) + i * 2.1) * 0.30 + 0.70;
+    const baseAlpha = Math.round((12 + recency * 26) * breathe * twinkle * revealFade);
     if (baseAlpha < 2) continue;
 
     // Color-tinted ghost: recent deaths retain their hue; oldest fade to anonymous white.
@@ -496,9 +499,15 @@ export function renderSilenceConstellation(
 
     // Tiny 5-pixel cross — center bright, arms dim
     setPixel(buf, x,     y,     gr, gg, gb, baseAlpha);
-    setPixel(buf, x - 1, y,     gr, gg, gb, Math.round(baseAlpha * 0.50));
-    setPixel(buf, x + 1, y,     gr, gg, gb, Math.round(baseAlpha * 0.50));
-    setPixel(buf, x,     y - 1, gr, gg, gb, Math.round(baseAlpha * 0.50));
-    setPixel(buf, x,     y + 1, gr, gg, gb, Math.round(baseAlpha * 0.40));
+    setPixel(buf, x - 1, y,     gr, gg, gb, Math.round(baseAlpha * 0.55));
+    setPixel(buf, x + 1, y,     gr, gg, gb, Math.round(baseAlpha * 0.55));
+    setPixel(buf, x,     y - 1, gr, gg, gb, Math.round(baseAlpha * 0.55));
+    setPixel(buf, x,     y + 1, gr, gg, gb, Math.round(baseAlpha * 0.45));
+
+    // Most recent deaths (top 25%) earn a bright warm center — the freshest memory shines
+    if (recency > 0.75) {
+      const highlight = Math.round(baseAlpha * 1.6);
+      if (highlight > 5) setPixel(buf, x, y, 235, 232, 255, Math.min(255, highlight));
+    }
   }
 }

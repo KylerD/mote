@@ -187,7 +187,7 @@ function init(): void {
 
     // Mote trails, sprites, bonds, deaths
     renderMoteTrails(rc.buf, w.motes, moteColors);
-    renderMotes(rc.buf, w.motes, moteColors, plagueActive, plaguePulse, w.time);
+    renderMotes(rc.buf, w.motes, moteColors, plagueActive, plaguePulse, w.time, w.phaseIndex);
     renderBondLines(rc.buf, w.motes, moteColors, w.time);
     renderDeathParticles(rc.buf, w.deaths, w.time);
     renderSilenceConstellation(rc.buf, w.allDeaths, w.phaseName, w.motes.length, w.time, w.phaseProgress);

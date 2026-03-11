@@ -516,9 +516,9 @@ export function applyGodRays(
 }
 
 /**
- * Shooting stars during silence — brief bright diagonal streaks across the night sky.
- * Deterministic from cycleNumber so all viewers see the same events at the same time.
- * Up to 2 shooting stars per cycle, each appearing in the 24-second silence window.
+ * Shooting stars during genesis (pre-dawn) and silence — brief bright diagonal streaks
+ * across the night sky. Deterministic from cycleNumber so all viewers see the same events.
+ * Up to 2 shooting stars per window, each appearing in its respective 24-second night phase.
  * Call after renderCelestial, before renderClouds.
  */
 export function renderShootingStars(
@@ -527,22 +527,21 @@ export function renderShootingStars(
   cycleNumber: number,
   weatherType: string,
 ): void {
-  if (cycleProgress < 0.92) return;
   if (weatherType === "storm" || weatherType === "overcast") return;
 
-  const tInSilence = (cycleProgress - 0.92) / 0.08; // 0→1 across the silence window
+  const inGenesis = cycleProgress >= 0.01 && cycleProgress < 0.09;
+  const inSilence = cycleProgress >= 0.92;
+  if (!inGenesis && !inSilence) return;
+
   const wMod = weatherType === "fog" ? 0.30 : 1.0;
 
-  for (let i = 0; i < 2; i++) {
-    const base = cycleNumber * 1777 + i * 317;
+  // Shared star renderer: draws one shooting star given its seed base and local time 0→1
+  const renderStar = (tInWindow: number, base: number): void => {
+    const startT = seedHash(base + 1) * 0.58;
+    const durT   = 0.07 + seedHash(base + 2) * 0.18;
+    const localT = (tInWindow - startT) / durT;
+    if (localT < 0 || localT > 1) return;
 
-    // Each star occupies a random sub-window inside silence
-    const startT  = seedHash(base + 1) * 0.58;               // 0–58% into silence
-    const durT    = 0.07 + seedHash(base + 2) * 0.18;        // 7–25% of silence (≈2–6s)
-    const localT  = (tInSilence - startT) / durT;
-    if (localT < 0 || localT > 1) continue;
-
-    // Start/end positions — bias toward upper-left → lower-right
     const sx = Math.round(W * (0.06 + seedHash(base + 3) * 0.60));
     const sy = Math.round(H * (0.03 + seedHash(base + 4) * 0.25));
     const ex = Math.round(sx + (22 + seedHash(base + 5) * 38) * (seedHash(base + 8) > 0.35 ? 1 : -1));
@@ -563,6 +562,23 @@ export function renderShootingStars(
       const ta = Math.round((1 - localT * 0.5) * (185 - t * 38) * wMod);
       if (ta < 4) break;
       setPixel(buf, tx, ty, 218, 214, 198, ta);
+    }
+  };
+
+  // Genesis pre-dawn: up to 2 shooting stars in the dark before sunrise
+  // Use a distinct seed offset so genesis and silence stars are always different
+  if (inGenesis) {
+    const tInGenesis = (cycleProgress - 0.01) / 0.08;
+    for (let i = 0; i < 2; i++) {
+      renderStar(tInGenesis, cycleNumber * 2713 + i * 491 + 131);
+    }
+  }
+
+  // Silence: up to 2 shooting stars (original behavior, preserved exactly)
+  if (inSilence) {
+    const tInSilence = (cycleProgress - 0.92) / 0.08;
+    for (let i = 0; i < 2; i++) {
+      renderStar(tInSilence, cycleNumber * 1777 + i * 317);
     }
   }
 }

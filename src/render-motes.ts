@@ -90,7 +90,13 @@ export function renderMotes(
   plagueActive: boolean,
   plaguePulse: number,
   time: number,
+  phaseIndex = 3,
 ): void {
+  // Night phases: 0=genesis (pre-dawn), 5=silence (post-dusk).
+  // In darkness, motes emit a soft ambient halo — they look like tiny lanterns.
+  // The glow feeds into the bloom pass, creating a warm colored aureole.
+  const nightGlowMax = (phaseIndex === 0 || phaseIndex === 5) ? 28 : 0;
+
   for (const m of motes) {
     let [cr, cg, cb] = moteColors.get(m)!;
 
@@ -109,6 +115,25 @@ export function renderMotes(
     const ox = Math.round(m.x);
     const oy = Math.round(m.y);
     const dir = m.direction;
+
+    // NIGHT LANTERN GLOW — in dark phases, each mote emits a soft colored halo.
+    // Drawn before the body so the sprite renders on top, leaving a warm outer ring.
+    // Scales with energy: dying motes flicker dimmer, full-energy motes burn brightest.
+    if (nightGlowMax > 0) {
+      const gPulse = Math.sin(m.age * 1.6 + m.x * 0.14) * 0.22 + 0.78;
+      const gA = Math.round(nightGlowMax * gPulse * Math.max(0.45, m.energy));
+      if (gA > 3) {
+        for (let dgy = -7; dgy <= 7; dgy++) {
+          for (let dgx = -7; dgx <= 7; dgx++) {
+            const d2 = dgx * dgx + dgy * dgy;
+            if (d2 > 49) continue; // radius 7
+            const fall = 1 - Math.sqrt(d2) / 7;
+            const ga = Math.round(gA * fall * fall);
+            if (ga > 1) setPixel(buf, ox + dgx, oy - 1 + dgy, cr, cg, cb, ga);
+          }
+        }
+      }
+    }
 
     // WANDERER LEAN — high-wanderlust motes tilt head forward when moving fast
     // lean=±1 shifts head/neck pixels in movement direction; body/feet stay planted
