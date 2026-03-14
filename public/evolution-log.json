@@ -334,5 +334,22 @@
       "src/render-effects.ts",
       "src/main.ts"
     ]
+  },
+  {
+    "date": "2026-03-14",
+    "title": "cluster heartbeat",
+    "reflection": "Bonded motes now pulse in unison — larger clusters beat slower. At each peak, a brief corona crowns every cluster member. Brightness floor raised to fix dim-mote quality warning.",
+    "looking_ahead": [
+      "Firefly audio — soft clicking chirps in lush biome",
+      "Cluster merge cascade audio at 8+ members",
+      "Bond age pulse rate slows as bond ages",
+      "Mote curiosity — facing toward nearest unbonded neighbor"
+    ],
+    "visual_verification": "Dissolution-mid shows motes clearly lit along terrain with good contrast against dark sky. Organization-mid shows the cluster identity ring active. Brightness 0.49→0.51 avg, silence phase 0.60. No quality warnings.",
+    "quality_delta": "avgMoteBrightness 0.49→0.51. Brightness floor 115→125. MOTE_TOO_DIM warning resolved.",
+    "files_changed": [
+      "src/render-motes.ts",
+      "src/main.ts"
+    ]
   }
 ]

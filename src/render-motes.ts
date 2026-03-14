@@ -26,9 +26,9 @@ export function computeMoteColor(m: Mote, _bp: BiomePalette): [number, number, n
   b += (40 - b) * ageGold;
 
   // Brightness floor — motes must never blend into dark terrain
-  r = Math.max(115, r);
-  g = Math.max(115, g);
-  b = Math.max(115, b);
+  r = Math.max(125, r);
+  g = Math.max(125, g);
+  b = Math.max(125, b);
 
   return [Math.round(r), Math.round(g), Math.round(b)];
 }
@@ -91,6 +91,7 @@ export function renderMotes(
   plaguePulse: number,
   time: number,
   phaseIndex = 3,
+  clusterHeartbeat: Map<Mote, number> = new Map(),
 ): void {
   // Night phases: 0=genesis (pre-dawn), 5=silence (post-dusk).
   // In darkness, motes emit a soft ambient halo — they look like tiny lanterns.
@@ -211,10 +212,28 @@ export function renderMotes(
       setPixel(buf, ox + 1, oy + 1, cr, cg, cb, 150);
     }
 
-    // INNER GLOW — breathe affects this aura layer only; follows lean
-    const heartPulse = Math.sin(m.age * 4 + m.temperament.hardiness * 5) * 0.3 + 0.7;
+    // INNER GLOW — cluster members beat in unison; solo motes breathe individually.
+    // Synchronized heartbeat: larger clusters beat slower (biological scaling).
+    const clusterBeat = clusterHeartbeat.get(m);
+    const heartPulse = clusterBeat !== undefined
+      ? clusterBeat * 0.55 + 0.45          // 0.45–1.0, synchronized with cluster
+      : Math.sin(m.age * 4 + m.temperament.hardiness * 5) * 0.3 + 0.7; // solo
     const heartA = Math.round(200 * heartPulse * m.energy * breathe);
     setPixel(buf, ox + lean, oy - 1, lr, lg, lb, heartA);
+
+    // CLUSTER HEARTBEAT CORONA — at the peak of the shared beat, a brief crown of light
+    // radiates from each cluster member simultaneously. Makes the cluster feel like one organism.
+    if (clusterBeat !== undefined && clusterBeat > 0.72) {
+      const peak = (clusterBeat - 0.72) / 0.28; // 0→1 in top 28% of beat
+      const coronaA = Math.round(peak * peak * 70 * m.energy);
+      if (coronaA > 4) {
+        setPixel(buf, ox,      oy - 4,     lr, lg, lb, coronaA);
+        setPixel(buf, ox - 3,  oy - 2,     lr, lg, lb, Math.round(coronaA * 0.65));
+        setPixel(buf, ox + 3,  oy - 2,     lr, lg, lb, Math.round(coronaA * 0.65));
+        setPixel(buf, ox - 4,  oy,         lr, lg, lb, Math.round(coronaA * 0.40));
+        setPixel(buf, ox + 4,  oy,         lr, lg, lb, Math.round(coronaA * 0.40));
+      }
+    }
 
     // HARDY WIDE SHOULDERS — angular, blocky silhouette for hardy temperament.
     // Fills the normally-empty upper corners, making hardy motes look squarer/sturdier.

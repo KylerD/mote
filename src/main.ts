@@ -160,6 +160,20 @@ function init(): void {
       moteColors.set(m, computeMoteColor(m, w.terrain.bp));
     }
 
+    // Cluster heartbeat: all motes in a cluster pulse their inner glow in unison.
+    // Larger clusters beat slower — biological scaling makes size legible at a glance.
+    const clusterHeartbeat = new Map<Mote, number>();
+    for (const cluster of w.clusters) {
+      if (cluster.length < 2) continue;
+      let cx = 0;
+      for (const m of cluster) cx += m.x;
+      cx /= cluster.length;
+      // Hz falls with sqrt(size): 2-mote ≈ 1.27 Hz, 4-mote ≈ 0.90 Hz, 9-mote ≈ 0.60 Hz
+      const hz = 1.8 / Math.sqrt(Math.max(2, cluster.length));
+      const beat = Math.sin(w.time * hz * Math.PI * 2 + cx * 0.02) * 0.5 + 0.5;
+      for (const m of cluster) clusterHeartbeat.set(m, beat);
+    }
+
     // Event state
     const plagueActive = w.event !== null && w.event.type === "plague" && isEventActive(w.event, w.time);
     const plaguePulse = plagueActive ? Math.sin(w.time * 6) : 0;
@@ -187,7 +201,7 @@ function init(): void {
 
     // Mote trails, sprites, bonds, deaths
     renderMoteTrails(rc.buf, w.motes, moteColors);
-    renderMotes(rc.buf, w.motes, moteColors, plagueActive, plaguePulse, w.time, w.phaseIndex);
+    renderMotes(rc.buf, w.motes, moteColors, plagueActive, plaguePulse, w.time, w.phaseIndex, clusterHeartbeat);
     renderBondLines(rc.buf, w.motes, moteColors, w.time);
     renderDeathParticles(rc.buf, w.deaths, w.time);
     renderSilenceConstellation(rc.buf, w.allDeaths, w.phaseName, w.motes.length, w.time, w.phaseProgress);
