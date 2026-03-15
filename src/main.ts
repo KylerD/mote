@@ -22,7 +22,7 @@ import {
   applyBloom, renderAtmosphericParticles, renderBiomeAmbientLife, renderClusterRadiance,
   applyChromaticAberration, applyLastLight,
 } from "./render-effects";
-import { renderClusterGroundGlow, renderClusterGlow, renderBondLines, renderProtoAttractions, renderDeathParticles, renderSilenceConstellation } from "./render-bonds";
+import { renderClusterGroundGlow, renderClusterGlow, renderClusterBeacons, renderBondLines, renderProtoAttractions, renderDeathParticles, renderSilenceConstellation, renderSilenceGraveyards } from "./render-bonds";
 import { renderRipples, renderCursor, renderEventMessage, renderDebugOverlay } from "./render-ui";
 import type { Mote, RenderContext, SoundEngine, Interaction } from "./types";
 
@@ -199,6 +199,9 @@ function init(): void {
       }
     }
 
+    // Cluster beacons — light pillars rising from large clusters into the sky
+    renderClusterBeacons(rc.buf, w.clusters, moteColors, w.phaseIndex, w.time);
+
     // Mote trails, sprites, bonds, deaths
     renderMoteTrails(rc.buf, w.motes, moteColors);
     // Proto-attraction arcs: faint animated dotted lines between approaching motes
@@ -207,6 +210,7 @@ function init(): void {
     renderBondLines(rc.buf, w.motes, moteColors, w.time);
     renderDeathParticles(rc.buf, w.deaths, w.time);
     renderSilenceConstellation(rc.buf, w.allDeaths, w.phaseName, w.motes.length, w.time, w.phaseProgress);
+    renderSilenceGraveyards(rc.buf, w.allDeaths, w.phaseName, w.motes.length, w.time, w.phaseProgress);
 
     // Meteor
     renderMeteorVisual(rc.buf, meteor, w.event, w.time, w.cycleNumber, dt);

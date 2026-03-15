@@ -5,6 +5,73 @@ import { H } from "./config";
 import { setPixel } from "./render";
 import { drawLine } from "./render";
 
+/** Soft light beacon rising from large clusters into the sky.
+ *  Each cluster of 6+ motes emits a column of warm colored vapor that climbs
+ *  toward the clouds — communities made visible from across the world.
+ *  Phase-aware: invisible at genesis, peaks at complexity, gone at silence.
+ *  Drawn BEFORE mote sprites so creatures sit inside their beacon glow. */
+export function renderClusterBeacons(
+  buf: ImageData,
+  clusters: Mote[][],
+  colors: Map<Mote, [number, number, number]>,
+  phaseIndex: number,
+  time: number,
+): void {
+  const PHASE_STR = [0.0, 0.08, 0.44, 1.0, 0.50, 0.04];
+  const phaseStr = PHASE_STR[Math.min(5, Math.max(0, phaseIndex))];
+  if (phaseStr < 0.02) return;
+
+  for (const cluster of clusters) {
+    if (cluster.length < 6) continue;
+
+    let cx = 0, cy = 0, avgR = 0, avgG = 0, avgB = 0;
+    for (const m of cluster) {
+      cx += m.x; cy += m.y;
+      const [r, g, b] = colors.get(m)!;
+      avgR += r; avgG += g; avgB += b;
+    }
+    cx /= cluster.length; cy /= cluster.length;
+    avgR = Math.round(avgR / cluster.length);
+    avgG = Math.round(avgG / cluster.length);
+    avgB = Math.round(avgB / cluster.length);
+
+    // Beacon height scales with cluster size — larger communities cast higher light
+    const beaconH = Math.min(82, 22 + cluster.length * 5);
+    // Peak alpha: soft vapor — bloom pass will enrich this
+    const peakAlpha = Math.min(24, 6 + cluster.length * 2.0) * phaseStr;
+    // Flicker rate matches cluster heartbeat: large clusters breathe slowly
+    const pulseHz = 1.8 / Math.sqrt(Math.max(cluster.length, 4));
+    const flicker = Math.sin(time * pulseHz + cx * 0.09) * 0.18 + 0.82;
+
+    const rcx = Math.round(cx);
+    const baseY = Math.round(cy) - 1;
+
+    for (let step = 0; step < beaconH; step++) {
+      const t = step / beaconH;
+      // Falloff: pools at base, thins to wisp at apex
+      const falloff = (1 - t) * (1 - t * 0.55);
+      const a = Math.round(peakAlpha * falloff * flicker);
+      if (a < 2) continue;
+
+      // Width: full at base, single pixel near tip
+      const halfW = Math.max(0, 2.0 - t * 2.6);
+
+      // Color: mote identity at base, cool blue-white toward tip
+      const skyT = t * t * 0.45;
+      const pr = Math.min(255, Math.round(avgR * (1 - skyT) + 195 * skyT));
+      const pg = Math.min(255, Math.round(avgG * (1 - skyT) + 215 * skyT));
+      const pb = Math.min(255, Math.round(avgB * (1 - skyT) + 255 * skyT));
+
+      for (let dx = -Math.ceil(halfW); dx <= Math.ceil(halfW); dx++) {
+        const wFalloff = halfW > 0 ? Math.max(0, 1 - Math.abs(dx) / (halfW + 0.5)) : 1;
+        const pixA = Math.round(a * wFalloff);
+        if (pixA < 2) continue;
+        setPixel(buf, rcx + dx, baseY - step, pr, pg, pb, pixA);
+      }
+    }
+  }
+}
+
 /** Warm campfire-light on terrain beneath a cluster.
  *  Drawn BEFORE motes so it sits on the ground under them.
  *  Phase-scaled so complexity glows rich and genesis stays cold. */
@@ -581,6 +648,86 @@ export function renderSilenceConstellation(
     if (recency > 0.75) {
       const highlight = Math.round(baseAlpha * 1.6);
       if (highlight > 5) setPixel(buf, x, y, 235, 232, 255, Math.min(255, highlight));
+    }
+  }
+}
+
+/** Silence graveyard rings — faint memorial circles at sites where communities fell together.
+ *  When many motes died near the same location, a soft ring appears in silence marking
+ *  the footprint of the cluster that once lived there. Ruins of civilization. */
+export function renderSilenceGraveyards(
+  buf: ImageData,
+  allDeaths: Array<{ x: number; y: number; r: number; g: number; b: number }>,
+  phaseName: string,
+  motesCount: number,
+  time: number,
+  phaseProgress: number,
+): void {
+  if (phaseName !== "silence" || motesCount > 0 || allDeaths.length < 4) return;
+
+  // Reveal with same smoothstep as constellation
+  const revealRaw = Math.min(1, phaseProgress * 3.0);
+  const revealFade = revealRaw * revealRaw * (3 - 2 * revealRaw);
+  if (revealFade < 0.02) return;
+
+  // Group nearby deaths with simple greedy sweep (O(n²) — n is small, ~20–60)
+  const used = new Uint8Array(allDeaths.length);
+  for (let i = 0; i < allDeaths.length; i++) {
+    if (used[i]) continue;
+    const group: typeof allDeaths = [allDeaths[i]];
+    used[i] = 1;
+
+    for (let j = i + 1; j < allDeaths.length; j++) {
+      if (used[j]) continue;
+      const dx = allDeaths[j].x - allDeaths[i].x;
+      const dy = allDeaths[j].y - allDeaths[i].y;
+      if (dx * dx + dy * dy < 20 * 20) {
+        group.push(allDeaths[j]);
+        used[j] = 1;
+      }
+    }
+
+    if (group.length < 4) continue; // only communities of 4+ leave a ring
+
+    // Centroid and averaged hue
+    let gx = 0, gy = 0, gr = 0, gg = 0, gb = 0;
+    for (const d of group) { gx += d.x; gy += d.y; gr += d.r; gg += d.g; gb += d.b; }
+    gx /= group.length; gy /= group.length;
+    gr = Math.round(gr / group.length);
+    gg = Math.round(gg / group.length);
+    gb = Math.round(gb / group.length);
+
+    // Ring radius scales with group size
+    const ringR = Math.min(22, 5 + group.length * 1.8);
+
+    // Slow, mournful breath
+    const breathe = Math.sin(time * 0.20 + gx * 0.11) * 0.20 + 0.80;
+    const baseAlpha = Math.round(16 * breathe * revealFade);
+    if (baseAlpha < 2) continue;
+
+    // Ghost-tinted: group color faded toward cold pale
+    const ghostR = Math.round(gr * 0.30 + 148 * 0.70);
+    const ghostG = Math.round(gg * 0.30 + 140 * 0.70);
+    const ghostB = Math.round(gb * 0.30 + 162 * 0.70);
+
+    // Dashed ring — a broken circle, like a community that no longer holds
+    const dotCount = Math.max(14, Math.round(ringR * 2.8));
+    for (let k = 0; k < dotCount; k++) {
+      if (k % 5 === 4) continue; // gap every 5th dot
+      const angle = (k / dotCount) * Math.PI * 2;
+      const rx = Math.round(gx + Math.cos(angle) * ringR);
+      const ry = Math.round(gy + Math.sin(angle) * ringR);
+      setPixel(buf, rx, ry - 1, ghostR, ghostG, ghostB, baseAlpha);
+    }
+
+    // Faint center cross — where the hearth was
+    const cx = Math.round(gx);
+    const cy = Math.round(gy) - 1;
+    const ca = Math.round(baseAlpha * 0.45);
+    if (ca > 2) {
+      setPixel(buf, cx, cy, ghostR, ghostG, ghostB, ca);
+      setPixel(buf, cx - 1, cy, ghostR, ghostG, ghostB, Math.round(ca * 0.55));
+      setPixel(buf, cx + 1, cy, ghostR, ghostG, ghostB, Math.round(ca * 0.55));
     }
   }
 }
