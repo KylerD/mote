@@ -252,7 +252,7 @@ export interface World {
   event: ActiveEvent | null;
   eventTriggered: boolean;
   deaths: DeathRecord[];
-  allDeaths: Array<{ x: number; y: number; r: number; g: number; b: number }>;
+  allDeaths: Array<{ x: number; y: number; r: number; g: number; b: number; time: number }>;
   pendingEventSound: string | null;
   phaseFlash: number;
   weather: Weather;

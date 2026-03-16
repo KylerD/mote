@@ -659,6 +659,66 @@ export function renderDeathParticles(
   }
 }
 
+/** Soul wisps — the lingering presence of the dead, drifting gently above the terrain.
+ *  After the spirit orb fades (3s), each death leaves a soft colored wisp that rises
+ *  slowly and persists for ~50 seconds. By dissolution, the sky fills with the souls
+ *  of every mote that has walked this world — a haunting, beautiful memorial.
+ *  Fades during silence so the constellation can take over. */
+export function renderSoulWisps(
+  buf: ImageData,
+  allDeaths: Array<{ x: number; y: number; r: number; g: number; b: number; time: number }>,
+  phaseName: string,
+  time: number,
+): void {
+  // Graceful hand-off to silence constellation — wisps fade out in silence phase
+  const silenceMod = phaseName === "silence" ? 0.0 : 1.0;
+  if (silenceMod <= 0) return;
+
+  for (const d of allDeaths) {
+    const age = time - d.time;
+    // Starts as spirit orb ends; fades toward silence hand-off
+    if (age < 3.0 || age > 55.0) continue;
+
+    // Fade envelope: materializes over 3s, fades over last 10s
+    const fadeIn  = Math.min(1, (age - 3.0) / 3.0);
+    const fadeOut = age > 45.0 ? 1.0 - (age - 45.0) / 10.0 : 1.0;
+    const life = fadeIn * fadeOut * silenceMod;
+    if (life < 0.01) continue;
+
+    // Eased rise: climbs ~22px above death position, most movement in first 15s
+    const rise = 22 * (1 - Math.exp(-(age - 3.0) / 14.0));
+    // Gentle drift: slow sine sway unique to each soul
+    const sway = Math.sin((age - 3.0) * 0.38 + d.x * 0.17) * 2.4;
+
+    const wx = d.x + sway;
+    const wy = d.y - rise - 1;
+
+    // Slow shimmer — each soul breathes at its own pace
+    const shimmer = Math.sin(time * 0.72 + d.x * 0.19 + d.y * 0.11) * 0.25 + 0.75;
+
+    // Spectral tint: shift mote color slightly toward cool blue-white (the other side)
+    const tint = 0.28;
+    const wr = Math.round(d.r * (1 - tint) + 148 * tint);
+    const wg = Math.round(d.g * (1 - tint) + 168 * tint);
+    const wb = Math.round(d.b * (1 - tint) + 220 * tint);
+
+    const maxA = 28;
+    const alpha = Math.round(maxA * life * shimmer);
+    if (alpha < 2) continue;
+
+    // Core pixel + soft cross halo — small enough to feel ethereal, feeds bloom pass
+    setPixel(buf, wx,     wy,     wr, wg, wb, alpha);
+    setPixel(buf, wx - 1, wy,     wr, wg, wb, Math.round(alpha * 0.55));
+    setPixel(buf, wx + 1, wy,     wr, wg, wb, Math.round(alpha * 0.55));
+    setPixel(buf, wx,     wy - 1, wr, wg, wb, Math.round(alpha * 0.42));
+    setPixel(buf, wx,     wy + 1, wr, wg, wb, Math.round(alpha * 0.35));
+    // Outer glow pixels: faint enough to stay ghostly, bright enough for bloom
+    setPixel(buf, wx - 2, wy,     wr, wg, wb, Math.round(alpha * 0.18));
+    setPixel(buf, wx + 2, wy,     wr, wg, wb, Math.round(alpha * 0.18));
+    setPixel(buf, wx,     wy - 2, wr, wg, wb, Math.round(alpha * 0.14));
+  }
+}
+
 /** Silence constellation — faint star-crosses at every death position from the cycle.
  *  Only renders during the silence phase with no motes alive.
  *  Each death site becomes a tiny memorial: the world remembers who walked here.

@@ -405,5 +405,24 @@
       "src/render-bonds.ts",
       "src/main.ts"
     ]
+  },
+  {
+    "date": "2026-03-16",
+    "title": "soul wisps",
+    "reflection": "Each death now leaves a soft glowing spirit that drifts 22px above the terrain and persists for 50 seconds. By dissolution the sky fills with the souls of everyone who walked this world.",
+    "looking_ahead": [
+      "Cascade audio — rising arpeggio reaching full chord at 8+",
+      "Mote jump/hop when blocked by cliff",
+      "Soul wisps cluster together near graveyard sites",
+      "Wisp color deepens with time — freshest souls brightest"
+    ],
+    "visual_verification": "10x-speed complexity/dissolution screenshots show soft colored orbs floating above the mote terrain line. Sky visibly populated with lingering spirits. Empty sky in before comparison confirms the change.",
+    "quality_delta": "Avg brightness 0.55 (no regression). No clumping. New system adds sky depth during complexity and dissolution phases.",
+    "files_changed": [
+      "src/types.ts",
+      "src/world.ts",
+      "src/render-bonds.ts",
+      "src/main.ts"
+    ]
   }
 ]

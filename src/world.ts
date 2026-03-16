@@ -238,7 +238,7 @@ export function updateWorld(world: World, dt: number): void {
       });
 
       // Persist all death positions for the silence constellation
-      world.allDeaths.push({ x: m.x, y: m.y, r: dr, g: dg, b: db });
+      world.allDeaths.push({ x: m.x, y: m.y, r: dr, g: dg, b: db, time: world.time });
 
       // Death inheritance: age-scaled radius — elders are missed from further away
       const inheritRadius = 55 + Math.min(25, m.age * 1.5);
