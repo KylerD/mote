@@ -528,11 +528,35 @@ export function renderMotes(
       }
     }
 
-    // SPAWN MATERIALIZATION
+    // BIRTH EMERGENCE PILLAR — a lance of light erupts from the terrain as the mote is born.
+    // At spawn (spawnFlash=1) a 22px column shoots skyward from the mote, then collapses as it
+    // materializes. Genesis reads as life breaking through the earth — each birth is a moment.
     if (m.spawnFlash > 0) {
-      const sf = m.spawnFlash * m.spawnFlash;
+      const sf = m.spawnFlash;
+      // Pillar: tallest (22px) at birth, shrinks as flash fades
+      const pillarH = Math.round(sf * 22);
+      for (let step = 0; step < pillarH; step++) {
+        const t = step / Math.max(1, pillarH);
+        const pa = Math.round(sf * (1 - t * 0.80) * 215);
+        if (pa < 4) continue;
+        setPixel(buf, ox, oy - step, lr, lg, lb, pa);
+        // Wider at base (near mote), single pixel near tip
+        if (t < 0.55) {
+          setPixel(buf, ox - 1, oy - step, cr, cg, cb, Math.round(pa * 0.40));
+          setPixel(buf, ox + 1, oy - step, cr, cg, cb, Math.round(pa * 0.40));
+        }
+      }
+      // Bright base where pillar meets the ground — the birth-point stays lit momentarily
+      if (sf > 0.25) {
+        const baseA = Math.round(sf * 180);
+        setPixel(buf, ox,     oy + 1, lr, lg, lb, baseA);
+        setPixel(buf, ox - 1, oy + 1, cr, cg, cb, Math.round(baseA * 0.50));
+        setPixel(buf, ox + 1, oy + 1, cr, cg, cb, Math.round(baseA * 0.50));
+      }
+      // Expanding ring burst — existing effect, slightly enhanced
+      const sf2 = sf * sf;
       const radius = Math.round(3 + (1 - sf) * 4);
-      const sa = Math.round(sf * 150);
+      const sa = Math.round(sf2 * 155);
       for (let dx = -radius; dx <= radius; dx++) {
         for (let dy = -radius; dy <= radius; dy++) {
           const dist = Math.sqrt(dx * dx + dy * dy);

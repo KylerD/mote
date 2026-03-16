@@ -22,7 +22,7 @@ import {
   applyBloom, renderAtmosphericParticles, renderBiomeAmbientLife, renderClusterRadiance,
   applyChromaticAberration, applyLastLight,
 } from "./render-effects";
-import { renderClusterGroundGlow, renderClusterGlow, renderClusterBeacons, renderBondLines, renderProtoAttractions, renderDeathParticles, renderSilenceConstellation, renderSilenceGraveyards } from "./render-bonds";
+import { renderClusterGroundGlow, renderClusterGlow, renderClusterBeacons, renderBondLines, renderProtoAttractions, renderDeathParticles, renderSilenceConstellation, renderSilenceGraveyards, renderCascadeBursts } from "./render-bonds";
 import { renderRipples, renderCursor, renderEventMessage, renderDebugOverlay } from "./render-ui";
 import type { Mote, RenderContext, SoundEngine, Interaction } from "./types";
 
@@ -40,6 +40,13 @@ function init(): void {
 
   const narrative = createNarrative();
   const meteor = createMeteorState();
+
+  // CLUSTER CASCADE — tracks 8+ member milestone bursts.
+  // When a cluster first reaches 8 members, a triple expanding ring fires from the centroid.
+  // Anchored by the oldest mote: stable across frames, clears naturally when the anchor dies.
+  interface CascadeBurst { cx: number; cy: number; r: number; g: number; b: number; age: number; }
+  const cascadeBursts: CascadeBurst[] = [];
+  const cascadeAnchors = new Set<Mote>(); // one anchor per cluster that has already cascaded
 
   // DOM info elements
   const elCycleName = document.getElementById("cycle-name");
@@ -174,6 +181,27 @@ function init(): void {
       for (const m of cluster) clusterHeartbeat.set(m, beat);
     }
 
+    // Cluster cascade: fire a triple-ring burst when a cluster first reaches 8+ members
+    for (const cluster of w.clusters) {
+      if (cluster.length < 8) continue;
+      const anchor = cluster.reduce((a, b) => a.age > b.age ? a : b);
+      if (cascadeAnchors.has(anchor)) continue;
+      cascadeAnchors.add(anchor);
+      let cx = 0, cy = 0, avgR = 0, avgG = 0, avgB = 0;
+      for (const m of cluster) {
+        cx += m.x; cy += m.y;
+        const [r, g, b] = moteColors.get(m)!;
+        avgR += r; avgG += g; avgB += b;
+      }
+      cx /= cluster.length; cy /= cluster.length;
+      cascadeBursts.push({ cx, cy, r: Math.round(avgR / cluster.length), g: Math.round(avgG / cluster.length), b: Math.round(avgB / cluster.length), age: 0 });
+    }
+    // Advance burst ages; prune finished bursts
+    for (let i = cascadeBursts.length - 1; i >= 0; i--) {
+      cascadeBursts[i].age += dt;
+      if (cascadeBursts[i].age > 2.5) cascadeBursts.splice(i, 1);
+    }
+
     // Event state
     const plagueActive = w.event !== null && w.event.type === "plague" && isEventActive(w.event, w.time);
     const plaguePulse = plagueActive ? Math.sin(w.time * 6) : 0;
@@ -208,6 +236,7 @@ function init(): void {
     renderProtoAttractions(rc.buf, w.motes, moteColors, w.time, w.phaseIndex);
     renderMotes(rc.buf, w.motes, moteColors, plagueActive, plaguePulse, w.time, w.phaseIndex, clusterHeartbeat);
     renderBondLines(rc.buf, w.motes, moteColors, w.time);
+    renderCascadeBursts(rc.buf, cascadeBursts);
     renderDeathParticles(rc.buf, w.deaths, w.time);
     renderSilenceConstellation(rc.buf, w.allDeaths, w.phaseName, w.motes.length, w.time, w.phaseProgress);
     renderSilenceGraveyards(rc.buf, w.allDeaths, w.phaseName, w.motes.length, w.time, w.phaseProgress);

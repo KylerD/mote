@@ -478,6 +478,74 @@ export function renderBondLines(
   }
 }
 
+/** Cluster cascade burst — when a community reaches 8+ members for the first time,
+ *  an expanding ring of colored light emanates from the whole cluster, celebrating
+ *  the moment a group becomes a civilization. Multiple concentric rings, long duration. */
+export function renderCascadeBursts(
+  buf: ImageData,
+  bursts: Array<{ cx: number; cy: number; r: number; g: number; b: number; age: number }>,
+): void {
+  for (const b of bursts) {
+    const age = b.age;
+    if (age > 2.5) continue;
+
+    // Three concentric rings expanding at different speeds — an orchestrated wave
+    for (let wave = 0; wave < 3; wave++) {
+      const delay = wave * 0.28;
+      if (age < delay) continue;
+      const wAge = age - delay;
+      if (wAge > 2.0) continue;
+
+      // Ring expands outward, fades as it goes
+      const radius = 6 + wAge * 32; // 6→70 px over 2s
+      const alpha = Math.max(0, (1 - wAge / 2.0));
+      const ringA = Math.round(alpha * alpha * (wave === 0 ? 220 : wave === 1 ? 150 : 90));
+      if (ringA < 4) continue;
+
+      // Color: inner ring bright center-color, outer rings cool toward white
+      const coolT = wave * 0.35;
+      const pr = Math.min(255, Math.round(b.r * (1 - coolT) + 230 * coolT));
+      const pg = Math.min(255, Math.round(b.g * (1 - coolT) + 235 * coolT));
+      const pb = Math.min(255, Math.round(b.b * (1 - coolT) + 255 * coolT));
+
+      const dotCount = Math.round(radius * 2.2);
+      for (let i = 0; i < dotCount; i++) {
+        const angle = (i / dotCount) * Math.PI * 2;
+        const rx = b.cx + Math.cos(angle) * radius;
+        const ry = b.cy + Math.sin(angle) * radius;
+        setPixel(buf, rx, ry, pr, pg, pb, ringA);
+        // Slightly thicker ring on first wave
+        if (wave === 0 && ringA > 40) {
+          setPixel(buf, rx, ry - 1, pr, pg, pb, Math.round(ringA * 0.45));
+        }
+      }
+    }
+
+    // Central bloom at moment of trigger (first 0.4s)
+    if (age < 0.4) {
+      const bloomT = 1 - age / 0.4;
+      const bloomR = Math.round(bloomT * 14);
+      for (let dy = -bloomR; dy <= bloomR; dy++) {
+        for (let dx = -bloomR; dx <= bloomR; dx++) {
+          const d2 = dx * dx + dy * dy;
+          if (d2 > bloomR * bloomR) continue;
+          const falloff = 1 - Math.sqrt(d2) / bloomR;
+          const fa = Math.round(bloomT * falloff * falloff * 110);
+          if (fa < 3) continue;
+          setPixel(buf, b.cx + dx, b.cy + dy, b.r, b.g, b.b, fa);
+        }
+      }
+      // White core flash
+      const coreA = Math.round(bloomT * bloomT * 255);
+      setPixel(buf, b.cx, b.cy, 255, 255, 255, coreA);
+      setPixel(buf, b.cx - 1, b.cy, 255, 255, 255, Math.round(coreA * 0.55));
+      setPixel(buf, b.cx + 1, b.cy, 255, 255, 255, Math.round(coreA * 0.55));
+      setPixel(buf, b.cx, b.cy - 1, 255, 255, 255, Math.round(coreA * 0.55));
+      setPixel(buf, b.cx, b.cy + 1, 255, 255, 255, Math.round(coreA * 0.55));
+    }
+  }
+}
+
 /** Death particles — four-phase soul departure: flash → shards → spirit → echo */
 export function renderDeathParticles(
   buf: ImageData,

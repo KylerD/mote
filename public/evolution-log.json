@@ -371,6 +371,25 @@
     ]
   },
   {
+    "date": "2026-03-16",
+    "title": "curiosity, birth, cascade",
+    "reflection": "Motes now face their bond targets. Birth fires a 22px light lance from terrain. Clusters of 8+ trigger a triple expanding ring burst.",
+    "looking_ahead": [
+      "Bond age pulse further differentiation — ancient bonds almost still",
+      "Constellation density for mass-death graves",
+      "Cascade audio — rising arpeggio reaching full chord at 8+",
+      "Mote jump/hop when blocked by cliff — traversal feels intentional"
+    ],
+    "visual_verification": "Organization-mid and complexity screenshots show dramatic multicolored expanding rings from large cluster centroids. Volcanic biome motes clearly visible as bright colored sparks.",
+    "quality_delta": "avgMoteBrightness 0.56→0.52 (different biome seed, not a regression). Clumping 0.04→0.00. No quality warnings.",
+    "files_changed": [
+      "src/mote.ts",
+      "src/render-motes.ts",
+      "src/render-bonds.ts",
+      "src/main.ts"
+    ]
+  },
+  {
     "date": "2026-03-15",
     "title": "cluster beacons, graveyard rings",
     "reflection": "Large clusters (6+) now emit soft colored light pillars rising into the sky. Silence phase shows memorial rings at sites where communities died together.",

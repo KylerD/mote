@@ -297,6 +297,13 @@ export function updateMote(
     m.bondTimer = Math.max(0, m.bondTimer - dt * 0.3);
   }
 
+  // CURIOSITY FACING — when a mote is actively pursuing a bond, it turns to face its target.
+  // Makes social intent legible at a glance: viewers can see who each mote is interested in.
+  // Only kicks in while bondTimer is building (mote has noticed and is approaching).
+  if (closestUnbonded && m.bondTimer > 0.1 && closestDist < BOND_DIST) {
+    m.direction = closestUnbonded.x > m.x ? 1 : -1;
+  }
+
   // Apply walking + social forces
   if (m.grounded) {
     m.vx = m.direction * finalSpeed + socialFx * 0.3;
