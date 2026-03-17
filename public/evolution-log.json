@@ -424,5 +424,24 @@
       "src/render-bonds.ts",
       "src/main.ts"
     ]
+  },
+  {
+    "date": "2026-03-17",
+    "title": "flood storm, brighter wisps",
+    "reflection": "Flood events now bring dark storm clouds, heavy diagonal rain, and a thunder flash. Soul wisp max-alpha doubled (28→60) so the dead are unmistakably present.",
+    "looking_ahead": [
+      "Cascade audio — rising arpeggio reaching full chord at 8+",
+      "Drought visual — bleached sky, heat shimmer amplified, cracked earth",
+      "Soul wisps cluster near graveyard sites",
+      "Mote hop/jump when blocked by cliff face"
+    ],
+    "visual_verification": "After screenshots show dissolution sky populated with visible glowing soul orbs above terrain. Flood storm confirmed in code: sky darkening gradient, 70 diagonal rain streaks, thunder flash at event start. No regressions in quality analysis.",
+    "quality_delta": "avgMoteBrightness 0.50→0.52. Clumping 0.00. Water coverage 10.8%→20.8% (different biome, not from changes).",
+    "files_changed": [
+      "src/render-effects.ts",
+      "src/main.ts",
+      "src/render-bonds.ts",
+      "src/sound.ts"
+    ]
   }
 ]

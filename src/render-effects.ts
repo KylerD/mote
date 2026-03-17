@@ -1129,3 +1129,83 @@ export function renderClusterRadiance(
     }
   }
 }
+
+// ─── Flood storm overlay ───────────────────────────────────────────────────
+
+/**
+ * Flood event storm overlay — renders when "THE WATERS RISE" is active.
+ * Dark storm clouds roll in, heavy diagonal rain hammers down, a thunder
+ * flash lights the sky at the moment the flood begins.
+ * Call after base weather but before bloom so rain streaks catch the glow.
+ */
+export function renderFloodStorm(
+  buf: ImageData,
+  event: ActiveEvent | null,
+  time: number,
+  cycleNumber: number,
+): void {
+  if (!event || event.type !== "flood" || event.startTime < 0) return;
+
+  const elapsed = time - event.startTime;
+  if (elapsed < 0 || elapsed > event.duration) return;
+
+  const progress = elapsed / event.duration;
+  // Build up over first 3s, sustain, ease out over last 30% of event
+  const buildIn = Math.min(1.0, elapsed / 3.0);
+  const fadeOut = progress > 0.70 ? 1.0 - (progress - 0.70) / 0.30 : 1.0;
+  const str = buildIn * fadeOut;
+  if (str < 0.02) return;
+
+  const d = buf.data;
+
+  // 1. Storm sky shadow — blue-grey darkness rolls over the upper sky
+  const skyH = Math.floor(H * 0.65);
+  for (let y = 0; y < skyH; y++) {
+    const yf = 1.0 - y / skyH;      // 1 at top, 0 at horizon
+    const sk = str * (0.28 + yf * 0.52);
+    // Precompute per-row values to avoid per-pixel branches
+    const darkR  = Math.round(sk * 52);
+    const darkG  = Math.round(sk * 42);
+    const darkB  = Math.round(sk * 18);
+    const blueAdd = Math.round(str * yf * 16);
+    for (let x = 0; x < W; x++) {
+      const pi = (y * W + x) << 2;
+      d[pi]     = Math.max(0, d[pi]     - darkR);
+      d[pi + 1] = Math.max(0, d[pi + 1] - darkG);
+      d[pi + 2] = Math.max(0, Math.min(255, d[pi + 2] - darkB + blueAdd));
+    }
+  }
+
+  // 2. Heavy rain — 70 diagonal streaks falling fast, deterministic per cycle
+  const RAIN_N = 70;
+  for (let i = 0; i < RAIN_N; i++) {
+    const ix = ((i * 7919 + cycleNumber * 173) >>> 0) % W;
+    const spd = 74 + (i * 29 % 32);
+    // Evenly space particles vertically then scroll with time
+    const py = (Math.floor(time * spd) + Math.floor(i * H / RAIN_N)) % H;
+    const px = ((ix + Math.round(py * 0.44)) % W + W) % W;
+    const rawA = 34 + (i * 23 % 36);
+    const alpha = Math.round(str * rawA);
+    if (alpha < 2) continue;
+    setPixel(buf, px,     py,     148, 172, 218, alpha);
+    setPixel(buf, px,     py - 1, 125, 152, 202, Math.round(alpha * 0.55));
+    setPixel(buf, px,     py - 2, 105, 134, 188, Math.round(alpha * 0.28));
+  }
+
+  // 3. Thunder flash — bright white-blue pulse at the moment the flood begins
+  //    Peaks at 0.35s, fully gone by 2.5s — mimics a lightning strike overhead
+  if (elapsed < 2.5) {
+    const flashPeak = 0.35;
+    const flashT = elapsed < flashPeak
+      ? elapsed / flashPeak
+      : Math.max(0.0, (2.5 - elapsed) / (2.5 - flashPeak));
+    const flashA = Math.round(flashT * flashT * 52);
+    if (flashA > 2) {
+      for (let j = 0; j < d.length; j += 4) {
+        d[j]     = Math.min(255, d[j]     + Math.round(flashA * 0.72));
+        d[j + 1] = Math.min(255, d[j + 1] + Math.round(flashA * 0.78));
+        d[j + 2] = Math.min(255, d[j + 2] + flashA);
+      }
+    }
+  }
+}

@@ -702,20 +702,25 @@ export function renderSoulWisps(
     const wg = Math.round(d.g * (1 - tint) + 168 * tint);
     const wb = Math.round(d.b * (1 - tint) + 220 * tint);
 
-    const maxA = 28;
+    const maxA = 60;
     const alpha = Math.round(maxA * life * shimmer);
     if (alpha < 2) continue;
 
     // Core pixel + soft cross halo — small enough to feel ethereal, feeds bloom pass
     setPixel(buf, wx,     wy,     wr, wg, wb, alpha);
-    setPixel(buf, wx - 1, wy,     wr, wg, wb, Math.round(alpha * 0.55));
-    setPixel(buf, wx + 1, wy,     wr, wg, wb, Math.round(alpha * 0.55));
-    setPixel(buf, wx,     wy - 1, wr, wg, wb, Math.round(alpha * 0.42));
-    setPixel(buf, wx,     wy + 1, wr, wg, wb, Math.round(alpha * 0.35));
+    setPixel(buf, wx - 1, wy,     wr, wg, wb, Math.round(alpha * 0.60));
+    setPixel(buf, wx + 1, wy,     wr, wg, wb, Math.round(alpha * 0.60));
+    setPixel(buf, wx,     wy - 1, wr, wg, wb, Math.round(alpha * 0.48));
+    setPixel(buf, wx,     wy + 1, wr, wg, wb, Math.round(alpha * 0.38));
     // Outer glow pixels: faint enough to stay ghostly, bright enough for bloom
-    setPixel(buf, wx - 2, wy,     wr, wg, wb, Math.round(alpha * 0.18));
-    setPixel(buf, wx + 2, wy,     wr, wg, wb, Math.round(alpha * 0.18));
-    setPixel(buf, wx,     wy - 2, wr, wg, wb, Math.round(alpha * 0.14));
+    setPixel(buf, wx - 2, wy,     wr, wg, wb, Math.round(alpha * 0.24));
+    setPixel(buf, wx + 2, wy,     wr, wg, wb, Math.round(alpha * 0.24));
+    setPixel(buf, wx,     wy - 2, wr, wg, wb, Math.round(alpha * 0.20));
+    setPixel(buf, wx,     wy + 2, wr, wg, wb, Math.round(alpha * 0.14));
+    // Extended outer ring: just enough to create a soft luminous presence
+    setPixel(buf, wx - 3, wy,     wr, wg, wb, Math.round(alpha * 0.10));
+    setPixel(buf, wx + 3, wy,     wr, wg, wb, Math.round(alpha * 0.10));
+    setPixel(buf, wx,     wy - 3, wr, wg, wb, Math.round(alpha * 0.08));
   }
 }
 

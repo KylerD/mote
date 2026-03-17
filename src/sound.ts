@@ -1491,22 +1491,39 @@ export function playEventSound(engine: SoundEngine, eventType: string): void {
     }
 
     case "flood": {
-      // Rising wash of filtered noise
+      // Thunder crack: sharp percussive bass that breaks the silence before the flood
+      const thunderNoise = createNoiseSource(ctx, 0.7);
+      const thunderFilter = ctx.createBiquadFilter();
+      thunderFilter.type = "lowpass";
+      thunderFilter.frequency.setValueAtTime(300, now);
+      thunderFilter.frequency.exponentialRampToValueAtTime(60, now + 0.5);
+      thunderFilter.Q.value = 0.8;
+      const thunderGain = ctx.createGain();
+      thunderGain.gain.setValueAtTime(0.0, now);
+      thunderGain.gain.linearRampToValueAtTime(0.38, now + 0.04);
+      thunderGain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+      thunderNoise.connect(thunderFilter);
+      thunderFilter.connect(thunderGain);
+      thunderGain.connect(engine.compressor);
+      thunderNoise.start(now);
+      thunderNoise.stop(now + 0.7);
+
+      // Rising wash of filtered noise — water sweeping in after the crack
       const src = createNoiseSource(ctx, 2.5);
       const filter = ctx.createBiquadFilter();
       filter.type = "bandpass";
-      filter.frequency.setValueAtTime(2800, now);
-      filter.frequency.exponentialRampToValueAtTime(180, now + 2.2);
+      filter.frequency.setValueAtTime(2800, now + 0.35);
+      filter.frequency.exponentialRampToValueAtTime(180, now + 2.5);
       filter.Q.value = 0.4;
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.0, now);
-      gain.gain.linearRampToValueAtTime(0.065, now + 0.4);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
+      gain.gain.setValueAtTime(0.0, now + 0.35);
+      gain.gain.linearRampToValueAtTime(0.085, now + 0.75);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
       src.connect(filter);
       filter.connect(gain);
       gain.connect(engine.compressor);
-      src.start(now);
-      src.stop(now + 2.3);
+      src.start(now + 0.35);
+      src.stop(now + 2.6);
       break;
     }
 
