@@ -65,10 +65,10 @@ export function createWeather(seed: number, biome: Biome): Weather {
   const clouds: CloudLayer[] = [];
   const cloudCount =
     type === "overcast" ? Math.floor(6 + intensity * 8) :
-    type === "rain" || type === "storm" ? Math.floor(4 + intensity * 5) :
+    type === "rain" || type === "storm" ? Math.floor(4 + intensity * 6) :
     type === "fog" ? Math.floor(3 + intensity * 4) :
     type === "snow" ? Math.floor(3 + intensity * 3) :
-    Math.floor(rng() * 3);
+    Math.floor(3 + rng() * 4);   // clear: 3–6 visible puffs (was 0–2)
 
   for (let i = 0; i < cloudCount; i++) {
     // Biome shapes the character of clouds: desert wisps high and thin, volcanic low and fat,
@@ -98,8 +98,11 @@ export function createWeather(seed: number, biome: Biome): Weather {
       y: yBase + rng() * yRange,
       width: wBase + rng() * wRange,
       height: hBase + rng() * hRange,
-      density: type === "overcast" ? 0.3 + rng() * 0.3 :
-               type === "fog" ? 0.15 + rng() * 0.2 : 0.1 + rng() * 0.2,
+      density: type === "overcast" ? 0.35 + rng() * 0.28 :
+               type === "storm"    ? 0.40 + rng() * 0.22 :
+               type === "fog"      ? 0.15 + rng() * 0.18 :
+               type === "rain"     ? 0.28 + rng() * 0.22 :
+               /* clear / snow */    0.28 + rng() * 0.24,
       speed: (0.5 + rng() * 1.5) * (windStrength > 0 ? 1 : -1),
     });
   }

@@ -266,6 +266,7 @@ const engineLushBloomTime = new WeakMap<SoundEngine, number>();
 const engineAncientBondBreakTime = new WeakMap<SoundEngine, number>();
 const engineLushFireflyTime = new WeakMap<SoundEngine, number>();
 const engineTundraCrystalTime = new WeakMap<SoundEngine, number>();
+const engineCascadeArrivalTime = new WeakMap<SoundEngine, number>();
 
 // Phase multipliers for ambient bed gain — drives the sonic arc
 const PHASE_AMBIENT_MULT = [0.30, 0.60, 0.85, 1.00, 0.65, 0.10];
@@ -2092,6 +2093,84 @@ export function playPhaseTransition(engine: SoundEngine, phaseIndex: number, bio
     case 5: // silence — single root tone fading into nothing
       note(-12, 1, 0.0, 6.0, 0.018);
       break;
+  }
+}
+
+/**
+ * Cascade arrival — rising arpeggio when a cluster first reaches 8+ members.
+ * The visual triple ring expands outward; the audio ascends in parallel —
+ * 6 notes climbing the biome scale at 160ms intervals, then a full chord sustains.
+ * Biome-voiced timbre. Cooldown prevents rapid-fire on simultaneous cascades.
+ */
+export function playCascadeArrival(engine: SoundEngine, biome: Biome): void {
+  if (!engine.initialized) return;
+  const ctx = engine.ctx;
+  const now = ctx.currentTime;
+
+  // Per-engine cooldown — at most one cascade sound every 4 seconds
+  const lastCascade = engineCascadeArrivalTime.get(engine) ?? -999;
+  if (now - lastCascade < 4.0) return;
+  engineCascadeArrivalTime.set(engine, now);
+
+  const profile = BIOME_SOUND[biome];
+  // Use the complexity-phase scale — richest voicing, peak of life
+  const scale = BIOME_PHASE_SCALES[biome][3];
+
+  const spacing = 0.155; // seconds between ascending notes
+  const noteCount = 6;
+
+  // Ascending arpeggio: picks evenly-spaced scale degrees, low to high, mid register
+  for (let i = 0; i < noteCount; i++) {
+    const scaleIdx = Math.floor((i / noteCount) * scale.length);
+    const semi = scale[Math.min(scaleIdx, scale.length - 1)];
+    const freq = profile.rootFreq * Math.pow(2, semi / 12) * 2; // one octave up
+    const t = now + i * spacing;
+
+    // Each note slightly louder/brighter — crescendo toward the chord
+    const vol = (0.016 + i * 0.003) * profile.masterMult;
+    const decay = i < noteCount - 1 ? 0.50 : 2.4;
+    const wave: OscillatorType = i < noteCount - 1 ? profile.waveSmall : profile.waveLarge;
+    // Pan spreads left to right as the arpeggio rises
+    const pan = ((i / (noteCount - 1)) * 2 - 1) * profile.panStrength * 0.65;
+
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    const panner = ctx.createStereoPanner();
+    osc.type = wave;
+    osc.frequency.value = freq;
+    panner.pan.value = Math.max(-1, Math.min(1, pan));
+    gainNode.gain.setValueAtTime(0.001, t);
+    gainNode.gain.linearRampToValueAtTime(vol, t + 0.022);
+    gainNode.gain.setValueAtTime(vol, t + 0.022 + 0.015);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, t + 0.022 + decay);
+    osc.connect(gainNode);
+    gainNode.connect(panner);
+    panner.connect(engine.reverb);
+    osc.start(t);
+    osc.stop(t + 0.022 + decay + 0.1);
+  }
+
+  // Final chord: root + perfect fifth + octave, arrives as last arpeggio note sounds
+  const chordStart = now + (noteCount - 1) * spacing + 0.08;
+  const chordSemitones = [0, 7, 12];
+  for (let j = 0; j < chordSemitones.length; j++) {
+    const freq = profile.rootFreq * Math.pow(2, chordSemitones[j] / 12) * 2;
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    const panner = ctx.createStereoPanner();
+    osc.type = profile.waveLarge;
+    osc.frequency.value = freq;
+    panner.pan.value = (j - 1) * profile.panStrength * 0.45;
+    const chordVol = (0.020 - j * 0.003) * profile.masterMult;
+    gainNode.gain.setValueAtTime(0.001, chordStart);
+    gainNode.gain.linearRampToValueAtTime(chordVol, chordStart + 0.10);
+    gainNode.gain.setValueAtTime(chordVol, chordStart + 1.0);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, chordStart + 2.6);
+    osc.connect(gainNode);
+    gainNode.connect(panner);
+    panner.connect(engine.reverb);
+    osc.start(chordStart);
+    osc.stop(chordStart + 2.8);
   }
 }
 

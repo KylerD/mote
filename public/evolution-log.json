@@ -443,5 +443,24 @@
       "src/render-bonds.ts",
       "src/sound.ts"
     ]
+  },
+  {
+    "date": "2026-03-17",
+    "title": "cascade arpeggio, visible clouds",
+    "reflection": "Cluster cascade now triggers a rising 6-note arpeggio that resolves to a sustained chord. Cloud density tripled — skies have visible drifting puffs in all weather.",
+    "looking_ahead": [
+      "Drought visual — bleached sky, heat shimmer amplified",
+      "Soul wisps cluster near graveyard sites",
+      "God rays strengthened — currently too faint to see",
+      "Phase-reactive clouds — build through complexity, clear in silence"
+    ],
+    "visual_verification": "After screenshots show visible grey cloud shapes in the daytime sky above terrain — sky is no longer a flat empty gradient. Organization/complexity phases have clear cloud texture.",
+    "quality_delta": "avgMoteBrightness 0.52→0.52. Brightness floor 125→138. Cloud density 0.10-0.30→0.28-0.52. Cloud count (clear) 0-2→3-6. No regressions.",
+    "files_changed": [
+      "src/sound.ts",
+      "src/main.ts",
+      "src/weather.ts",
+      "src/render-motes.ts"
+    ]
   }
 ]

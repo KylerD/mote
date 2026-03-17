@@ -5,7 +5,7 @@ import { H } from "./config";
 import { renderTerrain, applyHeatHaze, applyVolcanicAsh, renderRainPuddles, renderWaterMist, renderVolcanicEmbers, applyTundraIce } from "./terrain";
 import { createWorld, updateWorld } from "./world";
 import { cycleName } from "./names";
-import { createSoundEngine, initAudio, updateSound, updateWeatherSound, playDeath, playEventSound, playPhaseTransition } from "./sound";
+import { createSoundEngine, initAudio, updateSound, updateWeatherSound, playDeath, playEventSound, playPhaseTransition, playCascadeArrival } from "./sound";
 import { createInteraction, applyInteraction } from "./interaction";
 import { isEventActive, isEclipseActive } from "./events";
 import {
@@ -195,6 +195,7 @@ function init(): void {
       }
       cx /= cluster.length; cy /= cluster.length;
       cascadeBursts.push({ cx, cy, r: Math.round(avgR / cluster.length), g: Math.round(avgG / cluster.length), b: Math.round(avgB / cluster.length), age: 0 });
+      if (sound.initialized) playCascadeArrival(sound, w.terrain.biome);
     }
     // Advance burst ages; prune finished bursts
     for (let i = cascadeBursts.length - 1; i >= 0; i--) {
