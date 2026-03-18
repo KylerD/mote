@@ -5,7 +5,7 @@ import { H } from "./config";
 import { renderTerrain, applyHeatHaze, applyVolcanicAsh, renderRainPuddles, renderWaterMist, renderVolcanicEmbers, applyTundraIce } from "./terrain";
 import { createWorld, updateWorld } from "./world";
 import { cycleName } from "./names";
-import { createSoundEngine, initAudio, updateSound, updateWeatherSound, playDeath, playEventSound, playPhaseTransition, playCascadeArrival } from "./sound";
+import { createSoundEngine, initAudio, updateSound, updateWeatherSound, playDeath, playEventSound, playPhaseTransition, playCascadeArrival, playBirdChirp } from "./sound";
 import { createInteraction, applyInteraction } from "./interaction";
 import { isEventActive, isEclipseActive } from "./events";
 import {
@@ -88,6 +88,8 @@ function init(): void {
   // Sound update loop (~15fps, decoupled)
   // Track phase for transition sounds; -1 until first sync so stale phases don't fire on load
   let lastPhaseIndex = -1;
+  let lastBirdChirpTime = 0;
+  let nextBirdChirpDelay = 9 + Math.random() * 7; // 9–16s first chirp
   setInterval(() => {
     const curPhase = world.ref.phaseIndex;
     if (sound.initialized) {
@@ -95,6 +97,19 @@ function init(): void {
         playPhaseTransition(sound, curPhase, world.ref.terrain.biome);
       }
       lastPhaseIndex = curPhase;
+
+      // Bird chirps — occasional calls from passing flocks during active flight phases
+      const birdsActive = curPhase >= 1 && curPhase <= 4 && world.ref.terrain.biome !== "volcanic";
+      const weatherAllows = world.ref.weather.type !== "storm" && world.ref.weather.type !== "overcast";
+      if (birdsActive && weatherAllows) {
+        const realNow = performance.now() / 1000;
+        if (realNow - lastBirdChirpTime > nextBirdChirpDelay) {
+          lastBirdChirpTime = realNow;
+          nextBirdChirpDelay = 8 + Math.random() * 12; // 8–20s between calls
+          const pan = (Math.random() - 0.5) * 1.6;     // wide stereo spread
+          playBirdChirp(sound, world.ref.terrain.biome, Math.max(-1, Math.min(1, pan)));
+        }
+      }
     } else {
       lastPhaseIndex = curPhase; // stay in sync without playing
     }

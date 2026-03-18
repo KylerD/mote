@@ -447,7 +447,7 @@ export function applyGodRays(
   if (!visible || horizonGlow < 0.15) return;
 
   // Strength scales with sun height; strongest at mid-afternoon
-  const baseStr = horizonGlow * 0.44;
+  const baseStr = horizonGlow * 0.95;
   const weatherMod = (weather.type === "rain" || weather.type === "snow") ? 0.28 : 1.0;
   const rayStr = baseStr * weatherMod;
   if (rayStr < 0.04) return;
@@ -474,11 +474,11 @@ export function applyGodRays(
 
   const d = buf.data;
   // Clamp ray pixels to sky area — don't bleed into terrain
-  const RAY_MAX_Y = Math.floor(H * 0.58);
-  const RAY_LEN = 42;
+  const RAY_MAX_Y = Math.floor(H * 0.70);
+  const RAY_LEN = 68;
 
-  // 8 ray directions fanning below the sun, degrees from straight down (screen-space)
-  const ANGLES = [-50, -30, -16, -5, 5, 16, 30, 50];
+  // 12 ray directions fanning below the sun, degrees from straight down (screen-space)
+  const ANGLES = [-56, -44, -32, -21, -11, -3, 3, 11, 21, 32, 44, 56];
 
   for (const angleDeg of ANGLES) {
     const rad = angleDeg * Math.PI / 180;
@@ -487,15 +487,17 @@ export function applyGodRays(
 
     // Slow shimmer per ray for living atmospheric feel
     const shimmer = Math.sin(time * 0.55 + angleDeg * 0.21) * 0.18 + 0.82;
-    const rFinal = rayStr * shimmer;
+    // Per-ray variance: each shaft has its own persistent brightness (cloud-gap simulation)
+    const rayVariance = 0.55 + seedHash(Math.abs(angleDeg) * 13 + 7) * 0.45;
+    const rFinal = rayStr * shimmer * rayVariance;
 
-    for (let step = 5; step < RAY_LEN; step++) {
+    for (let step = 2; step < RAY_LEN; step++) {
       const rx = cx + Math.round(stepX * step);
       const ry = cy + Math.round(stepY * step);
       if (rx < 0 || rx >= W || ry < 0 || ry > RAY_MAX_Y) continue;
 
       const falloff = (1 - step / RAY_LEN) * (1 - step / RAY_LEN);
-      const a = Math.round(rFinal * falloff * 60);
+      const a = Math.round(rFinal * falloff * 120);
       if (a < 2) continue;
 
       const pi = (ry * W + rx) * 4;
@@ -503,10 +505,16 @@ export function applyGodRays(
       d[pi + 1] = Math.min(255, d[pi + 1] + Math.round(a * rayG));
       d[pi + 2] = Math.min(255, d[pi + 2] + Math.round(a * rayB));
 
-      // Soft 1px glow beside each ray for feathered edge
+      // Soft glow beside each ray for feathered edge
+      const a2 = Math.round(a * 0.40);
+      if (rx - 1 >= 0) {
+        const pi3 = (ry * W + rx - 1) * 4;
+        d[pi3]     = Math.min(255, d[pi3]     + Math.round(a2 * rayR));
+        d[pi3 + 1] = Math.min(255, d[pi3 + 1] + Math.round(a2 * rayG));
+        d[pi3 + 2] = Math.min(255, d[pi3 + 2] + Math.round(a2 * rayB));
+      }
       if (rx + 1 < W) {
         const pi2 = (ry * W + rx + 1) * 4;
-        const a2 = Math.round(a * 0.28);
         d[pi2]     = Math.min(255, d[pi2]     + Math.round(a2 * rayR));
         d[pi2 + 1] = Math.min(255, d[pi2 + 1] + Math.round(a2 * rayG));
         d[pi2 + 2] = Math.min(255, d[pi2 + 2] + Math.round(a2 * rayB));

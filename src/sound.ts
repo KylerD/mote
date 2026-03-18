@@ -2174,6 +2174,51 @@ export function playCascadeArrival(engine: SoundEngine, biome: Biome): void {
   }
 }
 
+/**
+ * Bird chirp — short melodic tweet played when flocks are actively flying.
+ * Biome-specific: tropical trill, tundra whistle, desert hawk cry, temperate songbird.
+ * Routed directly to masterGain (no reverb) — birds are in open air.
+ */
+export function playBirdChirp(engine: SoundEngine, biome: Biome, pan = 0): void {
+  if (!engine.initialized) return;
+  const ctx = engine.ctx;
+  const now = ctx.currentTime;
+
+  type ChirpCfg = { f1: number; f2: number; f3: number; gain: number; dur: number };
+  const CHIRPS: Record<Biome, ChirpCfg> = {
+    temperate: { f1: 1760, f2: 2640, f3: 1980, gain: 0.075, dur: 0.12 }, // ascending songbird trill
+    lush:      { f1: 2200, f2: 3300, f3: 2500, gain: 0.080, dur: 0.09 }, // bright tropical tweet
+    tundra:    { f1: 1320, f2: 1760, f3: 1200, gain: 0.060, dur: 0.18 }, // slow clear whistle
+    desert:    { f1: 1100, f2:  660, f3:  880, gain: 0.065, dur: 0.22 }, // descending hawk cry
+    volcanic:  { f1: 1540, f2: 1100, f3: 1320, gain: 0.050, dur: 0.14 }, // rare — muted
+  };
+  const cfg = CHIRPS[biome] ?? CHIRPS.temperate;
+
+  const osc = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  const panner = ctx.createStereoPanner();
+
+  osc.type = "sine";
+  // Chirp shape: rise to peak then fall slightly — like a natural bird call
+  osc.frequency.setValueAtTime(cfg.f1, now);
+  osc.frequency.exponentialRampToValueAtTime(cfg.f2, now + cfg.dur * 0.55);
+  osc.frequency.exponentialRampToValueAtTime(cfg.f3, now + cfg.dur);
+
+  gainNode.gain.setValueAtTime(0.001, now);
+  gainNode.gain.linearRampToValueAtTime(cfg.gain, now + 0.010);
+  gainNode.gain.setValueAtTime(cfg.gain, now + cfg.dur * 0.35);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, now + cfg.dur);
+
+  panner.pan.value = Math.max(-1, Math.min(1, pan));
+
+  osc.connect(gainNode);
+  gainNode.connect(panner);
+  panner.connect(engine.masterGain); // open air — no reverb
+
+  osc.start(now);
+  osc.stop(now + cfg.dur + 0.02);
+}
+
 /** Low rumbling thunder */
 function playThunder(engine: SoundEngine, intensity: number): void {
   const ctx = engine.ctx;

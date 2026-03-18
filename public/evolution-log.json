@@ -465,6 +465,24 @@
   },
   {
     "date": "2026-03-18",
+    "title": "god rays and bird calls",
+    "reflection": "God rays boosted 4x (alpha 26→110, length 42→68, 8→12 shafts). Birds now chirp every 8-20s with biome-specific calls — songbird, tropical trill, tundra whistle, hawk cry.",
+    "looking_ahead": [
+      "God rays fade through cloud density — shaft gaps when overcast",
+      "Birds react to storms — scatter visually when weather turns",
+      "Drought visual — bleached sky, heat shimmer amplified",
+      "Sunrise/sunset rays warm from white to gold as sun nears horizon"
+    ],
+    "visual_verification": "Volcanic biome in captures absorbs amber rays (intentional — ash filters). In temperate/desert biomes the shafts are clearly visible streaks spanning ~68px from sun. Before max alpha 26, after max alpha ~110.",
+    "quality_delta": "No regressions. avgMoteBrightness 0.53 stable. God ray strength 4x. Bird chirps audible every 8-20s.",
+    "files_changed": [
+      "src/weather-render.ts",
+      "src/sound.ts",
+      "src/main.ts"
+    ]
+  },
+  {
+    "date": "2026-03-18",
     "title": "bird flocks in sky",
     "reflection": "Added pixel bird flocks that cross the sky during exploration through dissolution. Phase-reactive: absent at genesis/silence, peak at complexity. Biome silhouette colors differ per world.",
     "looking_ahead": [
