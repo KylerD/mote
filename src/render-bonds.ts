@@ -674,6 +674,36 @@ export function renderSoulWisps(
   const silenceMod = phaseName === "silence" ? 0.0 : 1.0;
   if (silenceMod <= 0) return;
 
+  // Find graveyard centers: clusters of 3+ deaths within 20px.
+  // Wisps from the same community slowly drift toward their shared resting place —
+  // forming visible ghost-clouds above tragedy sites during dissolution.
+  interface GraveyardCenter { x: number; y: number; strength: number; r: number; g: number; b: number }
+  const graveyardCenters: GraveyardCenter[] = [];
+  const gUsed = new Uint8Array(allDeaths.length);
+  for (let i = 0; i < allDeaths.length; i++) {
+    if (gUsed[i]) continue;
+    const members = [allDeaths[i]];
+    gUsed[i] = 1;
+    for (let j = i + 1; j < allDeaths.length; j++) {
+      if (gUsed[j]) continue;
+      const ddx = allDeaths[j].x - allDeaths[i].x;
+      const ddy = allDeaths[j].y - allDeaths[i].y;
+      if (ddx * ddx + ddy * ddy < 20 * 20) { members.push(allDeaths[j]); gUsed[j] = 1; }
+    }
+    if (members.length < 3) continue;
+    let gx = 0, gy = 0, gr = 0, gg = 0, gb = 0;
+    for (const m of members) { gx += m.x; gy += m.y; gr += m.r; gg += m.g; gb += m.b; }
+    gx /= members.length; gy /= members.length;
+    graveyardCenters.push({
+      x: gx,
+      y: gy - 18,  // hover ~18px above the ground graveyard site
+      strength: Math.min(1, members.length / 6),
+      r: Math.round(gr / members.length),
+      g: Math.round(gg / members.length),
+      b: Math.round(gb / members.length),
+    });
+  }
+
   for (const d of allDeaths) {
     const age = time - d.time;
     // Starts as spirit orb ends; fades toward silence hand-off
@@ -690,17 +720,47 @@ export function renderSoulWisps(
     // Gentle drift: slow sine sway unique to each soul
     const sway = Math.sin((age - 3.0) * 0.38 + d.x * 0.17) * 2.4;
 
-    const wx = d.x + sway;
-    const wy = d.y - rise - 1;
+    let wx = d.x + sway;
+    let wy = d.y - rise - 1;
+
+    // Graveyard pull — wisps feel the gravity of their community's resting place.
+    // The pull strengthens as the wisp matures (they've had time to drift together).
+    // Wisps converge into a visible ghost-cluster above where their kind fell.
+    const pullMaturity = Math.min(1, (age - 3.0) / 16.0); // 0→1 over first 16s
+    for (const gc of graveyardCenters) {
+      const ddx = gc.x - wx;
+      const ddy = gc.y - wy;
+      const d2 = ddx * ddx + ddy * ddy;
+      if (d2 < 38 * 38 && d2 > 1) {
+        const dist = Math.sqrt(d2);
+        const force = gc.strength * 3.0 * pullMaturity / (dist * 0.18 + 1);
+        wx += (ddx / dist) * Math.min(force, 7);
+        wy += (ddy / dist) * Math.min(force, 4);
+      }
+    }
 
     // Slow shimmer — each soul breathes at its own pace
     const shimmer = Math.sin(time * 0.72 + d.x * 0.19 + d.y * 0.11) * 0.25 + 0.75;
 
     // Spectral tint: shift mote color slightly toward cool blue-white (the other side)
     const tint = 0.28;
-    const wr = Math.round(d.r * (1 - tint) + 148 * tint);
-    const wg = Math.round(d.g * (1 - tint) + 168 * tint);
-    const wb = Math.round(d.b * (1 - tint) + 220 * tint);
+    let wr = Math.round(d.r * (1 - tint) + 148 * tint);
+    let wg = Math.round(d.g * (1 - tint) + 168 * tint);
+    let wb = Math.round(d.b * (1 - tint) + 220 * tint);
+
+    // Color communion — wisps near a graveyard center subtly blend toward their community hue.
+    // A ghost-cluster glows with the shared identity of those who fell together.
+    for (const gc of graveyardCenters) {
+      const ddx = gc.x - wx;
+      const ddy = gc.y - wy;
+      const d2 = ddx * ddx + ddy * ddy;
+      if (d2 < 12 * 12) {
+        const communion = 0.20 * (1 - Math.sqrt(d2) / 12) * pullMaturity;
+        wr = Math.round(wr * (1 - communion) + gc.r * communion);
+        wg = Math.round(wg * (1 - communion) + gc.g * communion);
+        wb = Math.round(wb * (1 - communion) + gc.b * communion);
+      }
+    }
 
     const maxA = 60;
     const alpha = Math.round(maxA * life * shimmer);

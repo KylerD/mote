@@ -15,9 +15,9 @@ export function computeMoteColor(m: Mote, _bp: BiomePalette): [number, number, n
   ) % 360;
 
   const sat = 0.65 + m.temperament.sociability * 0.30;
-  const light = 0.50 + m.energy * 0.25;
+  const light = 0.55 + m.energy * 0.25;
 
-  let [r, g, b] = hsl2rgb(hue, Math.min(1, sat), Math.min(0.78, light));
+  let [r, g, b] = hsl2rgb(hue, Math.min(1, sat), Math.min(0.82, light));
 
   // Age: elders shift toward warm gold
   const ageGold = Math.min(1, Math.max(0, (m.age - 8) / 22)) * 0.40;
@@ -26,9 +26,9 @@ export function computeMoteColor(m: Mote, _bp: BiomePalette): [number, number, n
   b += (40 - b) * ageGold;
 
   // Brightness floor — motes must never blend into dark terrain
-  r = Math.max(138, r);
-  g = Math.max(138, g);
-  b = Math.max(138, b);
+  r = Math.max(162, r);
+  g = Math.max(162, g);
+  b = Math.max(162, b);
 
   return [Math.round(r), Math.round(g), Math.round(b)];
 }
@@ -143,9 +143,9 @@ export function renderMotes(
       : 0;
 
     // Brighter core color
-    const lr = Math.min(255, Math.round(cr * 1.55));
-    const lg = Math.min(255, Math.round(cg * 1.55));
-    const lb = Math.min(255, Math.round(cb * 1.55));
+    const lr = Math.min(255, Math.round(cr * 1.60));
+    const lg = Math.min(255, Math.round(cg * 1.60));
+    const lb = Math.min(255, Math.round(cb * 1.60));
 
     // DARK OUTLINE — head area shifts with lean; body/feet anchored
     setPixel(buf, ox - 1 + lean, oy - 3, 4, 4, 8, 245);

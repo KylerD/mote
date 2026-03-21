@@ -194,15 +194,15 @@
   {
     "date": "2026-03-09",
     "title": "Dying makes a story",
-    "reflection": "Dying wanderers leave red-hot trails \u2014 their final run blazes. Social motes with bonds walk toward partners before dying. Stressed bonds glow urgent orange-white.",
+    "reflection": "Dying wanderers leave red-hot trails — their final run blazes. Social motes with bonds walk toward partners before dying. Stressed bonds glow urgent orange-white.",
     "looking_ahead": [
       "Cluster merge cascade at 8+ cluster members",
-      "Bond age visualization \u2014 old bonds glow warmer",
+      "Bond age visualization — old bonds glow warmer",
       "Audio for social death walk and wanderer frenzy",
       "Constellation density for mass-death graves"
     ],
     "visual_verification": "dissolution-start shows warm bond lines glowing between final survivors; silence-start has 3-4 motes with visible bond connections. Red trails visible on fast-moving wanderers.",
-    "quality_delta": "mote brightness 0.51 \u2192 0.50 (seed variation only, not from changes)",
+    "quality_delta": "mote brightness 0.51 → 0.50 (seed variation only, not from changes)",
     "files_changed": [
       "src/render-motes.ts",
       "src/mote.ts",
@@ -220,7 +220,7 @@
       "Bond age pulse rate slows as bond ages (old bonds breathe slowly)"
     ],
     "visual_verification": "Dissolution phase shows warm amber bond lines between long-bonded motes. Newly formed bonds appear as cool blue-white lines that fade to mote colors. Motes visibly brighter against terrain.",
-    "quality_delta": "mote brightness floor 80 \u2192 90, base lightness 0.45 \u2192 0.50",
+    "quality_delta": "mote brightness floor 80 → 90, base lightness 0.45 → 0.50",
     "files_changed": [
       "src/types.ts",
       "src/mote.ts",
@@ -235,7 +235,7 @@
     "looking_ahead": [
       "Star field visible in genesis/silence for night atmosphere",
       "Stronger phase sky contrast between genesis night and complexity day",
-      "Mote curiosity \u2014 facing toward nearest unbonded neighbor",
+      "Mote curiosity — facing toward nearest unbonded neighbor",
       "Water reflection intensity tracking sky brightness by phase"
     ],
     "visual_verification": "After screenshot shows warm amber-orange elliptical glow on terrain beneath active clusters. 2-member cluster ring appears in exploration phase. Phase-scaling visible: strong glow in dissolution/complexity, reduced in silence.",
@@ -587,6 +587,23 @@
       "src/main.ts",
       "src/world.ts",
       "scripts/capture.mjs"
+    ]
+  },
+  {
+    "date": "2026-03-21",
+    "title": "brighter motes, wisp graveyards",
+    "reflection": "Raised mote brightness floor 138→162 and base light 0.50→0.55, clearing MOTE_TOO_DIM. Soul wisps now drift toward community graveyard sites and blend hues, forming ghost-clusters above where kin fell.",
+    "looking_ahead": [
+      "Drought audio — dry crackling, sparse high tones, parched silence",
+      "Rain intensifies near flood events — layered storm",
+      "Scatter audio — panicked calls as dissolution flock breaks",
+      "Bond formation visual — starburst flash when two motes first connect"
+    ],
+    "visual_verification": "AFTER complexity screenshot shows motes as vivid bright green dots, clearly readable against warm orange volcanic terrain. Dissolution screenshot shows two bright colored wisps drifting upward above terrain with graveyard pull applied.",
+    "quality_delta": "avgMoteBrightness 0.49→0.50. MOTE_TOO_DIM issue cleared. Clumping 0.00. No regressions.",
+    "files_changed": [
+      "src/render-motes.ts",
+      "src/render-bonds.ts"
     ]
   }
 ]
