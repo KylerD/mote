@@ -80,7 +80,8 @@ const PHASE_PARAMS: PhaseParams[] = [
 // World, DeathRecord are defined in types.ts and re-exported above
 
 export function createWorld(): World {
-  const cycleNumber = Math.floor(Date.now() / (CYCLE_DURATION * 1000));
+  const cycleOverride = new URLSearchParams(window.location.search).get("cycle");
+  const cycleNumber = cycleOverride ? parseInt(cycleOverride, 10) : Math.floor(Date.now() / (CYCLE_DURATION * 1000));
   const terrain = generateTerrain(cycleNumber);
   return {
     terrain,

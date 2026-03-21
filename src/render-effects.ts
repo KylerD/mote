@@ -1209,3 +1209,116 @@ export function renderFloodStorm(
     }
   }
 }
+
+// ─── Drought heat overlay ──────────────────────────────────────────────────
+
+/**
+ * Drought event visual overlay — renders when "THE LONG THIRST" is active.
+ * The sun beats down mercilessly: sky bleaches toward harsh pale straw,
+ * heat shimmer distorts the terrain, dust drifts in the parched air, and
+ * ground tiles warm toward cracked ochre.
+ * Call after base weather but before bloom so dust particles catch the glow.
+ */
+export function renderDroughtHeat(
+  buf: ImageData,
+  event: ActiveEvent | null,
+  time: number,
+  cycleNumber: number,
+): void {
+  if (!event || event.type !== "drought" || event.startTime < 0) return;
+
+  const elapsed = time - event.startTime;
+  if (elapsed < 0 || elapsed > event.duration) return;
+
+  const progress = elapsed / event.duration;
+  // Slow build-in over 5s so it creeps up; hold until 85% then fade
+  const buildIn = Math.min(1.0, elapsed / 5.0);
+  const fadeOut = progress > 0.82 ? 1.0 - (progress - 0.82) / 0.18 : 1.0;
+  const str = buildIn * fadeOut;
+  if (str < 0.02) return;
+
+  const d = buf.data;
+
+  // 1. Sky bleaching — the sun scorches color out of the sky.
+  //    Upper sky bleaches most; horizon holds faint warm haze.
+  const skyH = Math.floor(H * 0.62);
+  for (let y = 0; y < skyH; y++) {
+    const yf = 1.0 - y / skyH;          // 1 at zenith, 0 at horizon
+    const heat = str * (0.10 + yf * 0.38);
+    const rowBase = y * W;
+    for (let x = 0; x < W; x++) {
+      const pi = (rowBase + x) << 2;
+      const r = d[pi], g = d[pi + 1], b = d[pi + 2];
+      // Blend toward harsh pale straw (255, 248, 215)
+      d[pi]     = Math.min(255, Math.round(r + (255 - r) * heat));
+      d[pi + 1] = Math.min(255, Math.round(g + (248 - g) * heat));
+      d[pi + 2] = Math.min(255, Math.round(b + (215 - b) * heat));
+    }
+  }
+
+  // 2. Heat shimmer — sinusoidal horizontal pixel shift in the terrain zone.
+  //    Distortion increases toward the ground (hot air rises from warm soil).
+  const shimmerStr = str * 1.6;
+  const shimmerStart = Math.floor(H * 0.42);
+  for (let y = shimmerStart; y < H - 1; y++) {
+    const yf = (y - shimmerStart) / (H - shimmerStart); // 0→1 top-to-bottom
+    const amp = shimmerStr * yf * 1.8;
+    if (amp < 0.4) continue;
+    // Slow drift frequency varies subtly by row to break up the pattern
+    const freq = 0.09 + ((cycleNumber + y) % 11) * 0.015;
+    const phase = time * 1.8 + y * freq;
+    const shift = Math.round(Math.sin(phase) * amp);
+    if (shift === 0) continue;
+    const rowBase = y * W;
+    if (shift > 0) {
+      // Shift row right: iterate right-to-left to avoid reading shifted data
+      for (let x = W - 1; x >= shift; x--) {
+        const src = (rowBase + x - shift) << 2;
+        const dst = (rowBase + x) << 2;
+        d[dst] = d[src]; d[dst + 1] = d[src + 1];
+        d[dst + 2] = d[src + 2]; d[dst + 3] = d[src + 3];
+      }
+    } else {
+      // Shift row left: iterate left-to-right
+      const absShift = -shift;
+      for (let x = 0; x < W - absShift; x++) {
+        const src = (rowBase + x + absShift) << 2;
+        const dst = (rowBase + x) << 2;
+        d[dst] = d[src]; d[dst + 1] = d[src + 1];
+        d[dst + 2] = d[src + 2]; d[dst + 3] = d[src + 3];
+      }
+    }
+  }
+
+  // 3. Terrain bleaching — ground desaturates to parched warm ochre.
+  //    Sky pixels (above skyH) are skipped — already handled above.
+  const bleachStr = str * 0.20;
+  for (let y = skyH; y < H; y++) {
+    const rowBase = y * W;
+    for (let x = 0; x < W; x++) {
+      const pi = (rowBase + x) << 2;
+      const r = d[pi], g = d[pi + 1], b = d[pi + 2];
+      // Blend toward dry sand (215, 188, 140); warm up reds, drain blues
+      d[pi]     = Math.min(255, Math.round(r + (215 - r) * bleachStr + str * 8));
+      d[pi + 1] = Math.min(255, Math.round(g + (188 - g) * bleachStr));
+      d[pi + 2] = Math.max(0,   Math.round(b + (140 - b) * bleachStr));
+    }
+  }
+
+  // 4. Dust haze — fine pale ochre particles drifting in the scorched air.
+  const DUST_N = 52;
+  for (let i = 0; i < DUST_N; i++) {
+    const seedX = ((i * 6271 + cycleNumber * 337) >>> 0) % W;
+    const seedY = ((i * 3571 + cycleNumber * 199) >>> 0) % H;
+    // Slow upward drift + gentle horizontal sway
+    const riseSpd = 4 + (i * 13 % 8);
+    const swaySpd = 6 + (i * 17 % 14);
+    const py = ((seedY - Math.floor(time * riseSpd)) % H + H) % H;
+    const px = ((seedX + Math.floor(Math.sin(time * 0.4 + i) * swaySpd * 0.5)) % W + W) % W;
+    const alpha = Math.round(str * (16 + i * 9 % 26));
+    if (alpha < 2) continue;
+    // Pale ochre-tan dust color
+    setPixel(buf, px, py, 212, 188, 148, alpha);
+    if (px + 1 < W) setPixel(buf, px + 1, py, 200, 174, 136, Math.round(alpha * 0.45));
+  }
+}

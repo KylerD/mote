@@ -569,5 +569,24 @@
     "files_changed": [
       "src/weather-render.ts"
     ]
+  },
+  {
+    "date": "2026-03-21",
+    "title": "drought heat visual",
+    "reflection": "Drought now bleaches the sky to harsh pale straw, distorts terrain with heat shimmer, bleaches ground to sandy ochre, and fills the air with drifting dust particles.",
+    "looking_ahead": [
+      "Soul wisps cluster near graveyard sites",
+      "Rain intensifies near flood events — layered storm",
+      "Scatter audio — brief panicked calls as dissolution flock breaks",
+      "Drought audio — dry crackling, sparse high tones, parched silence"
+    ],
+    "visual_verification": "Drought cycle 164 complexity-phase screenshot shows entire world bathed in warm amber-ochre: bleached pale straw sky, sandy terrain tint, heat shimmer distortion visible in terrain rows. Clearly distinct from normal blue-sky organization phase.",
+    "quality_delta": "avgMoteBrightness 0.51→0.50. Avg visible motes 14.4→18.3. No regressions. No quality issues detected.",
+    "files_changed": [
+      "src/render-effects.ts",
+      "src/main.ts",
+      "src/world.ts",
+      "scripts/capture.mjs"
+    ]
   }
 ]

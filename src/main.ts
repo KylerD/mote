@@ -21,7 +21,7 @@ import {
   renderMeteorVisual, renderCraterGlow, renderPhaseFlash,
   applyVignette, applyPhaseColorGrade, createMeteorState,
   applyBloom, renderAtmosphericParticles, renderBiomeAmbientLife, renderClusterRadiance,
-  applyChromaticAberration, applyLastLight, renderFloodStorm,
+  applyChromaticAberration, applyLastLight, renderFloodStorm, renderDroughtHeat,
 } from "./render-effects";
 import { renderClusterGroundGlow, renderClusterGlow, renderClusterBeacons, renderBondLines, renderProtoAttractions, renderDeathParticles, renderSilenceConstellation, renderSilenceGraveyards, renderCascadeBursts, renderSoulWisps } from "./render-bonds";
 import { renderRipples, renderCursor, renderEventMessage, renderDebugOverlay } from "./render-ui";
@@ -294,6 +294,11 @@ function init(): void {
     // Flood storm overlay — dark sky, heavy rain, thunder flash when flood is active
     if (w.event && w.event.type === "flood" && isEventActive(w.event, w.time)) {
       renderFloodStorm(rc.buf, w.event, w.time, w.cycleNumber);
+    }
+
+    // Drought heat overlay — bleached sky, heat shimmer, dust haze when drought is active
+    if (w.event && w.event.type === "drought" && isEventActive(w.event, w.time)) {
+      renderDroughtHeat(rc.buf, w.event, w.time, w.cycleNumber);
     }
 
     // Phase flash + atmospheric particles + bloom + vignette

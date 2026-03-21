@@ -1,7 +1,8 @@
 // capture.mjs — Observation tool: captures screenshots across an accelerated cycle.
-// Usage: node scripts/capture.mjs [speed] [output-dir]
+// Usage: node scripts/capture.mjs [speed] [output-dir] [cycle]
 //   speed: time multiplier (default 60 = 5-min cycle in 5s)
 //   output-dir: where to save PNGs (default captures/)
+//   cycle: optional cycle number override (?cycle=N)
 //
 // Starts a Vite dev server, opens the world at ?speed=N&debug,
 // takes a screenshot at each phase transition + some intermediate points.
@@ -17,6 +18,7 @@ const projectRoot = resolve(__dirname, "..");
 
 const speed = parseInt(process.argv[2] || "60", 10);
 const outDir = process.argv[3] || "captures";
+const cycleOverride = process.argv[4] ? parseInt(process.argv[4], 10) : null;
 
 // Phase boundaries (cumulative fractions)
 const PHASES = ["genesis", "exploration", "organization", "complexity", "dissolution", "silence"];
@@ -66,7 +68,7 @@ async function main() {
     viewport: { width: 1280, height: 720 },
   });
 
-  const url = `http://localhost:5199/?speed=${speed}&debug`;
+  const url = `http://localhost:5199/?speed=${speed}&debug${cycleOverride !== null ? `&cycle=${cycleOverride}` : ""}`;
   console.log(`Loading ${url}`);
   await page.goto(url);
 
