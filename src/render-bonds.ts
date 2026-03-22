@@ -395,34 +395,70 @@ export function renderBondLines(
         setPixel(buf, s2x - 1, s2y,     avgR, avgG, avgB, glowA);
         setPixel(buf, s2x + 1, s2y,     avgR, avgG, avgB, glowA);
 
-        // Bond midpoint burst — a brief starburst at the moment of connection.
-        // Only fires while the bond is very fresh (flash > 0.80): the first ~0.2s.
-        // The starburst fades in and out quickly, leaving only the sparks.
-        if (flash > 0.80) {
-          const burstT = (flash - 0.80) / 0.20;   // 1→0 during this window
+        // BOND FORMATION BURST — an expanding starburst that marks the moment of connection.
+        // 12 spokes radiate outward as the flash decays, growing from 0→12px over 0.33 seconds.
+        // White hot core fades first; colored rays linger; the bond then shines bright.
+        {
           const midX = (m.x + bonded.x) / 2;
           const midY = (m.y + bonded.y) / 2;
-          // Bright center pixel
-          setPixel(buf, midX, midY, 255, 255, 255, Math.round(burstT * 255));
-          // 4-direction arms radiating outward; length 1–4px with falloff
-          for (let step = 1; step <= 4; step++) {
-            const falloff = 1 - step / 5;
-            const ca = Math.round(burstT * falloff * falloff * 220);
-            if (ca < 4) continue;
-            setPixel(buf, midX + step, midY,       255, 255, 255, ca);
-            setPixel(buf, midX - step, midY,       255, 255, 255, ca);
-            setPixel(buf, midX,        midY - step, 255, 255, 255, ca);
-            setPixel(buf, midX,        midY + step, 255, 255, 255, ca);
+
+          // Center bloom: tight bright circle strongest at bond formation
+          const coreA = Math.round(flash * flash * 240);
+          if (coreA > 3) {
+            setPixel(buf, midX,     midY,     255, 255, 255, coreA);
+            setPixel(buf, midX - 1, midY,     255, 255, 255, Math.round(coreA * 0.75));
+            setPixel(buf, midX + 1, midY,     255, 255, 255, Math.round(coreA * 0.75));
+            setPixel(buf, midX,     midY - 1, 255, 255, 255, Math.round(coreA * 0.75));
+            setPixel(buf, midX,     midY + 1, 255, 255, 255, Math.round(coreA * 0.75));
           }
-          // Diagonal arms (bond color, dimmer) — adds a classic star shape
-          for (let step = 1; step <= 3; step++) {
-            const falloff = 1 - step / 4;
-            const da = Math.round(burstT * falloff * falloff * 140);
-            if (da < 4) continue;
-            setPixel(buf, midX + step, midY - step, avgR, avgG, avgB, da);
-            setPixel(buf, midX - step, midY - step, avgR, avgG, avgB, da);
-            setPixel(buf, midX + step, midY + step, avgR, avgG, avgB, da);
-            setPixel(buf, midX - step, midY + step, avgR, avgG, avgB, da);
+
+          // Expanding rays: grow from 0 → 12px as flash decays from 1 → 0.
+          // 12 spokes at 30° intervals — wider than the old 8-spoke cross.
+          const rayMaxLen = 12;
+          const rayLen = rayMaxLen * (1 - flash); // 0 at fresh bond, grows outward
+          if (rayLen > 0.5) {
+            for (let si = 0; si < 12; si++) {
+              const angle = (si / 12) * Math.PI * 2;
+              const dx = Math.cos(angle);
+              const dy = Math.sin(angle);
+              for (let step = 1; step <= Math.ceil(rayLen); step++) {
+                const t = step / rayMaxLen;           // 0 near center, 1 at tip
+                const stepFrac = step / rayLen;       // 1 at the tip of current ray
+                if (stepFrac > 1) continue;           // only draw up to current ray tip
+                // White at center fading to mote blend color at tip
+                const rr = Math.round(255 * (1 - t) + avgR * t);
+                const rg = Math.round(255 * (1 - t) + avgG * t);
+                const rb = Math.round(255 * (1 - t) + avgB * t);
+                // Alpha: strong near center, fades toward tip, and fades with flash
+                const tipFade = (1 - stepFrac) * (1 - stepFrac); // soft tip
+                const ra = Math.round(flash * tipFade * (1 - t * 0.6) * 210);
+                if (ra > 3) setPixel(buf, midX + dx * step, midY + dy * step, rr, rg, rb, ra);
+              }
+            }
+          }
+        }
+      }
+
+      // NEW BOND ECHO RING — a soft expanding ring that lingers for 2 seconds after a bond forms.
+      // Gives viewers time to see where a new connection was made even if they blinked during the flash.
+      // Radius: 2→14px over 2s. Alpha: fades from soft to gone.
+      if (bondAge < 2.0) {
+        const midX = (m.x + bonded.x) / 2;
+        const midY = (m.y + bonded.y) / 2;
+        const echoT = bondAge / 2.0;           // 0 → 1 over 2 seconds
+        const echoR = 2 + echoT * 12;          // ring radius expands outward
+        const echoA = Math.round((1 - echoT) * (1 - echoT) * 55); // quadratic fade
+        if (echoA > 3) {
+          const dotCount = Math.round(8 + echoT * 12); // more dots as ring expands
+          for (let i = 0; i < dotCount; i++) {
+            const angle = (i / dotCount) * Math.PI * 2;
+            const ex = midX + Math.cos(angle) * echoR;
+            const ey = midY + Math.sin(angle) * echoR;
+            // Inner ring: white near bond formation, blending to mote color as it expands
+            const rr = Math.round(255 * (1 - echoT) + avgR * echoT);
+            const rg = Math.round(255 * (1 - echoT) + avgG * echoT);
+            const rb = Math.round(255 * (1 - echoT) + avgB * echoT);
+            setPixel(buf, ex, ey, rr, rg, rb, echoA);
           }
         }
       }

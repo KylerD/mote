@@ -605,5 +605,22 @@
       "src/render-motes.ts",
       "src/render-bonds.ts"
     ]
+  },
+  {
+    "date": "2026-03-22",
+    "title": "bond formation burst",
+    "reflection": "Bond starburst replaced: 12 expanding spokes grow from 0→12px over 0.33s. Echo ring persists 2s, expanding 2→14px. Motes brighter: body alpha raised, base light 0.55→0.60.",
+    "looking_ahead": [
+      "Drought audio — dry crackling, sparse high tones, parched silence",
+      "Scatter audio — panicked calls as dissolution flock breaks",
+      "Bond break visual — shards or sparks when an old bond snaps",
+      "Genesis quiet — fewer motes at cycle start, bigger arrival moment"
+    ],
+    "visual_verification": "Organization-phase screenshots show vivid individual colored mote sprites clearly readable against terrain. Quality: avgMoteBrightness 0.49→0.53, no issues detected.",
+    "quality_delta": "avgMoteBrightness 0.49→0.53. Clumping 0.00→0.03 (benign). No quality issues detected.",
+    "files_changed": [
+      "src/render-bonds.ts",
+      "src/render-motes.ts"
+    ]
   }
 ]

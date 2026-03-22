@@ -15,7 +15,7 @@ export function computeMoteColor(m: Mote, _bp: BiomePalette): [number, number, n
   ) % 360;
 
   const sat = 0.65 + m.temperament.sociability * 0.30;
-  const light = 0.55 + m.energy * 0.25;
+  const light = 0.60 + m.energy * 0.22;
 
   let [r, g, b] = hsl2rgb(hue, Math.min(1, sat), Math.min(0.82, light));
 
@@ -164,16 +164,16 @@ export function renderMotes(
     setPixel(buf, ox + 1, oy + 2, 4, 4, 8, 200);
 
     // HEAD — shifts with lean
-    setPixel(buf, ox - 1 + lean, oy - 2, cr, cg, cb, 180);
+    setPixel(buf, ox - 1 + lean, oy - 2, cr, cg, cb, 210);
     setPixel(buf, ox + lean,     oy - 2, lr, lg, lb, 240);
-    setPixel(buf, ox + 1 + lean, oy - 2, cr, cg, cb, 180);
+    setPixel(buf, ox + 1 + lean, oy - 2, cr, cg, cb, 210);
 
     // FACE — shifts with lean
-    setPixel(buf, ox - 2, oy - 1, cr, cg, cb, 120);
-    setPixel(buf, ox - 1 + lean, oy - 1, cr, cg, cb, 210);
+    setPixel(buf, ox - 2, oy - 1, cr, cg, cb, 155);
+    setPixel(buf, ox - 1 + lean, oy - 1, cr, cg, cb, 225);
     setPixel(buf, ox + lean,     oy - 1, lr, lg, lb, 245);
-    setPixel(buf, ox + 1 + lean, oy - 1, cr, cg, cb, 210);
-    setPixel(buf, ox + 2, oy - 1, cr, cg, cb, 120);
+    setPixel(buf, ox + 1 + lean, oy - 1, cr, cg, cb, 225);
+    setPixel(buf, ox + 2, oy - 1, cr, cg, cb, 155);
 
     // GLOWING EYES — follow the lean
     const blinkCycle = Math.sin(m.age * 0.8 + m.temperament.sociability * 10);
@@ -194,11 +194,11 @@ export function renderMotes(
     }
 
     // TORSO — solid core
-    setPixel(buf, ox - 2, oy, cr, cg, cb, 100);
-    setPixel(buf, ox - 1, oy, cr, cg, cb, 200);
+    setPixel(buf, ox - 2, oy, cr, cg, cb, 140);
+    setPixel(buf, ox - 1, oy, cr, cg, cb, 220);
     setPixel(buf, ox, oy, lr, lg, lb, 240);
-    setPixel(buf, ox + 1, oy, cr, cg, cb, 200);
-    setPixel(buf, ox + 2, oy, cr, cg, cb, 100);
+    setPixel(buf, ox + 1, oy, cr, cg, cb, 220);
+    setPixel(buf, ox + 2, oy, cr, cg, cb, 140);
 
     // FEET — visible
     const walkBob = m.grounded && Math.abs(m.vx) > 2;
