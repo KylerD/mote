@@ -638,5 +638,22 @@
     "files_changed": [
       "src/render-motes.ts"
     ]
+  },
+  {
+    "date": "2026-03-23",
+    "title": "vivid mote trails",
+    "reflection": "Trails 3x brighter (alpha 35->110 peak), wider (adjacent pixel), 2x denser breadcrumbs (0.15s->0.08s), ghost window extended to 2.5s. The terrain line now shows a rainbow of mote history.",
+    "looking_ahead": [
+      "Elder glow arc: motes brighten just before death",
+      "Sound phase arc: sparse genesis, lush complexity, near-silent dissolution",
+      "Mote size differentiation: juvenile (small) vs elder (mass)",
+      "Trail persistence heatmap: frequently-visited terrain shows lingering warmth"
+    ],
+    "visual_verification": "After screenshots show vivid multicolored streaks along the terrain in all phases. Dissolution shows blazing orange-red dying wanderer trails. The world looks alive with movement history instead of static mote dots.",
+    "quality_delta": "avgVisibleMotes 9.4 -> 15.6 (trail pixels detected as motes), avgMoteBrightness 0.53 -> 0.51 stable. No quality issues.",
+    "files_changed": [
+      "src/render-motes.ts",
+      "src/mote.ts"
+    ]
   }
 ]

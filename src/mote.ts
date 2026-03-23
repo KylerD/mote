@@ -89,14 +89,16 @@ export function updateMote(
   m.ancientBondBreakFlash = Math.max(0, m.ancientBondBreakFlash - dt * 0.7); // ~1.4s mournful ring
 
   // Record trail breadcrumbs
-  // Elder wanderers accumulate longer histories: age 0→30s scales buffer 10→30 pts.
+  // Elder wanderers accumulate longer histories: age 0→30s scales buffer 10→45 pts.
   // A mote that's walked this world for 30 seconds leaves more of a mark than one at 5.
   const trailAgeFactor = Math.min(1, m.age / 30);
   m.trailTimer += dt;
-  if (m.trailTimer >= 0.15) {
+  // High-wanderlust motes sample more frequently (0.08s) — their speed means wider gaps otherwise
+  const trailInterval = 0.08 + (1 - m.temperament.wanderlust) * 0.07;
+  if (m.trailTimer >= trailInterval) {
     m.trailTimer = 0;
     m.trail.push({ x: Math.round(m.x), y: Math.round(m.y), age: 0 });
-    const maxTrail = Math.floor(10 + m.temperament.wanderlust * trailAgeFactor * 20);
+    const maxTrail = Math.floor(12 + m.temperament.wanderlust * trailAgeFactor * 33);
     if (m.trail.length > maxTrail) m.trail.shift();
   }
   // Elder wanderers remember longer: young=1.5-3.0s, elder=1.5-6.0s

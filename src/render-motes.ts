@@ -41,8 +41,8 @@ export function renderMoteTrails(
 ): void {
   for (const m of motes) {
     const [tr, tg, tb] = moteColors.get(m)!;
-    // Wanderers leave vivid ghost trails; social/hardy motes leave faint smears
-    const trailScale = 0.2 + m.temperament.wanderlust * 1.8;
+    // Wanderers leave vivid streaks; social/hardy motes leave shorter smears
+    const trailScale = 0.25 + m.temperament.wanderlust * 2.75;
     // Trail lifetime mirrors mote.ts: elder wanderers remember longer (1.5s–6.0s)
     const trailAgeFactor = Math.min(1, m.age / 30);
     const trailMaxAge = 1.5 + m.temperament.wanderlust * (1.5 + trailAgeFactor * 3.0);
@@ -57,26 +57,43 @@ export function renderMoteTrails(
     const ftg = dp > 0 ? Math.round(tg * (1 - dp * 0.80) + 50 * dp * 0.80) : tg;
     const ftb = dp > 0 ? Math.round(tb * (1 - dp * 0.90) + 15 * dp * 0.90) : tb;
     // Dying wanderers trail brighter — the last run is the most vivid
-    const frenziedScale = dp > 0 ? trailScale * (1 + dp * 0.7) : trailScale;
+    const frenziedScale = dp > 0 ? trailScale * (1 + dp * 0.9) : trailScale;
 
     for (const pt of m.trail) {
       const ageFrac = pt.age / trailMaxAge;
 
-      if (isWanderer && pt.age > 1.5) {
+      if (isWanderer && pt.age > 2.5) {
         // Ghost window: mote color bleeds into warm earth — trail sinking into the ground.
         // The landscape remembers where they walked.
-        const ghostWindow = Math.max(0.1, trailMaxAge - 1.5);
-        const ghostT = Math.min(1, (pt.age - 1.5) / ghostWindow);
+        const ghostWindow = Math.max(0.1, trailMaxAge - 2.5);
+        const ghostT = Math.min(1, (pt.age - 2.5) / ghostWindow);
         // Warm dusty earth tone (unchanged — ghost always bleeds into ground)
         const er = 115, eg = 98, eb = 72;
         const gr = Math.round(ftr * (1 - ghostT) + er * ghostT);
         const gg = Math.round(ftg * (1 - ghostT) + eg * ghostT);
         const gb = Math.round(ftb * (1 - ghostT) + eb * ghostT);
-        const ta = Math.round((1 - ageFrac) * 22 * frenziedScale);
-        if (ta > 1) setPixel(buf, pt.x, pt.y, gr, gg, gb, ta);
-      } else {
         const ta = Math.round((1 - ageFrac) * 35 * frenziedScale);
-        if (ta > 2) setPixel(buf, pt.x, pt.y, ftr, ftg, ftb, ta);
+        if (ta > 2) {
+          setPixel(buf, pt.x, pt.y, gr, gg, gb, ta);
+          // Soft width for older ghost points
+          if (ta > 8) setPixel(buf, pt.x, pt.y - 1, gr, gg, gb, Math.round(ta * 0.4));
+        }
+      } else {
+        // Fresh trail: bright mote color, wider and more vivid
+        const ta = Math.round((1 - ageFrac) * 110 * frenziedScale);
+        if (ta > 3) {
+          setPixel(buf, pt.x, pt.y, ftr, ftg, ftb, ta);
+          // Width: adjacent pixels give trails a comet-tail feeling
+          const sideA = Math.round(ta * 0.45);
+          if (sideA > 3) {
+            setPixel(buf, pt.x, pt.y - 1, ftr, ftg, ftb, sideA);
+            // For the freshest points (age < 0.6s), add a bright spark highlight
+            if (pt.age < 0.6) {
+              const sparkA = Math.round((1 - pt.age / 0.6) * ta * 0.3);
+              if (sparkA > 3) setPixel(buf, pt.x + 1, pt.y - 1, 255, 255, 240, sparkA);
+            }
+          }
+        }
       }
     }
   }
