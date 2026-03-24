@@ -26,9 +26,9 @@ export function computeMoteColor(m: Mote, _bp: BiomePalette): [number, number, n
   b += (40 - b) * ageGold;
 
   // Brightness floor — motes must never blend into dark terrain
-  r = Math.max(162, r);
-  g = Math.max(162, g);
-  b = Math.max(162, b);
+  r = Math.max(178, r);
+  g = Math.max(178, g);
+  b = Math.max(178, b);
 
   return [Math.round(r), Math.round(g), Math.round(b)];
 }
@@ -142,6 +142,11 @@ export function renderMotes(
     // AMBIENT GLOW — phase-scaled halo drawn before the body.
     // Night phases: lantern warmth. Day phases: vitality aura (smaller, energy-scaled).
     // Scales with energy so dying motes flicker dimmer. Feeds into bloom pass.
+    //
+    // Phase-tinted halos:
+    //   Genesis   = cool blue-white dawn light — fragile, barely-formed
+    //   Silence   = warm amber ember light — last glow before dark
+    //   Other     = mote's own identity color
     if (glowMax > 0) {
       const gPulse = Math.sin(m.age * 1.6 + m.x * 0.14) * 0.22 + 0.78;
       const gA = Math.round(glowMax * gPulse * Math.max(0.45, m.energy));
@@ -149,13 +154,17 @@ export function renderMotes(
         // Night lanterns use radius 7; day vitality uses radius 5 (subtler)
         const glowR = (phaseIndex === 0 || phaseIndex === 5) ? 7 : 5;
         const glowR2 = glowR * glowR;
+        // Genesis: cool blue-white (dawn); Silence: warm amber (ember); else: mote identity
+        const gr = phaseIndex === 0 ? 170 : phaseIndex === 5 ? 255 : cr;
+        const gg = phaseIndex === 0 ? 190 : phaseIndex === 5 ? 180 : cg;
+        const gb = phaseIndex === 0 ? 255 : phaseIndex === 5 ? 60  : cb;
         for (let dgy = -glowR; dgy <= glowR; dgy++) {
           for (let dgx = -glowR; dgx <= glowR; dgx++) {
             const d2 = dgx * dgx + dgy * dgy;
             if (d2 > glowR2) continue;
             const fall = 1 - Math.sqrt(d2) / glowR;
             const ga = Math.round(gA * fall * fall);
-            if (ga > 1) setPixel(buf, ox + dgx, oy - 1 + dgy, cr, cg, cb, ga);
+            if (ga > 1) setPixel(buf, ox + dgx, oy - 1 + dgy, gr, gg, gb, ga);
           }
         }
       }

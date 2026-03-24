@@ -269,8 +269,10 @@ const engineTundraCrystalTime = new WeakMap<SoundEngine, number>();
 const engineCascadeArrivalTime = new WeakMap<SoundEngine, number>();
 const engineElderDeathTime = new WeakMap<SoundEngine, number>();
 
-// Phase multipliers for ambient bed gain — drives the sonic arc
-const PHASE_AMBIENT_MULT = [0.30, 0.60, 0.85, 1.00, 0.65, 0.10];
+// Phase multipliers for ambient bed gain — drives the sonic arc.
+// Genesis at 8%: barely breathing, the world hasn't found its voice yet.
+// Silence at 2%: the world has gone. Almost nothing remains.
+const PHASE_AMBIENT_MULT = [0.08, 0.60, 0.85, 1.00, 0.55, 0.02];
 
 // Per-voice note scheduling state
 interface VoiceSlot {
@@ -404,15 +406,22 @@ interface PhaseAudioParams {
   decay: number;
   filterFreq: number;
   chirpRate: number;
+  maxVoices: number;   // how many cluster voices can speak at once this phase
 }
 
 const PHASE_AUDIO: PhaseAudioParams[] = [
-  { volume: 0.08, noteIntervalScale: 3.0, decay: 1.2, filterFreq: 600, chirpRate: 0.02 },
-  { volume: 0.15, noteIntervalScale: 1.5, decay: 0.6, filterFreq: 1200, chirpRate: 0.06 },
-  { volume: 0.20, noteIntervalScale: 1.0, decay: 0.4, filterFreq: 1600, chirpRate: 0.08 },
-  { volume: 0.25, noteIntervalScale: 0.6, decay: 0.3, filterFreq: 2400, chirpRate: 0.12 },
-  { volume: 0.14, noteIntervalScale: 2.0, decay: 0.8, filterFreq: 800, chirpRate: 0.04 },
-  { volume: 0.04, noteIntervalScale: 8.0, decay: 2.0, filterFreq: 400, chirpRate: 0.01 },
+  // Genesis: one fragile voice, very long decay, no chirps — the world barely breathing
+  { volume: 0.04, noteIntervalScale: 9.0, decay: 2.8, filterFreq: 280,  chirpRate: 0,    maxVoices: 1 },
+  // Exploration: starting to find its voice — 4 voices, playful chirps emerging
+  { volume: 0.15, noteIntervalScale: 1.5, decay: 0.6, filterFreq: 1200, chirpRate: 0.06, maxVoices: 4 },
+  // Organization: building, harmonics forming, community forming
+  { volume: 0.20, noteIntervalScale: 1.0, decay: 0.4, filterFreq: 1600, chirpRate: 0.08, maxVoices: 6 },
+  // Complexity: ALL 8 voices alive, peak richness, chirps flying
+  { volume: 0.25, noteIntervalScale: 0.6, decay: 0.3, filterFreq: 2400, chirpRate: 0.12, maxVoices: 8 },
+  // Dissolution: 5 voices, gaps forming, notes getting farther apart
+  { volume: 0.14, noteIntervalScale: 2.0, decay: 0.8, filterFreq: 800,  chirpRate: 0.04, maxVoices: 5 },
+  // Silence: NO cluster voices, NO chirps — empty. Only lonely drone if last motes remain.
+  { volume: 0.015, noteIntervalScale: 99,  decay: 4.0, filterFreq: 180,  chirpRate: 0,    maxVoices: 0 },
 ];
 
 export function updateSound(
@@ -477,7 +486,8 @@ export function updateSound(
   // Clusters → triggered notes (no permanent oscillators, no drone)
   const clusters = findClusters(motes);
   clusters.sort((a, b) => b.length - a.length);
-  const active = clusters.slice(0, MAX_VOICES);
+  // Phase-capped voices: genesis gets 1, silence gets 0, complexity gets all 8
+  const active = clusters.slice(0, Math.min(pa.maxVoices, MAX_VOICES));
 
   // Mote-count-aware mixing: gently reduce gain as population peaks to prevent saturation
   const densityScale = Math.max(0.55, 1.1 - motes.length * 0.009);
@@ -573,9 +583,10 @@ export function updateSound(
     lastChirpTime = now;
   }
 
-  // Lone mote pings — sparse presence using audio clock
+  // Lone mote pings — sparse presence using audio clock.
+  // Suppressed in silence: only the lonely drone speaks for the last survivors.
   const loners = motes.filter((m) => m.bonds.length === 0);
-  if (loners.length > 0) {
+  if (loners.length > 0 && phaseIndex < 5) {
     const t = now % 8;
     if (t < 0.068) {
       const m = loners[Math.floor((t * 1000 + loners.length) % loners.length)];

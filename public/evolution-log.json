@@ -675,5 +675,22 @@
       "src/sound.ts",
       "src/main.ts"
     ]
+  },
+  {
+    "date": "2026-03-24",
+    "title": "sound phase arc",
+    "reflection": "Genesis now has 1 cluster voice max, no chirps, ambient at 8% — barely breathing. Silence has 0 voices, 0 chirps, ambient at 2% — genuinely empty. Genesis glows cool blue-white; silence glows warm amber.",
+    "looking_ahead": [
+      "Trail persistence heatmap: frequently-visited terrain shows lingering warmth",
+      "Mote size by age: juveniles smaller, elders wider",
+      "Elder grief inheritance: nearby motes flicker on elder death",
+      "Genesis first-mote special arrival sound: crystalline chime"
+    ],
+    "visual_verification": "Genesis screenshot shows cool blue-white halo glow on motes against terrain. Silence shows warm amber ember glows. Organization phase went from 0 detected motes to 9. No quality issues.",
+    "quality_delta": "MOTE_TOO_DIM cleared. avgVisibleMotes 12.9→17.9, organization 0→9 motes. brightness floor 162→178. PHASE_AMBIENT_MULT genesis 0.30→0.08, silence 0.10→0.02.",
+    "files_changed": [
+      "src/sound.ts",
+      "src/render-motes.ts"
+    ]
   }
 ]
