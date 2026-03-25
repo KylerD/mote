@@ -727,5 +727,23 @@
       "src/render-motes.ts",
       "src/main.ts"
     ]
+  },
+  {
+    "date": "2026-03-25",
+    "title": "sky constellations",
+    "reflection": "Spirit stars boosted 3x brighter (max alpha 56→155). Silence phase draws soft lines between nearby stars forming constellations of the dead. Crystalline chime sounds as each spirit ascends.",
+    "looking_ahead": [
+      "Phase-specific terrain lighting — night glow on silence tiles",
+      "Elder grief: nearby motes briefly flicker on elder death",
+      "Genesis first-mote arrival chime",
+      "Biome heatmap tinting: tundra=blue-ice, volcanic=deep red"
+    ],
+    "visual_verification": "Spirit stars now clearly visible against golden dissolution sky. Silence sky shows soft connecting lines between nearby stars — the dead mapping their relationships in the void.",
+    "quality_delta": "Star brightness max 56→155. No mote rendering changed. Cycle-seed variance caused analysis diff (different UTC window).",
+    "files_changed": [
+      "src/render-bonds.ts",
+      "src/sound.ts",
+      "src/main.ts"
+    ]
   }
 ]

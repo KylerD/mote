@@ -5,7 +5,7 @@ import { W, H } from "./config";
 import { renderTerrain, applyHeatHaze, applyVolcanicAsh, renderRainPuddles, renderWaterMist, renderVolcanicEmbers, applyTundraIce } from "./terrain";
 import { createWorld, updateWorld } from "./world";
 import { cycleName } from "./names";
-import { createSoundEngine, initAudio, updateSound, updateWeatherSound, updateDissolutionSound, playDeath, playElderDeath, playEventSound, playPhaseTransition, playCascadeArrival, playBirdChirp } from "./sound";
+import { createSoundEngine, initAudio, updateSound, updateWeatherSound, updateDissolutionSound, playDeath, playElderDeath, playEventSound, playPhaseTransition, playCascadeArrival, playBirdChirp, playStarAscension } from "./sound";
 import { createInteraction, applyInteraction } from "./interaction";
 import { isEventActive, isEclipseActive } from "./events";
 import {
@@ -140,6 +140,11 @@ function init(): void {
   let vigPrevPhaseIndex = w.phaseIndex;
   let vigLastSeenPhase = w.phaseIndex;
 
+  // Spirit star chimes — track how many deaths have had their star-rise chime played
+  // Only fires during dissolution (phaseIndex >= 4) when stars are visible
+  let starChimeCount = 0;
+  let starChimeCycleNumber = -1;
+
   function frame(now: number): void {
     const dt = Math.min((now - lastTime) / 1000, 0.05);
     lastTime = now;
@@ -192,6 +197,15 @@ function init(): void {
         }
         break;
       }
+    }
+
+    // Spirit star chimes — soft crystalline tone when each spirit ascends to the sky.
+    // Only fires during dissolution/silence when stars are visible.
+    if (w.cycleNumber !== starChimeCycleNumber) { starChimeCount = 0; starChimeCycleNumber = w.cycleNumber; }
+    if (w.phaseIndex >= 4 && sound.initialized && w.allDeaths.length > starChimeCount) {
+      const d = w.allDeaths[starChimeCount];
+      playStarAscension(sound, 1 - d.y / H, d.r, d.g, d.b);
+      starChimeCount++;
     }
 
     // Narrative

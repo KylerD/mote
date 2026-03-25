@@ -964,7 +964,8 @@ export function renderSilenceGraveyards(
 /** Spirit ascension stars — each mote death sends a star rising to the sky.
  *  Visible from dissolution onward. The sky gradually fills with memorial lights
  *  as the world's population dies, then gently fades as silence deepens.
- *  Stars are positioned deterministically above their death site. */
+ *  Stars are positioned deterministically above their death site.
+ *  During silence, nearby stars are connected with soft constellation lines. */
 export function renderSpiritAscension(
   buf: ImageData,
   allDeaths: Array<{ x: number; y: number; r: number; g: number; b: number; time: number }>,
@@ -986,6 +987,10 @@ export function renderSpiritAscension(
     globalAlpha = fadeOut;
   }
   if (globalAlpha < 0.02) return;
+
+  // Collect star positions for constellation line pass (silence only)
+  type StarInfo = { x: number; y: number; r: number; g: number; b: number };
+  const stars: StarInfo[] = phaseIndex === 5 ? [] : (null as unknown as StarInfo[]);
 
   for (let i = 0; i < allDeaths.length; i++) {
     const d = allDeaths[i];
@@ -1011,8 +1016,9 @@ export function renderSpiritAscension(
     const twinkle = Math.sin(time * twinkleRate + i * 2.37 + d.x * 0.11) * 0.28 + 0.72;
 
     // Recent deaths shine brighter, older deaths dim to anonymous white
+    // Boosted 3× vs before so stars are unmissable even against bright golden-hour sky
     const recency = i / Math.max(1, allDeaths.length - 1);
-    const baseA = Math.round((18 + recency * 38) * starVisibility * twinkle);
+    const baseA = Math.round((60 + recency * 95) * starVisibility * twinkle);
     if (baseA < 3) continue;
 
     // Color: retain mote's identity color, fading toward pale silver for older deaths
@@ -1022,17 +1028,63 @@ export function renderSpiritAscension(
     const sg = Math.round(d.g * colorHold + silverG * (1 - colorHold));
     const sb = Math.round(d.b * colorHold + silverB * (1 - colorHold));
 
-    // Star shape: bright center pixel, dim cross arms
+    // Star shape: bright center + cross arms + wider glow at peak brightness
     setPixel(buf, starX,     starY,     sr, sg, sb, baseA);
-    setPixel(buf, starX - 1, starY,     sr, sg, sb, Math.round(baseA * 0.40));
-    setPixel(buf, starX + 1, starY,     sr, sg, sb, Math.round(baseA * 0.40));
-    setPixel(buf, starX,     starY - 1, sr, sg, sb, Math.round(baseA * 0.45));
-    setPixel(buf, starX,     starY + 1, sr, sg, sb, Math.round(baseA * 0.30));
+    setPixel(buf, starX - 1, starY,     sr, sg, sb, Math.round(baseA * 0.45));
+    setPixel(buf, starX + 1, starY,     sr, sg, sb, Math.round(baseA * 0.45));
+    setPixel(buf, starX,     starY - 1, sr, sg, sb, Math.round(baseA * 0.50));
+    setPixel(buf, starX,     starY + 1, sr, sg, sb, Math.round(baseA * 0.35));
+    // Diagonal soft glow for brighter stars
+    if (baseA > 40) {
+      const diagA = Math.round(baseA * 0.18);
+      setPixel(buf, starX - 1, starY - 1, sr, sg, sb, diagA);
+      setPixel(buf, starX + 1, starY - 1, sr, sg, sb, diagA);
+      setPixel(buf, starX - 1, starY + 1, sr, sg, sb, diagA);
+      setPixel(buf, starX + 1, starY + 1, sr, sg, sb, diagA);
+    }
 
-    // Elder deaths (recency top 30%) get a tiny warm sparkle at peak twinkle
+    // Elder deaths (recency top 30%) get a warm sparkle at peak twinkle
     if (recency > 0.70 && twinkle > 0.88) {
-      const sparkA = Math.round(baseA * 1.5);
-      if (sparkA > 8) setPixel(buf, starX, starY, 245, 240, 255, Math.min(200, sparkA));
+      const sparkA = Math.round(baseA * 1.4);
+      if (sparkA > 8) setPixel(buf, starX, starY, 245, 240, 255, Math.min(220, sparkA));
+    }
+
+    // Collect for constellation pass
+    if (stars) stars.push({ x: starX, y: starY, r: sr, g: sg, b: sb });
+  }
+
+  // ── Constellation lines ────────────────────────────────────────────────────
+  // During silence, soft lines connect nearby spirit stars — the dead forming
+  // patterns in the sky, a map of relationships that persisted beyond life.
+  // Lines fade in after the first 20% of silence so stars appear first.
+  if (stars && stars.length > 1) {
+    const lineRevealRaw = Math.min(1, Math.max(0, (phaseProgress - 0.20) / 0.35));
+    const lineReveal = lineRevealRaw * lineRevealRaw * (3 - 2 * lineRevealRaw); // smoothstep
+    const constellBreath = Math.sin(time * 0.22) * 0.12 + 0.88;
+    const lineAlphaBase = Math.round(lineReveal * 20 * globalAlpha * constellBreath);
+
+    if (lineAlphaBase > 1) {
+      const MAX_DIST = 28;
+      const MAX_DIST_SQ = MAX_DIST * MAX_DIST;
+      for (let i = 0; i < stars.length; i++) {
+        for (let j = i + 1; j < stars.length; j++) {
+          const dx = stars[j].x - stars[i].x;
+          const dy = stars[j].y - stars[i].y;
+          const dist2 = dx * dx + dy * dy;
+          if (dist2 > MAX_DIST_SQ) continue;
+
+          const strength = 1 - Math.sqrt(dist2) / MAX_DIST;
+          const lineA = Math.round(lineAlphaBase * strength);
+          if (lineA < 2) continue;
+
+          // Line color: blend of both stars' identities, cooled toward pale cyan
+          const lr = Math.round((stars[i].r + stars[j].r) * 0.32 + 175 * 0.36);
+          const lg = Math.round((stars[i].g + stars[j].g) * 0.32 + 188 * 0.36);
+          const lb = Math.round((stars[i].b + stars[j].b) * 0.32 + 225 * 0.36);
+
+          drawLine(buf, stars[i].x, stars[i].y, stars[j].x, stars[j].y, lr, lg, lb, lineA);
+        }
+      }
     }
   }
 }

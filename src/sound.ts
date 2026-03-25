@@ -2394,3 +2394,68 @@ export function updateDissolutionSound(
     _drActive = false;
   }
 }
+
+// Cooldown: star chimes can saturate if many deaths happen at once
+let _lastStarChimeTime = -999;
+
+/** Soft crystalline chime when a mote's spirit ascends to the sky.
+ *  High, brief, gentle — like a tiny bell ring far away.
+ *  Biome-tinted: tundra=ice bell, lush=glass harp, volcanic=muted gong, etc. */
+export function playStarAscension(engine: SoundEngine, _yNorm: number, colorR: number, _colorG: number, colorB: number): void {
+  if (!engine.initialized) return;
+  const ctx = engine.ctx;
+  const now = ctx.currentTime;
+
+  // Cooldown: at most one star chime every 0.4s to avoid saturation
+  if (now - _lastStarChimeTime < 0.40) return;
+  _lastStarChimeTime = now;
+
+  const biome = engineCurrentBiome.get(engine) ?? "temperate";
+  const p = BIOME_SOUND[biome];
+
+  // Pitch from mote's color (subtle variation, stays in upper register)
+  // Brighter (more blue) → higher pitch; warmer (more red) → slightly lower
+  const colorBias = (colorB - colorR) / 255;  // -1 (warm) to +1 (cool)
+  const baseFreq = p.rootFreq * 4.0 * Math.pow(2, (4 + colorBias * 3) / 12);
+
+  // Main chime tone
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "sine";
+  osc.frequency.value = baseFreq;
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.linearRampToValueAtTime(0.018 * p.masterMult, now + 0.015);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+  osc.connect(gain);
+  gain.connect(engine.reverb);
+  osc.start(now);
+  osc.stop(now + 1.3);
+
+  // Soft harmonic an octave + fifth above — makes it shimmer like a glass harp
+  const osc2 = ctx.createOscillator();
+  const gain2 = ctx.createGain();
+  osc2.type = "sine";
+  osc2.frequency.value = baseFreq * 3.0;
+  gain2.gain.setValueAtTime(0.001, now + 0.008);
+  gain2.gain.linearRampToValueAtTime(0.007 * p.masterMult, now + 0.025);
+  gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+  osc2.connect(gain2);
+  gain2.connect(engine.reverb);
+  osc2.start(now + 0.008);
+  osc2.stop(now + 0.7);
+
+  // Tundra gets an extra icy high partial
+  if (biome === "tundra") {
+    const osc3 = ctx.createOscillator();
+    const gain3 = ctx.createGain();
+    osc3.type = "sine";
+    osc3.frequency.value = baseFreq * 5.0;
+    gain3.gain.setValueAtTime(0.001, now + 0.012);
+    gain3.gain.linearRampToValueAtTime(0.004 * p.masterMult, now + 0.025);
+    gain3.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+    osc3.connect(gain3);
+    gain3.connect(engine.reverb);
+    osc3.start(now + 0.012);
+    osc3.stop(now + 0.5);
+  }
+}
