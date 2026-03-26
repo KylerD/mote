@@ -687,27 +687,43 @@ export function renderBiomeAmbientLife(
   time: number,
   cycleNumber: number,
 ): void {
-  if (phaseIndex < 1 || phaseIndex > 3) return;
-
-  // Intensity ramps across phases and within each phase
-  const PHASE_STR = [0, 0.35, 0.70, 1.0, 0, 0];
-  const phaseStr = PHASE_STR[phaseIndex];
-  const ramp = Math.min(1, phaseProgress / 0.18);
-  const intensity = phaseStr * ramp;
+  // Full cycle arc:
+  //   genesis (0):     faint emergence — the world slowly waking, particles drifting in
+  //   exploration (1): building — life finding footholds
+  //   organization (2): mid strength — communities forming
+  //   complexity (3):  peak — the world at its most alive
+  //   dissolution (4): fading — particles thin as the cycle dies
+  //   silence (5):     nothing — the world holds its breath
+  let intensity: number;
+  if (phaseIndex === 0) {
+    // Genesis: slow fade-in over the phase, peaks at 22%
+    intensity = 0.22 * Math.min(1, phaseProgress / 0.55);
+  } else if (phaseIndex === 1) {
+    intensity = 0.45 * Math.min(1, phaseProgress / 0.18);
+  } else if (phaseIndex === 2) {
+    intensity = 0.78 * Math.min(1, phaseProgress / 0.18);
+  } else if (phaseIndex === 3) {
+    intensity = 1.0;
+  } else if (phaseIndex === 4) {
+    // Dissolution: fade from 35% → 0 over the phase
+    intensity = 0.35 * Math.max(0, 1 - phaseProgress);
+  } else {
+    return; // silence: nothing
+  }
   if (intensity < 0.03) return;
 
-  if (biome === "lush")       renderFireflies(buf, intensity, time, cycleNumber);
+  if (biome === "lush")          renderFireflies(buf, intensity, time, cycleNumber);
   else if (biome === "volcanic") renderVolcanicAtmosphere(buf, intensity, time, cycleNumber);
   else if (biome === "temperate") renderPollenDrift(buf, intensity, time, cycleNumber);
-  else if (biome === "tundra")  renderTundraSparkles(buf, intensity, time, cycleNumber);
-  else if (biome === "desert")  renderDesertDust(buf, intensity, time, cycleNumber);
+  else if (biome === "tundra")   renderTundraSparkles(buf, intensity, time, cycleNumber);
+  else if (biome === "desert")   renderDesertDust(buf, intensity, time, cycleNumber);
 }
 
 // ─── Biome life helpers ─────────────────────────────────────────────────────
 
 /** Lush: fireflies — tiny warm-green lights that blink independently */
 function renderFireflies(buf: ImageData, intensity: number, time: number, cycleNumber: number): void {
-  const COUNT = Math.round(10 + intensity * 18); // 10–28 fireflies at peak
+  const COUNT = Math.round(16 + intensity * 30); // 16–46 fireflies at peak
   const seed = cycleNumber * 6271;
 
   for (let i = 0; i < COUNT; i++) {
@@ -730,13 +746,13 @@ function renderFireflies(buf: ImageData, intensity: number, time: number, cycleN
     // Sharp blink: squared sine gives quick on, slow fade
     const sinVal = Math.sin(time * blinkRate + blinkPhase);
     const blink = Math.max(0, sinVal) * Math.max(0, sinVal);
-    const a = Math.round(intensity * blink * 195);
+    const a = Math.round(intensity * blink * 230);
     if (a < 5) continue;
 
     // Warm yellow-green core
     setPixel(buf, x, y, 210, 255, 100, a);
     // Soft colored halo
-    const ha = Math.round(a * 0.42);
+    const ha = Math.round(a * 0.50);
     if (ha > 3) {
       setPixel(buf, x - 1, y,     175, 240,  70, ha);
       setPixel(buf, x + 1, y,     175, 240,  70, ha);
@@ -748,7 +764,7 @@ function renderFireflies(buf: ImageData, intensity: number, time: number, cycleN
 
 /** Volcanic: ember sparks drifting upward from the heated ground */
 function renderVolcanicAtmosphere(buf: ImageData, intensity: number, time: number, cycleNumber: number): void {
-  const COUNT = Math.round(14 + intensity * 22); // 14–36 sparks
+  const COUNT = Math.round(20 + intensity * 38); // 20–58 sparks
   const seed = cycleNumber * 5381;
 
   for (let i = 0; i < COUNT; i++) {
@@ -766,7 +782,7 @@ function renderVolcanicAtmosphere(buf: ImageData, intensity: number, time: numbe
     const y = ((baseY - riseSpeed * time + H * 50) % H + H) % H | 0;
 
     const twinkle = Math.sin(time * 2.8 + i * 1.1) * 0.22 + 0.78;
-    const a = Math.round(intensity * twinkle * (32 + h3 % 20));
+    const a = Math.round(intensity * twinkle * (52 + h3 % 28));
     if (a < 3) continue;
 
     // Orange / red / yellow ember tones
@@ -779,7 +795,7 @@ function renderVolcanicAtmosphere(buf: ImageData, intensity: number, time: numbe
 
 /** Temperate: pollen seeds on the breeze */
 function renderPollenDrift(buf: ImageData, intensity: number, time: number, cycleNumber: number): void {
-  const COUNT = Math.round(12 + intensity * 20); // 12–32 pollen specks
+  const COUNT = Math.round(20 + intensity * 38); // 20–58 pollen specks
   const seed = cycleNumber * 4397;
 
   for (let i = 0; i < COUNT; i++) {
@@ -797,16 +813,22 @@ function renderPollenDrift(buf: ImageData, intensity: number, time: number, cycl
     const y = ((baseY - riseSpeed * time + H * 50) % H + H) % H | 0;
 
     const twinkle = Math.sin(time * 1.1 + i * 2.3) * 0.28 + 0.72;
-    const a = Math.round(intensity * twinkle * (22 + h3 % 14));
+    const a = Math.round(intensity * twinkle * (42 + h3 % 22));
     if (a < 3) continue;
 
     setPixel(buf, x, y, 245, 238, 175, Math.min(255, a)); // soft pale-yellow
+    // Tiny halo on brighter specks — makes individual seeds more readable
+    if (a > 28) {
+      const ha = Math.round(a * 0.35);
+      setPixel(buf, x - 1, y, 240, 230, 160, ha);
+      setPixel(buf, x + 1, y, 240, 230, 160, ha);
+    }
   }
 }
 
 /** Tundra: ice crystals catching and releasing light */
 function renderTundraSparkles(buf: ImageData, intensity: number, time: number, cycleNumber: number): void {
-  const COUNT = Math.round(8 + intensity * 16); // 8–24 crystal glints
+  const COUNT = Math.round(14 + intensity * 28); // 14–42 crystal glints
   const seed = cycleNumber * 7919;
 
   for (let i = 0; i < COUNT; i++) {
@@ -841,7 +863,7 @@ function renderTundraSparkles(buf: ImageData, intensity: number, time: number, c
 
 /** Desert: heat dust spiraling in warm thermals */
 function renderDesertDust(buf: ImageData, intensity: number, time: number, cycleNumber: number): void {
-  const COUNT = Math.round(10 + intensity * 16); // 10–26 dust motes
+  const COUNT = Math.round(18 + intensity * 30); // 18–48 dust motes
   const seed = cycleNumber * 3371;
 
   for (let i = 0; i < COUNT; i++) {
@@ -859,7 +881,7 @@ function renderDesertDust(buf: ImageData, intensity: number, time: number, cycle
     const y = ((baseY - riseSpeed * time + H * 50) % H + H) % H | 0;
 
     const shimmer = Math.sin(time * 0.85 + i * 1.6) * 0.28 + 0.72;
-    const a = Math.round(intensity * shimmer * (18 + h3 % 13));
+    const a = Math.round(intensity * shimmer * (35 + h3 % 22));
     if (a < 3) continue;
 
     setPixel(buf, x, y, 215, 190, 128, Math.min(255, a)); // warm sandy beige

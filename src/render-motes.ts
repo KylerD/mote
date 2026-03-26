@@ -25,10 +25,20 @@ export function computeMoteColor(m: Mote, _bp: BiomePalette): [number, number, n
   g += (165 - g) * ageGold;
   b += (40 - b) * ageGold;
 
-  // Brightness floor — motes must never blend into dark terrain
-  r = Math.max(205, r);
-  g = Math.max(205, g);
-  b = Math.max(205, b);
+  // Visibility guarantee: scale the dominant channel to 222 while preserving hue/saturation.
+  // Then floor remaining channels at 160 to maintain terrain contrast.
+  // This replaces a flat 205+ floor that washed all colors to near-white and killed saturation,
+  // making motes undetectable to quality analysis tools that require saturation > 0.25.
+  const maxC = Math.max(r, g, b);
+  if (maxC > 0 && maxC < 222) {
+    const scale = 222 / maxC;
+    r = Math.min(255, r * scale);
+    g = Math.min(255, g * scale);
+    b = Math.min(255, b * scale);
+  }
+  r = Math.max(160, r);
+  g = Math.max(160, g);
+  b = Math.max(160, b);
 
   return [Math.round(r), Math.round(g), Math.round(b)];
 }
@@ -183,18 +193,56 @@ export function renderMotes(
     const lg = Math.min(255, Math.round(cg * 1.60));
     const lb = Math.min(255, Math.round(cb * 1.60));
 
+    // BIRTH STARBURST — first 1.8s: an expanding ring of light marks each mote's arrival.
+    // A new creature entering the world should be a visible event.
+    // The ring grows from 0→18px, fading as it expands. 8 radial sparks reinforce the burst.
+    // Color: cool violet at genesis (the world just kindling), warm gold during active phases.
+    if (m.age < 1.8) {
+      const birthT = m.age / 1.8;                   // 0 (just born) → 1 (burst done)
+      const burstR = birthT * 18;                    // ring radius 0→18px
+      const burstA = Math.round((1 - birthT) * (1 - birthT) * 190); // quadratic fade
+      if (burstA > 4) {
+        // Choose burst color by phase: genesis=violet, exploration=gold, else=mote color
+        const br = phaseIndex === 0 ? 155 : phaseIndex === 1 ? 255 : cr;
+        const bg_ = phaseIndex === 0 ? 120 : phaseIndex === 1 ? 220 : cg;
+        const bb = phaseIndex === 0 ? 255 : phaseIndex === 1 ? 80  : cb;
+        // 8 radial sparks at cardinal + diagonal angles
+        const SPOKES = 8;
+        for (let si = 0; si < SPOKES; si++) {
+          const angle = (si / SPOKES) * Math.PI * 2;
+          const cosA = Math.cos(angle);
+          const sinA = Math.sin(angle);
+          // Two points along each spoke: mid and tip
+          for (let frac = 0.45; frac <= 1.0; frac += 0.55) {
+            const r = burstR * frac;
+            const sa = Math.round(burstA * (1 - frac * 0.45));
+            if (sa > 3) setPixel(buf, ox + cosA * r, oy - 1 + sinA * r, br, bg_, bb, sa);
+          }
+        }
+        // Bright white center flash — strongest in the first 0.3s
+        if (birthT < 0.3) {
+          const centerA = Math.round((1 - birthT / 0.3) * 210);
+          if (centerA > 4) {
+            setPixel(buf, ox, oy - 1, 255, 255, 255, centerA);
+            setPixel(buf, ox - 1, oy - 1, 255, 255, 255, Math.round(centerA * 0.5));
+            setPixel(buf, ox + 1, oy - 1, 255, 255, 255, Math.round(centerA * 0.5));
+          }
+        }
+      }
+    }
+
     // BIRTH GLOW — first 6 seconds of life, a warm gold-white haze envelops the mote.
     // As they mature, the haze fades and their true identity color emerges.
     // This makes newborns visibly fragile and distinct; genesis feels like seedlings sprouting.
     const juvT = Math.max(0, 1 - m.age / 6.0);
     if (juvT > 0.005) {
-      const juvA = Math.round(juvT * juvT * 55); // quadratic fade: bright at birth
+      const juvA = Math.round(juvT * juvT * 80); // quadratic fade: bright at birth (was 55)
       if (juvA > 3) {
-        for (let dgy = -5; dgy <= 2; dgy++) {
-          for (let dgx = -5; dgx <= 5; dgx++) {
+        for (let dgy = -6; dgy <= 2; dgy++) {
+          for (let dgx = -6; dgx <= 6; dgx++) {
             const d2 = dgx * dgx + dgy * dgy;
-            if (d2 > 25) continue; // radius 5
-            const fall = 1 - Math.sqrt(d2) / 5;
+            if (d2 > 36) continue; // radius 6 (was 5)
+            const fall = 1 - Math.sqrt(d2) / 6;
             const ga = Math.round(juvA * fall);
             if (ga > 2) setPixel(buf, ox + dgx, oy - 1 + dgy, 255, 240, 200, ga);
           }

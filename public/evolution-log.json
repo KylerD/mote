@@ -659,14 +659,14 @@
   {
     "date": "2026-03-23",
     "title": "elder life arc",
-    "reflection": "Elders near death glow amber-gold, pulse faster as energy drains. Juveniles skip outer outline — tiny at birth, growing to full size. Elder deaths play a 3-note descending knell.",
+    "reflection": "Elders near death glow amber-gold, pulse faster as energy drains. Juveniles skip outer outline \u2014 tiny at birth, growing to full size. Elder deaths play a 3-note descending knell.",
     "looking_ahead": [
       "Sound phase arc: genesis sparser, silence emptier",
       "Trail persistence heatmap: frequently-visited terrain shows lingering warmth",
       "Mote size by age: juveniles truly smaller, elders slightly wider body",
       "Elder grief inheritance: nearby motes gain a brief mourning flicker on elder death"
     ],
-    "visual_verification": "Dissolution/silence detected motes jumped 9->16 and 6->39 — elder glow adding detectable bright pixels around dying motes. Volcanic biome dissolution screenshots show warm halos around terrain-level motes.",
+    "visual_verification": "Dissolution/silence detected motes jumped 9->16 and 6->39 \u2014 elder glow adding detectable bright pixels around dying motes. Volcanic biome dissolution screenshots show warm halos around terrain-level motes.",
     "quality_delta": "avgVisibleMotes 10.0 -> 16.7 (peak 26->39). avgMoteBrightness stable 0.57->0.50. No quality issues.",
     "files_changed": [
       "src/render-motes.ts",
@@ -679,7 +679,7 @@
   {
     "date": "2026-03-24",
     "title": "sound phase arc",
-    "reflection": "Genesis now has 1 cluster voice max, no chirps, ambient at 8% — barely breathing. Silence has 0 voices, 0 chirps, ambient at 2% — genuinely empty. Genesis glows cool blue-white; silence glows warm amber.",
+    "reflection": "Genesis now has 1 cluster voice max, no chirps, ambient at 8% \u2014 barely breathing. Silence has 0 voices, 0 chirps, ambient at 2% \u2014 genuinely empty. Genesis glows cool blue-white; silence glows warm amber.",
     "looking_ahead": [
       "Trail persistence heatmap: frequently-visited terrain shows lingering warmth",
       "Mote size by age: juveniles smaller, elders wider",
@@ -687,7 +687,7 @@
       "Genesis first-mote special arrival sound: crystalline chime"
     ],
     "visual_verification": "Genesis screenshot shows cool blue-white halo glow on motes against terrain. Silence shows warm amber ember glows. Organization phase went from 0 detected motes to 9. No quality issues.",
-    "quality_delta": "MOTE_TOO_DIM cleared. avgVisibleMotes 12.9→17.9, organization 0→9 motes. brightness floor 162→178. PHASE_AMBIENT_MULT genesis 0.30→0.08, silence 0.10→0.02.",
+    "quality_delta": "MOTE_TOO_DIM cleared. avgVisibleMotes 12.9\u219217.9, organization 0\u21929 motes. brightness floor 162\u2192178. PHASE_AMBIENT_MULT genesis 0.30\u21920.08, silence 0.10\u21920.02.",
     "files_changed": [
       "src/sound.ts",
       "src/render-motes.ts"
@@ -704,7 +704,7 @@
       "Heatmap color responds to biome: tundra=blue-ice, volcanic=deep red, lush=green"
     ],
     "visual_verification": "Complexity screenshots show warm amber band blazing along terrain ridgeline. Dissolution shows deep ember-red terrain glow. Silence retains residual warmth, slowly cooling. Before: static terrain. After: terrain holds memory of where life has been.",
-    "quality_delta": "avgMoteBrightness 0.49→0.54, MOTE_TOO_DIM cleared. No clumping. No regressions.",
+    "quality_delta": "avgMoteBrightness 0.49\u21920.54, MOTE_TOO_DIM cleared. No clumping. No regressions.",
     "files_changed": [
       "src/render-effects.ts",
       "src/main.ts"
@@ -718,10 +718,10 @@
       "Make spirit stars visible against bright dissolution skies (boost alpha or darken sky)",
       "Sound: quiet chime when each spirit star appears",
       "Constellation lines connecting nearby spirit stars in silence",
-      "Phase-specific terrain lighting — night glow on silence tiles"
+      "Phase-specific terrain lighting \u2014 night glow on silence tiles"
     ],
     "visual_verification": "Motes in exploration phase now show faint discovery halos. Dissolution motes are brighter with glowing halos. Spirit star code confirmed correct; payoff visible in dark silence sky.",
-    "quality_delta": "glowMax added for exploration (0→7) and dissolution (0→16); before avg brightness 0.53",
+    "quality_delta": "glowMax added for exploration (0\u21927) and dissolution (0\u219216); before avg brightness 0.53",
     "files_changed": [
       "src/render-bonds.ts",
       "src/render-motes.ts",
@@ -731,15 +731,15 @@
   {
     "date": "2026-03-25",
     "title": "sky constellations",
-    "reflection": "Spirit stars boosted 3x brighter (max alpha 56→155). Silence phase draws soft lines between nearby stars forming constellations of the dead. Crystalline chime sounds as each spirit ascends.",
+    "reflection": "Spirit stars boosted 3x brighter (max alpha 56\u2192155). Silence phase draws soft lines between nearby stars forming constellations of the dead. Crystalline chime sounds as each spirit ascends.",
     "looking_ahead": [
-      "Phase-specific terrain lighting — night glow on silence tiles",
+      "Phase-specific terrain lighting \u2014 night glow on silence tiles",
       "Elder grief: nearby motes briefly flicker on elder death",
       "Genesis first-mote arrival chime",
       "Biome heatmap tinting: tundra=blue-ice, volcanic=deep red"
     ],
-    "visual_verification": "Spirit stars now clearly visible against golden dissolution sky. Silence sky shows soft connecting lines between nearby stars — the dead mapping their relationships in the void.",
-    "quality_delta": "Star brightness max 56→155. No mote rendering changed. Cycle-seed variance caused analysis diff (different UTC window).",
+    "visual_verification": "Spirit stars now clearly visible against golden dissolution sky. Silence sky shows soft connecting lines between nearby stars \u2014 the dead mapping their relationships in the void.",
+    "quality_delta": "Star brightness max 56\u2192155. No mote rendering changed. Cycle-seed variance caused analysis diff (different UTC window).",
     "files_changed": [
       "src/render-bonds.ts",
       "src/sound.ts",
@@ -752,16 +752,33 @@
     "reflection": "Cluster ground glow, radiance, and identity rings were too subtle to read at 256x144. Doubled alpha values and added a warm hearth at each cluster centroid. Mote brightness floor raised from 178 to 205.",
     "looking_ahead": [
       "Phase-specific biome atmospheric events (volcanic eruptions in dissolution, tundra aurora in silence)",
-      "Bond line thickness increase — 1px bonds disappear at viewing distance",
+      "Bond line thickness increase \u2014 1px bonds disappear at viewing distance",
       "Water shimmer that reacts to nearby mote activity",
       "Larger cluster sizes for more dramatic cascade bursts"
     ],
-    "visual_verification": "COMPLEXITY M:9 C:1 frame shows a visible warm illuminated pool under the cluster area — cluster ground glow now reads at a glance. Motes are noticeably brighter and more vivid. Avg visible motes jumped from 6.3 to 11.3.",
-    "quality_delta": "Avg visible motes 6.3 → 11.3 (peak 8 → 20). Avg brightness 0.48 → 0.50. MOTE_TOO_DIM flag cleared. Zero-motes frame eliminated.",
+    "visual_verification": "COMPLEXITY M:9 C:1 frame shows a visible warm illuminated pool under the cluster area \u2014 cluster ground glow now reads at a glance. Motes are noticeably brighter and more vivid. Avg visible motes jumped from 6.3 to 11.3.",
+    "quality_delta": "Avg visible motes 6.3 \u2192 11.3 (peak 8 \u2192 20). Avg brightness 0.48 \u2192 0.50. MOTE_TOO_DIM flag cleared. Zero-motes frame eliminated.",
     "files_changed": [
       "src/render-motes.ts",
       "src/render-bonds.ts",
       "src/render-effects.ts"
+    ]
+  },
+  {
+    "date": "2026-03-26",
+    "title": "world awakening arc",
+    "reflection": "Biome particles now span the full cycle \u2014 from faint genesis emergence to complexity peak and dying dissolution. Each mote birth emits an expanding starburst ring. Mote colors are more vivid via saturation-preserving brightness scaling.",
+    "looking_ahead": [
+      "Phase transition sound/visual drama \u2014 make cycle boundaries feel significant",
+      "Water reflections that show the phase sky color in pools",
+      "Rare event sound signatures \u2014 eclipse drone, meteor impact, bloom burst",
+      "Bond network glow during complexity \u2014 make the social web visible"
+    ],
+    "visual_verification": "AFTER screenshots show terrain alive with ambient particles in every phase \u2014 warm orange dissolution with glowing terrain edge, golden genesis with cluster ring, exploration visibly populated. Particles clearly visible as colored specks above terrain.",
+    "quality_delta": "avgMoteBrightness 0.57-0.61 when motes detected (scale-based color preserves saturation; pre-existing timing variance in zero-mote capture frames). Mote colors more vivid and distinct.",
+    "files_changed": [
+      "src/render-effects.ts",
+      "src/render-motes.ts"
     ]
   }
 ]
