@@ -106,9 +106,9 @@ export function renderClusterGroundGlow(
   const glowB = Math.min(255, Math.round(avgB * 0.68));
 
   // Ellipse: horizontal spread, shallow height — light pooling on flat ground
-  const glowW = Math.min(26, 9 + cluster.length * 2.8);
-  const glowH = Math.min(5, 2 + cluster.length * 0.55);
-  const peakAlpha = Math.min(38, 11 + cluster.length * 3.8) * phaseStr;
+  const glowW = Math.min(34, 12 + cluster.length * 3.5);
+  const glowH = Math.min(7, 3 + cluster.length * 0.7);
+  const peakAlpha = Math.min(72, 22 + cluster.length * 7.5) * phaseStr;
 
   // Breathe — synchronized with the cluster glow pulse
   const pulse = Math.sin(time * 1.3 + cx * 0.09) * 0.13 + 0.87;
@@ -153,9 +153,9 @@ export function renderClusterGlow(
   const PHASE_GLOW = [0.55, 0.70, 0.88, 1.0, 0.72, 0.38];
   const phaseScale = PHASE_GLOW[Math.min(5, Math.max(0, phaseIndex))];
 
-  const radius = Math.min(16, 6 + cluster.length * 1.5);
+  const radius = Math.min(20, 8 + cluster.length * 1.8);
   const pulse = Math.sin(time * 2 + cx * 0.1) * 0.15 + 0.85;
-  const maxAlpha = Math.min(30, 10 + cluster.length * 3) * pulse * phaseScale;
+  const maxAlpha = Math.min(60, 20 + cluster.length * 5.5) * pulse * phaseScale;
 
   const rcx = Math.round(cx);
   const rcy = Math.round(cy);
@@ -172,14 +172,14 @@ export function renderClusterGlow(
     }
   }
 
-  // IDENTITY RING — clusters of 4+ earn a pulsing perimeter that marks their territory.
+  // IDENTITY RING — clusters of 3+ earn a pulsing perimeter that marks their territory.
   // Larger clusters pulse more slowly: a big community breathes with gravity.
-  if (cluster.length >= 4) {
-    const ringRadius = Math.min(22, 9 + cluster.length * 2);
-    // Pulse frequency inversely proportional to size: 4-mote cluster = fast, 10-mote = stately
+  if (cluster.length >= 3) {
+    const ringRadius = Math.min(24, 10 + cluster.length * 2);
+    // Pulse frequency inversely proportional to size: 3-mote cluster = fast, 10-mote = stately
     const ringPulseHz = 3.0 / Math.max(cluster.length, 2);
     const ringPulse = Math.sin(time * ringPulseHz + cx * 0.07) * 0.5 + 0.5;
-    const ringAlpha = Math.round(ringPulse * Math.min(65, 18 + cluster.length * 6));
+    const ringAlpha = Math.round(ringPulse * Math.min(90, 28 + cluster.length * 8));
 
     // Dash count scales with cluster size — more members = denser ring
     const dashCount = 8 + cluster.length * 2;
@@ -214,6 +214,27 @@ export function renderClusterGlow(
           const sy = Math.round(cy + Math.sin(angle) * step);
           const falloffAlpha = Math.round(spokeAlpha * (1 - step / (ringRadius * 0.6)));
           setPixel(buf, sx, sy, avgR, avgG, avgB, falloffAlpha);
+        }
+      }
+    }
+  }
+
+  // COMMUNITY HEARTH — a warm glowing core at the cluster centroid.
+  // Marks the "heart" of the community for instant readability.
+  // Fires for clusters of 2+, strongest at complexity.
+  if (cluster.length >= 2 && phaseScale > 0.3) {
+    const heartR = Math.min(6, 2 + cluster.length * 0.55);
+    const heartPulse = Math.sin(time * 1.2 + cx * 0.08) * 0.2 + 0.8;
+    const heartA = Math.round(Math.min(55, 15 + cluster.length * 5.5) * phaseScale * heartPulse);
+    if (heartA > 3) {
+      const hr2 = heartR * heartR;
+      for (let dgy = -Math.ceil(heartR); dgy <= Math.ceil(heartR); dgy++) {
+        for (let dgx = -Math.ceil(heartR); dgx <= Math.ceil(heartR); dgx++) {
+          const d2 = dgx * dgx + dgy * dgy;
+          if (d2 > hr2) continue;
+          const fall = 1 - Math.sqrt(d2) / heartR;
+          const ha = Math.round(heartA * fall * fall);
+          if (ha > 1) setPixel(buf, rcx + dgx, rcy + dgy, avgR, avgG, avgB, ha);
         }
       }
     }

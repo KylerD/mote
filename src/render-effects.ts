@@ -1098,7 +1098,7 @@ export function renderClusterRadiance(
   const [lr, lg, lb] = BIOME_LIGHT[biome] ?? [210, 195, 145];
 
   for (const cluster of clusters) {
-    if (cluster.length < 4) continue;
+    if (cluster.length < 3) continue;
 
     // Centroid of the cluster
     let cx = 0, cy = 0;
@@ -1106,8 +1106,8 @@ export function renderClusterRadiance(
     cx /= cluster.length; cy /= cluster.length;
 
     // Radius and peak alpha scale with cluster size
-    const glowRadius = Math.min(32, 10 + cluster.length * 2.5);
-    const peakAlpha  = Math.min(26, 5 + cluster.length * 2.2) * phaseStr;
+    const glowRadius = Math.min(38, 12 + cluster.length * 3.0);
+    const peakAlpha  = Math.min(50, 10 + cluster.length * 4.5) * phaseStr;
     // Slow pulse: large clusters breathe more slowly, like a settled community
     const pulseHz = 1.8 / Math.max(cluster.length, 3);
     const pulse = Math.sin(time * pulseHz + cx * 0.06) * 0.12 + 0.88;

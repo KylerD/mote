@@ -745,5 +745,23 @@
       "src/sound.ts",
       "src/main.ts"
     ]
+  },
+  {
+    "date": "2026-03-26",
+    "title": "community hearth glow",
+    "reflection": "Cluster ground glow, radiance, and identity rings were too subtle to read at 256x144. Doubled alpha values and added a warm hearth at each cluster centroid. Mote brightness floor raised from 178 to 205.",
+    "looking_ahead": [
+      "Phase-specific biome atmospheric events (volcanic eruptions in dissolution, tundra aurora in silence)",
+      "Bond line thickness increase — 1px bonds disappear at viewing distance",
+      "Water shimmer that reacts to nearby mote activity",
+      "Larger cluster sizes for more dramatic cascade bursts"
+    ],
+    "visual_verification": "COMPLEXITY M:9 C:1 frame shows a visible warm illuminated pool under the cluster area — cluster ground glow now reads at a glance. Motes are noticeably brighter and more vivid. Avg visible motes jumped from 6.3 to 11.3.",
+    "quality_delta": "Avg visible motes 6.3 → 11.3 (peak 8 → 20). Avg brightness 0.48 → 0.50. MOTE_TOO_DIM flag cleared. Zero-motes frame eliminated.",
+    "files_changed": [
+      "src/render-motes.ts",
+      "src/render-bonds.ts",
+      "src/render-effects.ts"
+    ]
   }
 ]

@@ -26,9 +26,9 @@ export function computeMoteColor(m: Mote, _bp: BiomePalette): [number, number, n
   b += (40 - b) * ageGold;
 
   // Brightness floor — motes must never blend into dark terrain
-  r = Math.max(178, r);
-  g = Math.max(178, g);
-  b = Math.max(178, b);
+  r = Math.max(205, r);
+  g = Math.max(205, g);
+  b = Math.max(205, b);
 
   return [Math.round(r), Math.round(g), Math.round(b)];
 }
