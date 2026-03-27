@@ -784,19 +784,36 @@
   {
     "date": "2026-03-27",
     "title": "vivid bonds and motes",
-    "reflection": "Bonds now scale 1.4x alpha at complexity and gain a cool-bright outer halo, visible against warm terrain. Mote saturation raised (floor 160→128, scale 222→238). MOTE_TOO_DIM cleared.",
+    "reflection": "Bonds now scale 1.4x alpha at complexity and gain a cool-bright outer halo, visible against warm terrain. Mote saturation raised (floor 160\u2192128, scale 222\u2192238). MOTE_TOO_DIM cleared.",
     "looking_ahead": [
-      "Phase transition shockwave — visual sweep at each cycle boundary",
+      "Phase transition shockwave \u2014 visual sweep at each cycle boundary",
       "Water reflections showing phase sky color in pools",
-      "Rare event sound signatures — eclipse drone, meteor impact, bloom burst",
-      "Ancient bond thickness — bonds widen with age"
+      "Rare event sound signatures \u2014 eclipse drone, meteor impact, bloom burst",
+      "Ancient bond thickness \u2014 bonds widen with age"
     ],
     "visual_verification": "AFTER screenshots show vivid colored motes (cyan, green, pink, orange) vs before's all-amber palette. Bonds visible as glowing threads between cluster members. Cascade rings dramatic against both cool and warm skies.",
-    "quality_delta": "MOTE_TOO_DIM cleared. avg brightness 0.49→0.52. avg visible motes 12.9→13.3. clumping 0.00.",
+    "quality_delta": "MOTE_TOO_DIM cleared. avg brightness 0.49\u21920.52. avg visible motes 12.9\u219213.3. clumping 0.00.",
     "files_changed": [
       "src/render-motes.ts",
       "src/render-bonds.ts",
       "src/main.ts"
+    ]
+  },
+  {
+    "date": "2026-03-27",
+    "title": "phase horizon atmosphere",
+    "reflection": "Terrain horizon glow now spans all 6 phases with distinct colors. Cold pre-dawn violet at genesis, warm sunrise at exploration, golden noon at organization, blazing amber at dissolution, moonlit blue at silence. Mote max-channel raised 238->245.",
+    "looking_ahead": [
+      "Biome-specific horizon tints \u2014 desert gets hotter orange, tundra gets colder blue",
+      "Mist density variation by weather type \u2014 fog weather should have much thicker ground haze",
+      "Sound arc to match visual arc \u2014 make exploration feel as sonically alive as it now looks visually",
+      "Make night/silence phases feel more haunted \u2014 brighter stars, quieter ambient, sparser motes"
+    ],
+    "visual_verification": "AFTER: exploration bathed in warm golden-amber, silence shows cool moonlit lavender with moon visible. BEFORE: flat green gradient, phases visually indistinct.",
+    "quality_delta": "avgMoteBrightness 0.50->0.52, MOTE_TOO_DIM issue cleared. Horizon glow height 16->22px.",
+    "files_changed": [
+      "src/terrain-render.ts",
+      "src/render-motes.ts"
     ]
   }
 ]

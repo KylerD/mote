@@ -55,6 +55,46 @@ const SKY_TINTS: RGB[] = [
 // Cumulative phase boundaries (fractions of cycle) — mirrors world.ts PHASE_DURATIONS
 const TINT_BOUNDARIES = [0.10, 0.30, 0.55, 0.80, 0.92, 1.0];
 
+/**
+ * Per-phase horizon glow: [strength, rOff, gOff, bOff]
+ * A band of atmospheric light rising from the terrain surface into the lower sky.
+ * Each phase has a distinct atmospheric color — this is the emotional heartbeat of the cycle.
+ *   Genesis:      cold pre-dawn violet — world barely stirring, moon still overhead
+ *   Exploration:  warm sunrise pink-orange — world waking, sun cresting hills
+ *   Organization: golden midday warmth — life building under full light
+ *   Complexity:   soft amber vitality — peak life, world humming with energy
+ *   Dissolution:  blazing amber sunset — the light that says goodbye
+ *   Silence:      ice-blue moonlight — cold, still, the world emptied
+ */
+const HORIZON_GLOW: [number, number, number, number][] = [
+  [0.68,  18,  -8,  52],  // genesis:      cold pre-dawn violet-blue
+  [0.52,  82,  40,   8],  // exploration:  warm sunrise orange-pink
+  [0.34,  52,  32,   2],  // organization: golden midday shimmer
+  [0.24,  38,  20,  -2],  // complexity:   soft warm vitality glow
+  [1.05,  95,  38, -22],  // dissolution:  blazing amber-gold sunset
+  [0.45,  12, -18,  58],  // silence:      ice-blue moonlight
+];
+
+/** Smooth interpolated horizon glow for a given cycle position (0-1) */
+function horizonGlowAt(cycleProgress: number): [number, number, number, number] {
+  let prev = 0;
+  for (let i = 0; i < TINT_BOUNDARIES.length; i++) {
+    if (cycleProgress <= TINT_BOUNDARIES[i]) {
+      const t = (cycleProgress - prev) / (TINT_BOUNDARIES[i] - prev);
+      const a = HORIZON_GLOW[i];
+      const b = HORIZON_GLOW[(i + 1) % HORIZON_GLOW.length];
+      return [
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+        a[2] + (b[2] - a[2]) * t,
+        a[3] + (b[3] - a[3]) * t,
+      ];
+    }
+    prev = TINT_BOUNDARIES[i];
+  }
+  return HORIZON_GLOW[5];
+}
+
 /** Smooth interpolated sky tint for a given cycle position (0-1) */
 function skyTintAt(cycleProgress: number): RGB {
   let prev = 0;
@@ -114,17 +154,20 @@ export function renderTerrain(
   const surfaceYCache = new Int16Array(W);
   for (let hx = 0; hx < W; hx++) surfaceYCache[hx] = getSurfaceY(terrain, hx);
 
-  // Horizon glow: warm amber/orange at genesis & dissolution, cool violet at silence
-  // Each glows at the sky-terrain seam and fades upward over ~16 pixels
+  // Horizon glow: phase-specific atmospheric band at the terrain/sky seam.
+  // Present in ALL phases — each has its own color and strength.
+  // Interpolated smoothly across phase boundaries for fluid transitions.
+  const [hgBaseStr, hgR, hgG, hgB] = horizonGlowAt(cycleProgress);
+  // Modulate strength within key phases for dramatic arcs:
+  // Genesis fades in slowly; dissolution pulses through its arc; silence fades to cold quiet.
   const inGenesis     = cycleProgress < 0.16;
   const inDissolution = cycleProgress >= 0.76 && cycleProgress < 0.92;
   const inSilence     = cycleProgress >= 0.92;
   const glowStrength  =
-    inGenesis     ? Math.sin(cycleProgress / 0.16 * Math.PI * 0.5) * 0.72 :
-    inDissolution ? Math.sin((cycleProgress - 0.76) / 0.16 * Math.PI) * 1.0 :
-    inSilence     ? 0.48 * (1 - (cycleProgress - 0.92) / 0.08) :
-    0;
-  const glowWarm = !inSilence; // warm amber vs cool violet
+    inGenesis     ? hgBaseStr * Math.sin(cycleProgress / 0.16 * Math.PI * 0.5) :
+    inDissolution ? hgBaseStr * Math.sin((cycleProgress - 0.76) / 0.16 * Math.PI) :
+    inSilence     ? hgBaseStr * (1 - (cycleProgress - 0.92) / 0.08) :
+    hgBaseStr;
 
   // Background mountain color: biome-matched silhouette
   // Slightly lighter/tinted version of the cliff color for atmospheric depth
@@ -237,22 +280,17 @@ export function renderTerrain(
           b = b * (1 - blend) + bgMtnB * blend;
         }
 
-        // Horizon glow: warm/cool band rising from the terrain surface
-        if (glowStrength > 0) {
+        // Horizon glow: phase-atmospheric band rising from the terrain surface.
+        // Present every phase — colors shift from cold pre-dawn → warm noon → blazing dusk → moonlit silence.
+        if (glowStrength > 0.01) {
           const dist = surfaceYCache[x] - y; // pixels above terrain surface
-          if (dist >= 0 && dist < 16) {
-            const gf = (1 - dist / 16) * (1 - dist / 16) * glowStrength; // quadratic falloff
-            if (glowWarm) {
-              // Dawn / dusk: warm amber-orange
-              r = Math.min(255, r + 95 * gf);
-              g = Math.min(255, g + 38 * gf);
-              b = Math.max(0,   b - 22 * gf);
-            } else {
-              // Twilight / silence: cool blue-violet
-              r = Math.min(255, r + 28 * gf);
-              g = Math.max(0,   g - 12 * gf);
-              b = Math.min(255, b + 55 * gf);
-            }
+          if (dist >= 0 && dist < 22) {
+            // Organic undulation: mist edge breathes and shifts
+            const undulate = Math.sin(x * 0.14 + time * 0.38) * 0.12 + 0.88;
+            const gf = (1 - dist / 22) * (1 - dist / 22) * glowStrength * undulate;
+            r = Math.min(255, Math.max(0, r + hgR * gf));
+            g = Math.min(255, Math.max(0, g + hgG * gf));
+            b = Math.min(255, Math.max(0, b + hgB * gf));
           }
         }
 
