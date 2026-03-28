@@ -445,6 +445,47 @@ export function renderBondLines(
         }
       }
 
+      // ENERGY PULSE — bright dot traveling along each bond shows live neural connection.
+      // Young bonds: fast cool-white pulse (nervous energy). Old: warm amber. Ancient: slow gold.
+      // Phase-gated: visible from exploration through dissolution, absent at genesis and silence.
+      {
+        const PULSE_PHASE = [0.0, 0.38, 0.80, 1.0, 0.55, 0.0];
+        const pulseStr = PULSE_PHASE[phaseIndex];
+        if (pulseStr > 0.05 && finalAlpha > 18) {
+          const bondLen = Math.sqrt(bdx * bdx + bdy * bdy);
+          if (bondLen > 5) {
+            // Speed varies by age: new bonds pulse nervously fast, ancient bonds beat slowly and deeply
+            const pulseSpeed = youngT > 0.5 ? 1.15 : ancientT > 0.3 ? 0.22 : 0.68;
+            // Per-bond stagger: prevents all pulses moving in lock-step
+            const pOff = ((Math.round(m.x) * 127 + Math.round(m.y) * 71 + Math.round(bonded.x) * 53) & 0xFFFF) / 0x10000;
+            const pulsePos = (time * pulseSpeed + pOff) % 1.0;
+
+            // Pulse color: young=cool blue-white, mature=warm shifted, ancient=deep gold
+            const pr = youngT > 0.4 ? Math.min(255, br + 45) : ancientT > 0.3 ? 255 : Math.min(255, br + 55);
+            const pg = youngT > 0.4 ? Math.min(255, bg + 50) : ancientT > 0.3 ? 200 : Math.min(255, bg + 30);
+            const pb = youngT > 0.4 ? Math.min(255, bb + 85) : ancientT > 0.3 ? 42  : bb;
+
+            // Draw head (step 0) + 3-step fading trail behind it
+            for (let step = 0; step <= 3; step++) {
+              const tp = pulsePos - step * (3.5 / bondLen);
+              if (tp < 0.07 || tp > 0.93) continue;
+              const tx = Math.round(m.x + bdx * tp);
+              const ty = Math.round(m.y + bdy * tp);
+              const decay = 1 - step / 4.0;
+              const pa = Math.round(pulseStr * 188 * decay * (step === 0 ? 1.0 : 0.40));
+              if (pa > 4) {
+                setPixel(buf, tx, ty, pr, pg, pb, pa);
+                if (step === 0) {
+                  // Head is 1px taller for visibility at viewing distance
+                  setPixel(buf, tx, ty - 1, pr, pg, pb, Math.round(pa * 0.55));
+                  setPixel(buf, tx, ty + 1, pr, pg, pb, Math.round(pa * 0.55));
+                }
+              }
+            }
+          }
+        }
+      }
+
       // Bond formation arc: two sparks converge from each mote toward midpoint
       if (flash > 0.02) {
         const t = 1 - flash;          // 0→1 as flash decays

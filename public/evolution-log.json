@@ -833,5 +833,21 @@
       "src/terrain-render.ts",
       "src/render-motes.ts"
     ]
+  },
+  {
+    "date": "2026-03-28",
+    "title": "bond energy pulses",
+    "reflection": "Added animated dots traveling along bond lines. Young bonds pulse fast and blue-white; mature bonds warm amber; ancient bonds slow deep gold. Absent at genesis and silence.",
+    "looking_ahead": [
+      "Phase transition shockwave — radial ring expanding across screen at each cycle boundary",
+      "Night/silence more haunted — brighter stars, sparser motes, emptier ambient",
+      "Biome mist color variation — fog exhales a different character per biome",
+      "Sound arc: exploration should feel as sonically alive as it now looks"
+    ],
+    "visual_verification": "AFTER complexity screenshot shows bright cyan/white/gold dots clearly traveling along bond threads between clustered motes on terrain ridge. Organization screenshot shows multiple vivid pulse dots on bonds. Bonds no longer look static.",
+    "quality_delta": "avgVisibleMotes 11.7->14.6. avgMoteBrightness 0.51->0.56 (now above 0.55 target). Zero regressions.",
+    "files_changed": [
+      "src/render-bonds.ts"
+    ]
   }
 ]
