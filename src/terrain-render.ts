@@ -312,6 +312,11 @@ export function renderTerrain(
   const _skyBr = skyBrightnessAt(cycleProgress);
   const _skyNight = Math.min(1.0, (1.0 - _skyBr) * 1.15); // 0=day, ~0.83=deep night
 
+  // Terrain night darkening: ground dims with sky so motes glow against dark earth.
+  // Genesis = pre-dawn dark (~52%), noon = full day (100%), silence = moonlit night (~57%).
+  // Lava, water, and cave tiles are exempt — they have their own luminosity logic.
+  const terrainNightFactor = 0.40 + 0.60 * _skyBr;
+
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const idx = y * W + x;
@@ -481,6 +486,13 @@ export function renderTerrain(
             d[pi]     = Math.min(255, Math.max(0, Math.round(d[pi]     * (1 - cs * 0.28) + avg * cs * 0.14)));
             d[pi + 1] = Math.min(255, Math.max(0, Math.round(d[pi + 1] * (1 - cs * 0.20) + avg * cs * 0.10)));
             d[pi + 2] = Math.min(255, Math.round(d[pi + 2] + cs * 28));
+          }
+          // Night exposure: dim terrain to match sky darkness — motes become lanterns.
+          // Applied last so all other lighting adjustments are preserved before scaling.
+          if (terrainNightFactor < 0.995) {
+            d[pi]     = Math.round(d[pi]     * terrainNightFactor);
+            d[pi + 1] = Math.round(d[pi + 1] * terrainNightFactor);
+            d[pi + 2] = Math.round(d[pi + 2] * terrainNightFactor);
           }
         }
       }

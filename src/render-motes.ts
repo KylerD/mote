@@ -25,19 +25,18 @@ export function computeMoteColor(m: Mote, _bp: BiomePalette): [number, number, n
   g += (165 - g) * ageGold;
   b += (40 - b) * ageGold;
 
-  // Visibility guarantee: scale the dominant channel to 245 while preserving hue/saturation.
-  // Then floor remaining channels at 128 to maintain terrain contrast.
-  // Scaling to 245 (was 238) gives a brighter, more vivid dominant color while keeping saturation.
+  // Visibility guarantee: scale the dominant channel to 252 while preserving hue/saturation.
+  // Then floor remaining channels at 138 to maintain terrain contrast against darker night ground.
   const maxC = Math.max(r, g, b);
-  if (maxC > 0 && maxC < 245) {
-    const scale = 245 / maxC;
+  if (maxC > 0 && maxC < 252) {
+    const scale = 252 / maxC;
     r = Math.min(255, r * scale);
     g = Math.min(255, g * scale);
     b = Math.min(255, b * scale);
   }
-  r = Math.max(128, r);
-  g = Math.max(128, g);
-  b = Math.max(128, b);
+  r = Math.max(138, r);
+  g = Math.max(138, g);
+  b = Math.max(138, b);
 
   return [Math.round(r), Math.round(g), Math.round(b)];
 }

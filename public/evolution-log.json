@@ -865,5 +865,22 @@
     "files_changed": [
       "src/terrain-render.ts"
     ]
+  },
+  {
+    "date": "2026-03-29",
+    "title": "terrain night darkening",
+    "reflection": "Terrain now dims with the sky at genesis and silence. Motes glow as lanterns against dark ground — the fireflies-in-the-dark effect the day-night arc was missing.",
+    "looking_ahead": [
+      "Dawn transition: pink-gold sunrise bloom across the horizon",
+      "Phase transition shockwave — radial ring expanding at each cycle boundary",
+      "Sound arc: sparse genesis should feel as aurally dark as it now looks",
+      "Water shimmer and reflection intensity scale with night brightness"
+    ],
+    "visual_verification": "Volcanic dissolution shot: terrain clearly dark, motes glow blue and amber against black rock. AFTER temperate shot: mountains and terrain shadowed at night phases, motes pop as colored points.",
+    "quality_delta": "avgMoteBrightness 0.50 → 0.56 (mote floor raised 128→138). MOTE_TOO_DIM cleared. terrainNightFactor = 0.40+0.60*skyBr; ~52% at genesis/silence, 100% at complexity.",
+    "files_changed": [
+      "src/terrain-render.ts",
+      "src/render-motes.ts"
+    ]
   }
 ]
