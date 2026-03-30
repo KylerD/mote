@@ -468,8 +468,8 @@ export function applyGodRays(
   // Only when sun is reasonably high — low-sun rays intersect terrain
   if (!visible || horizonGlow < 0.15) return;
 
-  // Strength scales with sun height; strongest at mid-afternoon
-  const baseStr = horizonGlow * 0.95;
+  // Strength scales with sun height; softened so rays enhance the sky without dominating it
+  const baseStr = horizonGlow * 0.42;
   const weatherMod = (weather.type === "rain" || weather.type === "snow") ? 0.28 : 1.0;
   const rayStr = baseStr * weatherMod;
   if (rayStr < 0.04) return;
@@ -519,7 +519,7 @@ export function applyGodRays(
       if (rx < 0 || rx >= W || ry < 0 || ry > RAY_MAX_Y) continue;
 
       const falloff = (1 - step / RAY_LEN) * (1 - step / RAY_LEN);
-      const a = Math.round(rFinal * falloff * 120);
+      const a = Math.round(rFinal * falloff * 70);
       if (a < 2) continue;
 
       const pi = (ry * W + rx) * 4;

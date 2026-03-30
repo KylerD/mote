@@ -26,7 +26,8 @@ export function computeMoteColor(m: Mote, _bp: BiomePalette): [number, number, n
   b += (40 - b) * ageGold;
 
   // Visibility guarantee: scale the dominant channel to 252 while preserving hue/saturation.
-  // Then floor remaining channels at 138 to maintain terrain contrast against darker night ground.
+  // Lower channel floor (80) allows vivid saturated colors — deep reds, rich blues, pure greens.
+  // High-energy glow and the dark outline provide contrast against terrain instead.
   const maxC = Math.max(r, g, b);
   if (maxC > 0 && maxC < 252) {
     const scale = 252 / maxC;
@@ -34,9 +35,9 @@ export function computeMoteColor(m: Mote, _bp: BiomePalette): [number, number, n
     g = Math.min(255, g * scale);
     b = Math.min(255, b * scale);
   }
-  r = Math.max(138, r);
-  g = Math.max(138, g);
-  b = Math.max(138, b);
+  r = Math.max(80, r);
+  g = Math.max(80, g);
+  b = Math.max(80, b);
 
   return [Math.round(r), Math.round(g), Math.round(b)];
 }
@@ -118,16 +119,15 @@ export function renderMotes(
   phaseIndex = 3,
   clusterHeartbeat: Map<Mote, number> = new Map(),
 ): void {
-  // Phase glow: night phases = full lantern (28px), complexity = vitality halo (14px),
-  // organization = community warmth (8px), genesis/silence brighter to keep motes readable.
-  // The phase arc reads through mote luminosity: birth/death = lantern glow,
-  // peak life = warm vitality aura, mid-cycle = quieter but still present.
+  // Phase glow: night phases = dramatic bioluminescent lantern, day phases = softer vitality aura.
+  // Night motes should glow like fireflies — unmissable against dark terrain.
+  const isNight = phaseIndex === 0 || phaseIndex === 5;
   const glowMax =
-    phaseIndex === 0 || phaseIndex === 5 ? 28   // genesis/silence: lantern in dark
-    : phaseIndex === 4 ? 16                      // dissolution: dimming lanterns, death glow
-    : phaseIndex === 3 ? 14                      // complexity: peak life vitality
-    : phaseIndex === 2 ? 8                       // organization: community warmth
-    : phaseIndex === 1 ? 7                       // exploration: faint discovery halo
+    isNight ? 80                                 // genesis/silence: bright firefly lantern
+    : phaseIndex === 4 ? 38                      // dissolution: dimming lanterns
+    : phaseIndex === 3 ? 30                      // complexity: warm vitality aura
+    : phaseIndex === 2 ? 18                      // organization: community warmth
+    : phaseIndex === 1 ? 14                      // exploration: gentle discovery halo
     : 0;
 
   for (const m of motes) {
@@ -149,9 +149,34 @@ export function renderMotes(
     const oy = Math.round(m.y);
     const dir = m.direction;
 
+    // TERRAIN LIGHT POOL — each mote casts colored light on the ground beneath it.
+    // Drawn first so it sits under the mote sprite. More vivid at night when terrain is dark.
+    // Creates "bioluminescent footprint" — each creature's presence illuminates the world.
+    {
+      const poolAlpha = isNight
+        ? Math.round(55 * Math.max(0.35, m.energy) * breathe)
+        : Math.round(22 * Math.max(0.35, m.energy) * breathe);
+      if (poolAlpha > 3) {
+        // Elliptical pool: wider than tall (ground perspective), centered at mote feet
+        const poolW = isNight ? 9 : 6;
+        const poolH = isNight ? 4 : 3;
+        for (let dpy = 0; dpy <= poolH; dpy++) {
+          for (let dpx = -poolW; dpx <= poolW; dpx++) {
+            const ex = dpx / poolW;
+            const ey = dpy / poolH;
+            const d2 = ex * ex + ey * ey;
+            if (d2 > 1) continue;
+            const fall = 1 - Math.sqrt(d2);
+            const pa = Math.round(poolAlpha * fall * fall * 0.75);
+            if (pa > 1) setPixel(buf, ox + dpx, oy + dpy, cr, cg, cb, pa);
+          }
+        }
+      }
+    }
+
     // AMBIENT GLOW — phase-scaled halo drawn before the body.
-    // Night phases: lantern warmth. Day phases: vitality aura (smaller, energy-scaled).
-    // Scales with energy so dying motes flicker dimmer. Feeds into bloom pass.
+    // Night phases: bright firefly lantern. Day phases: warm vitality aura.
+    // Energy-scaled so dying motes flicker dimmer. Feeds into bloom pass.
     //
     // Phase-tinted halos:
     //   Genesis   = cool blue-white dawn light — fragile, barely-formed
@@ -161,8 +186,8 @@ export function renderMotes(
       const gPulse = Math.sin(m.age * 1.6 + m.x * 0.14) * 0.22 + 0.78;
       const gA = Math.round(glowMax * gPulse * Math.max(0.45, m.energy));
       if (gA > 3) {
-        // Night lanterns use radius 7; day vitality uses radius 5 (subtler)
-        const glowR = (phaseIndex === 0 || phaseIndex === 5) ? 7 : 5;
+        // Night lanterns wider (radius 9); day vitality subtler (radius 6)
+        const glowR = isNight ? 9 : 6;
         const glowR2 = glowR * glowR;
         // Genesis: cool blue-white (dawn); Silence: warm amber (ember); else: mote identity
         const gr = phaseIndex === 0 ? 170 : phaseIndex === 5 ? 255 : cr;
@@ -173,7 +198,10 @@ export function renderMotes(
             const d2 = dgx * dgx + dgy * dgy;
             if (d2 > glowR2) continue;
             const fall = 1 - Math.sqrt(d2) / glowR;
-            const ga = Math.round(gA * fall * fall);
+            // Softer falloff at night (fall * 0.7) for wider spread; quadratic in day
+            const ga = isNight
+              ? Math.round(gA * fall * 0.7)
+              : Math.round(gA * fall * fall);
             if (ga > 1) setPixel(buf, ox + dgx, oy - 1 + dgy, gr, gg, gb, ga);
           }
         }

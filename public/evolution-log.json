@@ -882,5 +882,22 @@
       "src/terrain-render.ts",
       "src/render-motes.ts"
     ]
+  },
+  {
+    "date": "2026-03-30",
+    "title": "mote bioluminescence",
+    "reflection": "Motes now cast elliptical light pools on terrain beneath them and glow 3× brighter at night. Color floor lowered (138→80) for vivid saturated hues.",
+    "looking_ahead": [
+      "Dawn transition: pink-gold sunrise bloom",
+      "Sound arc: genesis should be aurally sparse, silence empty",
+      "Mote social signals: visible bond-seeking flicker before bonding",
+      "Biome-specific mote tints at night: tundra motes glow ice-blue, volcanic amber"
+    ],
+    "visual_verification": "AFTER screenshots show vivid magenta, teal, cyan, orange motes with visible elliptical ground pools. 3× more mote clusters detected (6.7→19.0 avg, 10→38 peak). Night glow radius 7→9 with softer falloff.",
+    "quality_delta": "visibleMoteCount 6.7→19.0 avg, peak 10→38. avgMoteBrightness 0.54→0.52 (more saturated colors dilute luma avg). God rays 0.95→0.42 strength.",
+    "files_changed": [
+      "src/render-motes.ts",
+      "src/weather-render.ts"
+    ]
   }
 ]
