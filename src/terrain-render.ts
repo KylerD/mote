@@ -3,7 +3,7 @@
 import { noise2 } from "./noise";
 import { W, H } from "./config";
 import { Tile } from "./types";
-import type { Terrain, RGB, BiomePalette, Weather } from "./types";
+import type { Terrain, RGB, BiomePalette, Weather, Mote } from "./types";
 import { setPixel } from "./render";
 import { PAL, lerpColor } from "./palette";
 import { getSurfaceY } from "./terrain-query";
@@ -1036,6 +1036,76 @@ export function renderRainPuddles(
     if (shimmer > 0.80) {
       const ha = Math.round((shimmer - 0.80) / 0.20 * 110);
       if (surfY > 0) setPixel(buf, x, surfY - 1, 158, 185, 215, ha);
+    }
+  }
+}
+
+/**
+ * Mote water ripples — concentric colored rings radiate from mote positions
+ * into nearby water surfaces.  Each mote's individual color bleeds into the
+ * water around it, making even sparse populations feel present and impactful.
+ *
+ * The wave pattern `sin(k·dist − ω·t)` creates rings that sweep outward at
+ * a natural water speed (~12 px/s).  Intensity scales with phase: strongest
+ * at complexity (life at its peak), whisper-quiet in genesis and silence.
+ */
+export function renderMoteWaterRipples(
+  buf: ImageData,
+  terrain: Terrain,
+  motes: Mote[],
+  moteColors: Map<Mote, [number, number, number]>,
+  time: number,
+  phaseIndex: number,
+): void {
+  if (motes.length === 0) return;
+
+  const { waterLevel } = terrain;
+  // Phase multiplier: build through exploration, peak at complexity, fade to silence
+  const PHASE_MULT = [0.18, 0.52, 0.82, 1.10, 0.65, 0.12];
+  const phaseMult = PHASE_MULT[Math.min(5, Math.max(0, phaseIndex))];
+  if (phaseMult < 0.05) return;
+
+  // Wave physics: ~9px wavelength, rings expand at ~12 px/s
+  const DETECT_DIST = 25;
+  const RIPPLE_K    = 0.70;   // spatial frequency (2π / ~9px)
+  const RIPPLE_OMEGA = 8.6;   // temporal frequency
+
+  for (let x = 0; x < W; x++) {
+    const surfY  = getSurfaceY(terrain, x);
+    const worldH = H - surfY;
+
+    // Only process columns at or near the water surface
+    if (worldH > waterLevel + 2 || worldH < waterLevel - 14) continue;
+
+    let bestA = 0, bestR = 0, bestG = 0, bestB = 0;
+
+    for (const mote of motes) {
+      const dx   = x - mote.x;
+      const dy   = surfY - mote.y;
+      const dist2 = dx * dx + dy * dy;
+      if (dist2 > DETECT_DIST * DETECT_DIST || dist2 < 1) continue;
+      const dist = Math.sqrt(dist2);
+
+      const colors = moteColors.get(mote);
+      if (!colors) continue;
+      const [r, g, b] = colors;
+
+      // Expanding ring: bright crests (> 0.62) are drawn; troughs are invisible
+      const wave    = Math.sin(dist * RIPPLE_K - time * RIPPLE_OMEGA) * 0.5 + 0.5;
+      const crest   = Math.max(0, (wave - 0.62) / 0.38);
+      const falloff = Math.max(0, 1 - dist / DETECT_DIST);
+      const a       = Math.round(crest * falloff * falloff * phaseMult * 125);
+
+      if (a > bestA) { bestA = a; bestR = r; bestG = g; bestB = b; }
+    }
+
+    if (bestA > 5) {
+      setPixel(buf, x, surfY, bestR, bestG, bestB, bestA);
+      // Faint sub-surface glow — makes the ring feel like it has depth
+      if (surfY + 1 < H)
+        setPixel(buf, x, surfY + 1, bestR, bestG, bestB, Math.round(bestA * 0.40));
+      if (surfY + 2 < H)
+        setPixel(buf, x, surfY + 2, bestR, bestG, bestB, Math.round(bestA * 0.18));
     }
   }
 }

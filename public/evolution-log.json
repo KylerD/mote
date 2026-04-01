@@ -967,5 +967,23 @@
       "src/terrain-render.ts",
       "src/render-effects.ts"
     ]
+  },
+  {
+    "date": "2026-04-01",
+    "title": "mote water ripples",
+    "reflection": "Motes now disturb nearby water with expanding colored rings. Each creature's color bleeds into the water surface around it, making even a sparse population feel present.",
+    "looking_ahead": [
+      "Elder grief: nearby motes briefly flicker when an elder dies",
+      "Sound arc: genesis barely breathing, silence truly empty",
+      "Phase transition shockwave: louder audio sweep to match the visual ring",
+      "Mote reflection depth: glow extends into water body tiles below the surface"
+    ],
+    "visual_verification": "Silence phase screenshot shows cyan arc patterns at terrain/water boundary from nearby cyan motes. Ripples phase-reactive: peak alpha 125 at complexity, whisper-quiet at genesis (0.18x) and silence (0.12x).",
+    "quality_delta": "avgMoteBrightness 0.56->0.59. avgVisibleMotes 6.0->7.6. No regressions. clumping 0.00.",
+    "files_changed": [
+      "src/terrain-render.ts",
+      "src/terrain.ts",
+      "src/main.ts"
+    ]
   }
 ]

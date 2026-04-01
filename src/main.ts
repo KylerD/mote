@@ -2,7 +2,7 @@
 
 import { createRenderContext, present } from "./render";
 import { W, H } from "./config";
-import { renderTerrain, applyHeatHaze, applyVolcanicAsh, renderRainPuddles, renderWaterMist, renderVolcanicEmbers, applyTundraIce } from "./terrain";
+import { renderTerrain, applyHeatHaze, applyVolcanicAsh, renderRainPuddles, renderWaterMist, renderVolcanicEmbers, applyTundraIce, renderMoteWaterRipples } from "./terrain";
 import { createWorld, updateWorld } from "./world";
 import { cycleName } from "./names";
 import { createSoundEngine, initAudio, updateSound, updateWeatherSound, updateDissolutionSound, playDeath, playElderDeath, playEventSound, playPhaseTransition, playCascadeArrival, playBirdChirp, playStarAscension } from "./sound";
@@ -241,6 +241,10 @@ function init(): void {
     for (const m of w.motes) {
       moteColors.set(m, computeMoteColor(m, w.terrain.bp));
     }
+
+    // Mote water ripples — colored ring disturbances in water near each creature.
+    // Rendered before clusters/motes so it appears beneath them in the z-stack.
+    renderMoteWaterRipples(rc.buf, w.terrain, w.motes, moteColors, w.time, w.phaseIndex);
 
     // Cluster heartbeat: all motes in a cluster pulse their inner glow in unison.
     // Larger clusters beat slower — biological scaling makes size legible at a glance.
