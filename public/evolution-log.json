@@ -950,5 +950,22 @@
       "src/render-bonds.ts",
       "src/main.ts"
     ]
+  },
+  {
+    "date": "2026-04-01",
+    "title": "seasonal terrain arc",
+    "reflection": "Trees turn amber-gold at dissolution. Frost crystals form on surfaces at genesis. Colorful leaves drift down as the cycle ends.",
+    "looking_ahead": [
+      "Sound arc: genesis should be aurally sparse, silence genuinely empty",
+      "Phase transition shockwave: make the ring louder and more visible",
+      "Water shimmer reacts to nearby mote activity — ripples spread from mote positions",
+      "Elder grief: nearby motes briefly flicker when an elder dies"
+    ],
+    "visual_verification": "Dissolution (cycle 5916705 temperate) shows distinctly warm reddish-orange terrain ridgelines and amber particle drift. Genesis has dark terrain with frost shimmer on surface pixels.",
+    "quality_delta": "avgMoteBrightness 0.53 stable (cycle variance). No regressions. Autumn shift +55R/-40B on tree canopy. Frost crystals up to alpha 170 on surface tiles.",
+    "files_changed": [
+      "src/terrain-render.ts",
+      "src/render-effects.ts"
+    ]
   }
 ]

@@ -687,6 +687,17 @@ export function renderBiomeAmbientLife(
   time: number,
   cycleNumber: number,
 ): void {
+  // Falling leaves — dissolution and early silence for biomes with canopy trees.
+  // Independent intensity curve: builds quickly as dissolution begins, lingers into silence.
+  if (phaseIndex === 4 || (phaseIndex === 5 && phaseProgress < 0.35)) {
+    if (biome !== "volcanic" && biome !== "tundra") {
+      const leafStr = phaseIndex === 4
+        ? Math.min(1, phaseProgress * 2.8)               // rapid build through dissolution
+        : Math.max(0, 1 - phaseProgress / 0.35);         // fades through early silence
+      if (leafStr > 0.04) renderFallingLeaves(buf, biome, leafStr, time, cycleNumber);
+    }
+  }
+
   // Full cycle arc:
   //   genesis (0):     faint emergence — the world slowly waking, particles drifting in
   //   exploration (1): building — life finding footholds
@@ -708,7 +719,7 @@ export function renderBiomeAmbientLife(
     // Dissolution: fade from 35% → 0 over the phase
     intensity = 0.35 * Math.max(0, 1 - phaseProgress);
   } else {
-    return; // silence: nothing
+    return; // silence: nothing (leaves handled above)
   }
   if (intensity < 0.03) return;
 
@@ -720,6 +731,64 @@ export function renderBiomeAmbientLife(
 }
 
 // ─── Biome life helpers ─────────────────────────────────────────────────────
+
+/**
+ * Falling leaves — colorful debris drifting down from dying canopy during dissolution.
+ * Leaf colors are biome-specific: temperate/lush = amber/rust/gold, desert = tan/pale-gold.
+ * Particles start in the upper half of the screen (canopy zone) and fall with gentle sway.
+ */
+function renderFallingLeaves(
+  buf: ImageData,
+  biome: string,
+  intensity: number,
+  time: number,
+  cycleNumber: number,
+): void {
+  const COUNT = Math.round(28 + intensity * 52);  // 28–80 leaves
+  const seed  = cycleNumber * 4339;
+
+  // Base leaf hue per biome — individual leaves get ±variation for natural spread
+  const baseR = biome === "lush" ? 175 : biome === "desert" ? 228 : 208;
+  const baseG = biome === "lush" ?  95 : biome === "desert" ? 172 :  98;
+  const baseB = biome === "lush" ?  22 : biome === "desert" ?  40 :  18;
+
+  for (let i = 0; i < COUNT; i++) {
+    const h1 = Math.abs(seed + i * 5381) % (W * 100);
+    const h2 = Math.abs(seed + i * 3779) % (H * 100);
+    const h3 = Math.abs(seed + i * 2311) % 100;
+    const h4 = Math.abs(seed + i * 1733) % 200;
+    const h5 = Math.abs(seed + i *  991) % 100;
+    const h6 = Math.abs(seed + i * 1319) % 100;  // color variance
+
+    // Leaves spawn from upper 55% of screen — the canopy zone
+    const baseX    = h1 % W;
+    const baseY    = h2 % Math.round(H * 0.55);
+    const fallSpeed = 5.0 + h3 / 18;             // 5–10.6 px/s, varies per leaf
+    const sway      = (h4 - 100) / 340;          // gentle horizontal meander
+    const wobble    = (h5 - 50) / 180;           // per-leaf rotation wobble rate
+
+    // Position: deterministic drift + time-driven sway and fall
+    const x = ((baseX + sway * time + Math.sin(time * (0.85 + wobble) + i * 1.7) * 2.8 + W * 10) % W + W) % W | 0;
+    const y = (baseY + fallSpeed * time) % H | 0;
+
+    // Brightness twinkle: leaf tumbles and catches light
+    const tumble = 0.65 + Math.sin(time * (1.1 + wobble * 0.5) + i * 2.4) * 0.35;
+    const a = Math.round(intensity * tumble * 155);
+    if (a < 5) continue;
+
+    // Warm color variation: amber → rust → gold scatter
+    const cv = h6 / 100;
+    const lr = Math.min(255, Math.round(baseR + cv * 38));
+    const lg = Math.max(0,   Math.round(baseG - cv * 28));
+    const lb = Math.max(0,   Math.round(baseB));
+
+    setPixel(buf, x, y, lr, lg, lb, a);
+    // ~1/3 of leaves render as 2-pixel "mini leaf" for visible size at 256×144
+    if (h3 % 3 === 0) {
+      setPixel(buf, x + 1, y, lr, lg, lb, Math.round(a * 0.55));
+    }
+  }
+}
 
 /** Lush: fireflies — tiny warm-green lights that blink independently */
 function renderFireflies(buf: ImageData, intensity: number, time: number, cycleNumber: number): void {

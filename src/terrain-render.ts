@@ -278,6 +278,19 @@ export function renderTerrain(
   const REFL_PHASE = [0.65, 0.82, 0.40, 0.50, 0.88, 0.70];
   const reflPhase = REFL_PHASE[phaseIndex];
 
+  // Genesis frost: ice crystals settle on vegetation at the very start of the cycle.
+  // Strongest at cycle open (the world is cold and dark), fades as dawn warms the land.
+  // Skipped on hot/dry biomes (volcanic, desert) and tundra (already has its own ice logic).
+  const genesisStr = (biome === "volcanic" || biome === "desert" || biome === "tundra") ? 0 :
+    cycleProgress < 0.04 ? 1.0 :
+    cycleProgress < 0.13 ? Math.max(0, 1 - (cycleProgress - 0.04) / 0.09) : 0;
+
+  // Dissolution autumn: trees warm to amber-orange as the cycle enters its dying phase.
+  // Peaks around 87% of cycle; skipped on tundra (cold-shift preferred) and volcanic.
+  const autumnStr = (biome === "tundra" || biome === "volcanic") ? 0 :
+    cycleProgress >= 0.78 && cycleProgress < 0.94
+      ? Math.sin((cycleProgress - 0.78) / 0.16 * Math.PI) * 0.85 : 0;
+
   // Phase-driven terrain lighting: sunlight angle/color shifts through the cycle
   const inGoldenHour = cycleProgress >= 0.68 && cycleProgress < 0.92;
   const inSunrise    = cycleProgress >= 0.08 && cycleProgress < 0.22;
@@ -506,6 +519,13 @@ export function renderTerrain(
             d[pi + 1] = Math.round(d[pi + 1] * terrainNightFactor);
             d[pi + 2] = Math.round(d[pi + 2] * terrainNightFactor);
           }
+          // Dissolution autumn: trees warm to amber-gold as the cycle ends.
+          // Applied after night-dimming so the warmth reads correctly at sunset light levels.
+          if (autumnStr > 0 && (tile === Tile.TreeCanopy || tile === Tile.TreeTrunk)) {
+            d[pi]     = Math.min(255, Math.round(d[pi]     + autumnStr * 55));
+            d[pi + 1] = Math.min(255, Math.round(d[pi + 1] + autumnStr *  9));
+            d[pi + 2] = Math.max(0,   Math.round(d[pi + 2] - autumnStr * 40));
+          }
         }
       }
     }
@@ -516,6 +536,9 @@ export function renderTerrain(
 
   // Water surface shimmer: animated wave highlights across water
   renderWaterShimmer(buf, terrain, time);
+
+  // Genesis frost: ice crystals on ground and vegetation surfaces at cycle start
+  if (genesisStr > 0) renderFrostDetail(buf, terrain, genesisStr);
 }
 
 /** Animated water shimmer — layered waves with depth variation */
@@ -583,6 +606,41 @@ function renderWaterShimmer(buf: ImageData, terrain: Terrain, time: number): voi
         Math.max(0, shallowC[0] - 15),
         Math.max(0, shallowC[1] - 12),
         Math.max(0, shallowC[2] - 8), a);
+    }
+  }
+}
+
+/**
+ * Genesis frost detail — ice crystals settled on surface vegetation and ground at cycle open.
+ * Rendered AFTER surface detail so crystals appear on top of grass blades.
+ * Hot/dry biomes (volcanic, desert) and tundra are excluded — tundra has its own ice logic.
+ */
+function renderFrostDetail(buf: ImageData, terrain: Terrain, genesisStr: number): void {
+  const { tiles, seed, waterLevel } = terrain;
+  for (let x = 0; x < W; x++) {
+    const surfY = getSurfaceY(terrain, x);
+    const worldH = H - surfY;
+    if (worldH <= waterLevel) continue;          // below water — no frost
+    const tile = tiles[surfY * W + x] as Tile;
+    if (tile !== Tile.TreeCanopy && tile !== Tile.Ground && tile !== Tile.DarkGround) continue;
+
+    // Stable per-column noise — same frost pattern every frame (only intensity varies)
+    const fn = noise2(x * 0.87, seed * 0.0027 + 49) * 0.5 + 0.5;
+    if (fn <= 0.44) continue;
+
+    const frostA = (fn - 0.44) / 0.56 * genesisStr;
+    const fa = Math.round(frostA * 170);
+    if (fa > 4) setPixel(buf, x, surfY, 228, 240, 255, fa);  // ice-white surface sheen
+
+    // Taller frost crystals where noise peaks — thin ice spires above the surface
+    if (fn > 0.68 && surfY > 0) {
+      const crystalA = Math.round((fn - 0.68) / 0.32 * genesisStr * 120);
+      if (crystalA > 4) {
+        setPixel(buf, x, surfY - 1, 218, 234, 255, crystalA);
+        if (fn > 0.84 && surfY > 1) {
+          setPixel(buf, x, surfY - 2, 208, 228, 255, Math.round(crystalA * 0.55));
+        }
+      }
     }
   }
 }
