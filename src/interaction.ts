@@ -2,6 +2,10 @@
 
 import { W, H } from "./config";
 import type { Mote, Interaction, Ripple } from "./types";
+import {
+  PULSE_INITIAL_RADIUS, RIPPLE_INITIAL_ALPHA,
+  PULSE_FORCE_H, PULSE_FORCE_V, GRAVITY_VERTICAL_REDUCTION,
+} from "./constants";
 
 // Re-export for backward compatibility
 export type { Interaction, Ripple };
@@ -49,7 +53,7 @@ export function createInteraction(canvas: HTMLCanvasElement): Interaction {
   canvas.addEventListener("click", (e) => {
     const [wx, wy] = toWorld(e.clientX, e.clientY);
     ix.pulses.push({ x: wx, y: wy });
-    ix.ripples.push({ x: wx, y: wy, radius: 2, alpha: 1 });
+    ix.ripples.push({ x: wx, y: wy, radius: PULSE_INITIAL_RADIUS, alpha: RIPPLE_INITIAL_ALPHA });
   });
 
   // Touch
@@ -65,7 +69,7 @@ export function createInteraction(canvas: HTMLCanvasElement): Interaction {
     const [wx, wy] = toWorld(t.clientX, t.clientY);
     ix.x = wx; ix.y = wy; ix.present = true;
     ix.pulses.push({ x: wx, y: wy });
-    ix.ripples.push({ x: wx, y: wy, radius: 2, alpha: 1 });
+    ix.ripples.push({ x: wx, y: wy, radius: PULSE_INITIAL_RADIUS, alpha: RIPPLE_INITIAL_ALPHA });
   });
 
   canvas.addEventListener("touchend", () => { ix.present = false; });
@@ -102,7 +106,7 @@ export function applyInteraction(ix: Interaction, motes: Mote[]): void {
       m.forceY = -ny * SCATTER_FORCE * falloff;
     } else {
       m.forceX = nx * GRAVITY_STRENGTH * falloff;
-      m.forceY = ny * GRAVITY_STRENGTH * falloff * 0.3; // less vertical pull
+      m.forceY = ny * GRAVITY_STRENGTH * falloff * GRAVITY_VERTICAL_REDUCTION; // less vertical pull
     }
   }
 
@@ -116,8 +120,8 @@ export function applyInteraction(ix: Interaction, motes: Mote[]): void {
       const falloff = 1 - dist / PULSE_RADIUS;
       m.energy = Math.min(1, m.energy + PULSE_ENERGY * falloff);
       if (dist > 0.5) {
-        m.forceX += (dx / dist) * 8 * falloff;
-        m.forceY += (dy / dist) * 5 * falloff;
+        m.forceX += (dx / dist) * PULSE_FORCE_H * falloff;
+        m.forceY += (dy / dist) * PULSE_FORCE_V * falloff;
       }
     }
   }

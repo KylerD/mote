@@ -93,3 +93,55 @@ export const HARDY_FLASH_MIN_HARDINESS = 0.45;
 
 // ---- Curiosity facing ----
 export const CURIOSITY_FACING_MIN_TIMER = 0.1;
+
+// ---- World / Phases ----
+export const PHASE_DURATIONS = [0.10, 0.20, 0.25, 0.25, 0.12, 0.08] as const;
+export const RNG_SEED_OFFSET = 7777;
+export const SPAWN_ATTEMPTS = 10;
+export const SPAWN_ENERGY_MIN = 0.4;
+export const SPAWN_ENERGY_RANGE = 0.4;
+export const SETTLEMENT_INTERVAL = 3;
+export const SETTLEMENT_MIN_CLUSTER = 3;
+export const DEATH_RECORD_LIFETIME = 7.5;
+export const INHERIT_RADIUS_BASE = 55;
+export const INHERIT_RADIUS_AGE_MAX = 25;
+export const INHERIT_RADIUS_AGE_MULT = 1.5;
+export const CLUSTER_MOURNING_PERIPHERAL = 0.55;
+export const WANDERER_TRAIL_THRESHOLD = 0.6;
+export const DEATH_COLOR_ENERGY = 0.4;
+export const AGE_GOLD_START = 8;
+export const AGE_GOLD_WINDOW = 22;
+export const AGE_GOLD_STRENGTH = 0.40;
+export const MAX_SPEED_MULTIPLIER = 120;
+
+// Phase params table (indexed by phase)
+export const PHASE_PARAMS = [
+  { spawnRate: 4,  maxMotes: 20, energyDecay: 0.008, bondStrength: 0.3 },
+  { spawnRate: 3,  maxMotes: 45, energyDecay: 0.012, bondStrength: 0.5 },
+  { spawnRate: 2,  maxMotes: 60, energyDecay: 0.015, bondStrength: 0.8 },
+  { spawnRate: 2,  maxMotes: 70, energyDecay: 0.018, bondStrength: 0.9 },
+  { spawnRate: 0,  maxMotes: 70, energyDecay: 0.04,  bondStrength: 0.3 },
+  { spawnRate: 0,  maxMotes: 70, energyDecay: 0.07,  bondStrength: 0.1 },
+] as const;
+
+// ---- Events ----
+export const EVENT_FREQUENCY = 12;
+export const EVENT_MESSAGE_DISPLAY = 3;
+export const EVENT_MESSAGE_FADE = 2;
+
+export const EVENT_DURATIONS: Record<string, number> = {
+  flood: 28, bloom: 15, meteor: 8, migration: 22, eclipse: 28,
+  earthquake: 12, plague: 32, aurora: 22, drought: 48,
+};
+
+export const EVENT_TRIGGER_POINTS: Record<string, number> = {
+  flood: 0.40, bloom: 0.50, meteor: 0.60, migration: 0.55, eclipse: 0.65,
+  earthquake: 0.45, plague: 0.50, aurora: 0.70, drought: 0.38,
+};
+
+// ---- Interaction (inline ones) ----
+export const PULSE_INITIAL_RADIUS = 2;
+export const RIPPLE_INITIAL_ALPHA = 1;
+export const PULSE_FORCE_H = 8;
+export const PULSE_FORCE_V = 5;
+export const GRAVITY_VERTICAL_REDUCTION = 0.3;

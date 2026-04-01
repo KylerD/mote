@@ -6,6 +6,10 @@ import { Tile } from "./types";
 import type { World, Mote, Terrain, ActiveEvent, EventType } from "./types";
 import { getSurfaceY, modifyTile } from "./terrain-query";
 import { W, H } from "./config";
+import {
+  EVENT_FREQUENCY, EVENT_MESSAGE_DISPLAY, EVENT_MESSAGE_FADE,
+  EVENT_DURATIONS, EVENT_TRIGGER_POINTS,
+} from "./constants";
 
 // Re-export for backward compatibility
 export type { ActiveEvent, EventType };
@@ -14,7 +18,7 @@ export type { ActiveEvent, EventType };
 export function checkForEvent(cycleNumber: number): ActiveEvent | null {
   // Deterministic: hash the cycle number
   const h = Math.abs(cycleNumber * 2654435761 | 0);
-  if (h % 12 !== 0) return null;
+  if (h % EVENT_FREQUENCY !== 0) return null;
 
   const eventIndex = (h >>> 8) % 9;
   const types: EventType[] = [
@@ -34,13 +38,12 @@ export function checkForEvent(cycleNumber: number): ActiveEvent | null {
     ["THE LONG THIRST",      "WATER RUNS DRY",          "THE DRYING"],
   ];
   const variant = (h >>> 16) % 3;
-  const durations = [28, 15, 8, 22, 28, 12, 32, 22, 48];
 
   return {
     type: types[eventIndex],
     message: messagePools[eventIndex][variant],
     startTime: -1, // set when triggered
-    duration: durations[eventIndex],
+    duration: EVENT_DURATIONS[types[eventIndex]],
     messageAlpha: 1,
     data: {},
   };
@@ -51,18 +54,7 @@ export function checkForEvent(cycleNumber: number): ActiveEvent | null {
  * Events are placed intentionally within the arc — not all at the same moment.
  */
 export function getEventTriggerPoint(type: EventType): number {
-  const points: Record<EventType, number> = {
-    flood:      0.40, // early — more time for rising waters to reshape play
-    bloom:      0.50, // mid organization — abundance at peak bonding
-    meteor:     0.60, // during complexity — maximum witnesses
-    migration:  0.55, // late organization — community just formed, then swept away
-    eclipse:    0.65, // complexity peak — most dramatic darkening
-    earthquake: 0.45, // organization boundary — chaos just as clusters form
-    plague:     0.50, // mid cycle — targets bonded motes at their richest
-    aurora:     0.70, // late complexity — beautiful prelude to dissolution
-    drought:    0.38, // early — long suffering through the full arc
-  };
-  return points[type];
+  return EVENT_TRIGGER_POINTS[type] ?? 0.5;
 }
 
 /** Apply ongoing event effects each frame */
@@ -79,10 +71,10 @@ export function applyEvent(
   const progress = elapsed / event.duration;
 
   // Fade message
-  if (elapsed < 3) {
+  if (elapsed < EVENT_MESSAGE_DISPLAY) {
     event.messageAlpha = 1;
   } else {
-    event.messageAlpha = Math.max(0, 1 - (elapsed - 3) / 2);
+    event.messageAlpha = Math.max(0, 1 - (elapsed - EVENT_MESSAGE_DISPLAY) / EVENT_MESSAGE_FADE);
   }
 
   switch (event.type) {

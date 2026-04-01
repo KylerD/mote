@@ -13,6 +13,17 @@ import {
 import { mulberry32 } from "./rng";
 import { hsl2rgb } from "./palette";
 import { createWeather, updateWeather } from "./weather";
+import {
+  PHASE_DURATIONS, PHASE_PARAMS,
+  RNG_SEED_OFFSET, MAX_SPEED_MULTIPLIER,
+  SPAWN_ATTEMPTS, SPAWN_ENERGY_MIN, SPAWN_ENERGY_RANGE,
+  SETTLEMENT_INTERVAL, SETTLEMENT_MIN_CLUSTER,
+  DEATH_RECORD_LIFETIME,
+  INHERIT_RADIUS_BASE, INHERIT_RADIUS_AGE_MAX, INHERIT_RADIUS_AGE_MULT,
+  CLUSTER_MOURNING_PERIPHERAL,
+  WANDERER_TRAIL_THRESHOLD, DEATH_COLOR_ENERGY,
+  AGE_GOLD_START, AGE_GOLD_WINDOW, AGE_GOLD_STRENGTH,
+} from "./constants";
 
 // Re-export for backward compatibility
 export { CYCLE_DURATION };
@@ -27,15 +38,7 @@ export const PHASE_NAMES = [
   "silence",
 ] as const;
 
-/** Unequal phase durations (fractions of cycle) */
-const PHASE_DURATIONS = [
-  0.10, // genesis     — 30s
-  0.20, // exploration — 60s
-  0.25, // organization — 75s
-  0.25, // complexity  — 75s
-  0.12, // dissolution — 36s
-  0.08, // silence     — 24s
-];
+/** Unequal phase durations (fractions of cycle) — imported from constants */
 
 const PHASE_BOUNDARIES: number[] = [];
 {
@@ -61,22 +64,6 @@ export function getPhaseFromCycle(cycleProgress: number): {
   return { index: 5, progress: 1 };
 }
 
-interface PhaseParams {
-  spawnRate: number;
-  maxMotes: number;
-  energyDecay: number;
-  bondStrength: number;
-}
-
-const PHASE_PARAMS: PhaseParams[] = [
-  { spawnRate: 4, maxMotes: 20, energyDecay: 0.008, bondStrength: 0.3 },
-  { spawnRate: 3, maxMotes: 45, energyDecay: 0.012, bondStrength: 0.5 },
-  { spawnRate: 2, maxMotes: 60, energyDecay: 0.015, bondStrength: 0.8 },
-  { spawnRate: 2, maxMotes: 70, energyDecay: 0.018, bondStrength: 0.9 },
-  { spawnRate: 0, maxMotes: 70, energyDecay: 0.04, bondStrength: 0.3 },
-  { spawnRate: 0, maxMotes: 70, energyDecay: 0.07, bondStrength: 0.1 },
-];
-
 // World, DeathRecord are defined in types.ts and re-exported above
 
 export function createWorld(): World {
@@ -95,7 +82,7 @@ export function createWorld(): World {
     phaseName: "genesis",
     params: PHASE_PARAMS[0],
     time: 0,
-    rng: mulberry32(cycleNumber + 7777), // offset so motes differ from terrain
+    rng: mulberry32(cycleNumber + RNG_SEED_OFFSET), // offset so motes differ from terrain
     spawnAccum: 0,
     settlementTimer: 0,
     event: checkForEvent(cycleNumber),
@@ -112,7 +99,7 @@ export function createWorld(): World {
 function getSpeedMultiplier(): number {
   const params = new URLSearchParams(window.location.search);
   const speed = params.get("speed");
-  return speed ? Math.max(1, Math.min(120, Number(speed))) : 1;
+  return speed ? Math.max(1, Math.min(MAX_SPEED_MULTIPLIER, Number(speed))) : 1;
 }
 
 const speedMultiplier = getSpeedMultiplier();
@@ -134,7 +121,7 @@ export function updateWorld(world: World, dt: number): void {
     world.cycleNumber = currentCycle;
     world.terrain = generateTerrain(currentCycle);
     world.motes = [];
-    world.rng = mulberry32(currentCycle + 7777);
+    world.rng = mulberry32(currentCycle + RNG_SEED_OFFSET);
     world.spawnAccum = 0;
     world.settlementTimer = 0;
     world.event = checkForEvent(currentCycle);
@@ -174,13 +161,13 @@ export function updateWorld(world: World, dt: number): void {
     while (world.spawnAccum >= 1) {
       world.spawnAccum -= 1;
       // Find a valid spawn position
-      for (let attempt = 0; attempt < 10; attempt++) {
+      for (let attempt = 0; attempt < SPAWN_ATTEMPTS; attempt++) {
         const x = 4 + world.rng() * (W - 8);
         const surfY = getSurfaceY(world.terrain, x);
         const tile = getTile(world.terrain, x, surfY);
         // Don't spawn on water
         if (tile === Tile.ShallowWater || tile === Tile.DeepWater) continue;
-        const energy = 0.4 + world.rng() * 0.4;
+        const energy = SPAWN_ENERGY_MIN + world.rng() * SPAWN_ENERGY_RANGE;
         world.motes.push(createMote(x, surfY - 1, energy, world.rng));
         break;
       }
@@ -198,11 +185,11 @@ export function updateWorld(world: World, dt: number): void {
 
   // Settlement placement: stable clusters mark the ground
   world.settlementTimer += dt;
-  if (world.settlementTimer > 3) {
+  if (world.settlementTimer > SETTLEMENT_INTERVAL) {
     world.settlementTimer = 0;
     const clusters = findClusters(world.motes);
     for (const cluster of clusters) {
-      if (cluster.length >= 3) {
+      if (cluster.length >= SETTLEMENT_MIN_CLUSTER) {
         // Find centroid
         let cx = 0;
         for (const m of cluster) cx += m.x;
@@ -217,18 +204,18 @@ export function updateWorld(world: World, dt: number): void {
   for (const m of world.motes) {
     if (m.energy <= 0) {
       // Use mid energy so identity color is recognizable (mote was alive moments ago)
-      const dE = 0.4;
+      const dE = DEATH_COLOR_ENERGY;
       const hue = (m.temperament.wanderlust * 50 + m.temperament.sociability * 160 + 40 + m.temperament.hardiness * 60) % 360;
       const sat = Math.min(1, 0.45 + m.temperament.sociability * 0.35 + dE * 0.15);
       const hardyBoost = m.temperament.hardiness * 0.08 * (1 - dE);
       const light = Math.min(0.72, 0.30 + (dE + hardyBoost) * 0.38);
       let [dr, dg, db] = hsl2rgb(hue, sat, light);
-      const ageGold = Math.min(1, Math.max(0, (m.age - 8) / 22)) * 0.40;
+      const ageGold = Math.min(1, Math.max(0, (m.age - AGE_GOLD_START) / AGE_GOLD_WINDOW)) * AGE_GOLD_STRENGTH;
       dr = Math.round(dr + (220 - dr) * ageGold);
       dg = Math.round(dg + (165 - dg) * ageGold);
       db = Math.round(db + (40 - db) * ageGold);
       // Wanderers: copy their trail so the ghost-path outlives the walker
-      const isWanderer = m.temperament.wanderlust > 0.6;
+      const isWanderer = m.temperament.wanderlust > WANDERER_TRAIL_THRESHOLD;
       const trailCopy = isWanderer ? m.trail.map(pt => ({ ...pt })) : undefined;
 
       world.deaths.push({
@@ -243,7 +230,7 @@ export function updateWorld(world: World, dt: number): void {
       world.allDeaths.push({ x: m.x, y: m.y, r: dr, g: dg, b: db, time: world.time });
 
       // Death inheritance: age-scaled radius — elders are missed from further away
-      const inheritRadius = 55 + Math.min(25, m.age * 1.5);
+      const inheritRadius = INHERIT_RADIUS_BASE + Math.min(INHERIT_RADIUS_AGE_MAX, m.age * INHERIT_RADIUS_AGE_MULT);
       let nearest: typeof world.motes[0] | null = null;
       let nearestD2 = inheritRadius * inheritRadius;
       for (const other of world.motes) {
@@ -266,9 +253,9 @@ export function updateWorld(world: World, dt: number): void {
         if (cluster.includes(m)) {
           for (const other of cluster) {
             if (other !== m && other.energy > 0) {
-              // Direct bond partners grieve at full intensity; others at 55%
+              // Direct bond partners grieve at full intensity; others at peripheral intensity
               const wasBonded = other.bonds.includes(m);
-              other.mourningFlash = wasBonded ? 1.0 : 0.55;
+              other.mourningFlash = wasBonded ? 1.0 : CLUSTER_MOURNING_PERIPHERAL;
               other.mourningR = dr;
               other.mourningG = dg;
               other.mourningB = db;
@@ -301,8 +288,8 @@ export function updateWorld(world: World, dt: number): void {
   // Remove dead motes
   world.motes = world.motes.filter((m) => m.energy > 0);
 
-  // Clean old death records (7.5s for full soul-rise + ground echo)
-  world.deaths = world.deaths.filter(d => world.time - d.time < 7.5);
+  // Clean old death records (DEATH_RECORD_LIFETIME for full soul-rise + ground echo)
+  world.deaths = world.deaths.filter(d => world.time - d.time < DEATH_RECORD_LIFETIME);
 
   // Weather particle/cloud/lightning updates
   updateWeather(world.weather, dt, world.time, world.rng);
