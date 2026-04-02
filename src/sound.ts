@@ -8,6 +8,7 @@ import {
   BIOME_SOUND, BIOME_PHASE_SCALES, PHASE_AUDIO, PHASE_AMBIENT_MULT,
   type BiomeSoundProfile,
 } from "./sound-config";
+import { getState, type AmbientBed } from "./sound-state";
 
 // Re-export for backward compatibility
 export type { SoundEngine };
@@ -15,16 +16,6 @@ export type { SoundEngine };
 const MAX_VOICES = 8;
 
 // ---- Biome Ambient Texture Beds ----
-
-interface AmbientBed {
-  droneOsc: OscillatorNode | null;
-  droneGain: GainNode | null;
-  textureSource: AudioBufferSourceNode;
-  textureFilter: BiquadFilterNode;
-  textureGain: GainNode;
-  lfoOsc: OscillatorNode | null;
-  lfoGain: GainNode | null;
-}
 
 interface BiomeAmbientConfig {
   droneFreq: number;
@@ -119,31 +110,6 @@ function stopAmbientBed(bed: AmbientBed, now: number): void {
   if (bed.lfoOsc) { try { bed.lfoOsc.stop(now + fadeTime + 0.1); } catch (_) { /* already stopped */ } }
 }
 
-// ---- Module-level engine augmentation ----
-// Extra state stored in WeakMaps keyed on the engine,
-// without needing to modify the SoundEngine interface in types.ts.
-
-const engineCurrentBiome = new WeakMap<SoundEngine, Biome | null>();
-const engineAmbientBed = new WeakMap<SoundEngine, AmbientBed>();
-const engineSpawnCooldown = new WeakMap<SoundEngine, number>();
-const engineBondBreakCooldown = new WeakMap<SoundEngine, number>();
-const engineVolcanicAccentTime = new WeakMap<SoundEngine, number>();
-const engineLonelyDroneTime = new WeakMap<SoundEngine, number>();
-const engineDesertShimmerTime = new WeakMap<SoundEngine, number>();
-const engineMilestone4Time = new WeakMap<SoundEngine, number>();
-const engineMilestone8Time = new WeakMap<SoundEngine, number>();
-const engineTundraWindTime = new WeakMap<SoundEngine, number>();
-const engineVolcanicRumbleTime = new WeakMap<SoundEngine, number>();
-const engineClusterMergeCooldown = new WeakMap<SoundEngine, number>();
-const engineMourningTime = new WeakMap<SoundEngine, number>();
-const enginePrevMoteCount = new WeakMap<SoundEngine, number>();
-const engineLushBloomTime = new WeakMap<SoundEngine, number>();
-const engineAncientBondBreakTime = new WeakMap<SoundEngine, number>();
-const engineLushFireflyTime = new WeakMap<SoundEngine, number>();
-const engineTundraCrystalTime = new WeakMap<SoundEngine, number>();
-const engineCascadeArrivalTime = new WeakMap<SoundEngine, number>();
-const engineElderDeathTime = new WeakMap<SoundEngine, number>();
-
 // Per-voice note scheduling state
 interface VoiceSlot {
   lastNoteTime: number;
@@ -200,11 +166,11 @@ export function initAudio(engine: SoundEngine): void {
 
   // No permanent oscillators — notes are triggered on demand
 
-  engineCurrentBiome.set(engine, null);
+  const st0 = getState(engine);
+  st0.currentBiome = null;
 
   // Start ambient bed at temperate default; swapped on first biome-aware updateSound
-  const ambientBed = createAmbientBed(ctx, "temperate", engine.masterGain);
-  engineAmbientBed.set(engine, ambientBed);
+  st0.ambientBed = createAmbientBed(ctx, "temperate", engine.masterGain);
 
   engine.initialized = true;
 }
@@ -284,9 +250,10 @@ export function updateSound(
   const pa = PHASE_AUDIO[phaseIndex];
   const nextPa = PHASE_AUDIO[(phaseIndex + 1) % 6];
 
+  const st = getState(engine);
+
   // Rebuild reverb and swap ambient bed when biome changes
-  const prevBiome = engineCurrentBiome.get(engine);
-  if (prevBiome !== biome) {
+  if (st.currentBiome !== biome) {
     const oldReverb = engine.reverb;
     const newReverb = createReverb(engine.ctx, profile.reverbSecs);
     try {
@@ -298,15 +265,14 @@ export function updateSound(
     engine.reverb = newReverb;
 
     // Swap ambient texture bed to match new biome
-    const oldBed = engineAmbientBed.get(engine);
-    if (oldBed) stopAmbientBed(oldBed, now);
-    engineAmbientBed.set(engine, createAmbientBed(engine.ctx, biome, engine.masterGain));
+    if (st.ambientBed) stopAmbientBed(st.ambientBed, now);
+    st.ambientBed = createAmbientBed(engine.ctx, biome, engine.masterGain);
 
-    engineCurrentBiome.set(engine, biome);
+    st.currentBiome = biome;
   }
 
   // Phase-reactive ambient bed — drives the full sonic arc (quiet genesis → full complexity → silent silence)
-  const ambBed = engineAmbientBed.get(engine);
+  const ambBed = st.ambientBed;
   const ambCfg = BIOME_AMBIENT[biome];
   if (ambBed) {
     let phaseMult = PHASE_AMBIENT_MULT[phaseIndex];
@@ -345,15 +311,13 @@ export function updateSound(
   for (const cluster of active) {
     const sz = cluster.length;
     if (sz === 4) {
-      const last4 = engineMilestone4Time.get(engine) ?? -999;
-      if (now - last4 > 25.0) {
-        engineMilestone4Time.set(engine, now);
+      if (now - st.milestone4Time > 25.0) {
+        st.milestone4Time = now;
         playClusterMilestone(engine, scale, profile, 4);
       }
     } else if (sz >= 8) {
-      const last8 = engineMilestone8Time.get(engine) ?? -999;
-      if (now - last8 > 50.0) {
-        engineMilestone8Time.set(engine, now);
+      if (now - st.milestone8Time > 50.0) {
+        st.milestone8Time = now;
         playClusterMilestone(engine, scale, profile, 8);
       }
     }
@@ -413,9 +377,8 @@ export function updateSound(
 
   // Desert shimmer — occasional very-high harmonic sparkle: heat haze made audible
   if (biome === "desert") {
-    const lastShimmer = engineDesertShimmerTime.get(engine) ?? 0;
-    if (now - lastShimmer > 0.9 && Math.random() < 0.028) {
-      engineDesertShimmerTime.set(engine, now);
+    if (now - st.desertShimmerTime > 0.9 && Math.random() < 0.028) {
+      st.desertShimmerTime = now;
       playDesertShimmer(engine, profile, scale);
     }
   }
@@ -448,67 +411,61 @@ export function updateSound(
   }
 
   // Bond break sounds — two tones falling apart (inverse of bond formation)
-  const bondBreakCooldown = engineBondBreakCooldown.get(engine) ?? 0;
-  if (now - bondBreakCooldown > 0.20) {
+  if (now - st.bondBreakCooldown > 0.20) {
     for (const m of motes) {
       if (m.bondBreakFlash > 0.9) {
         playBondBreak(engine, 1 - m.y / H, scale, profile);
-        engineBondBreakCooldown.set(engine, now);
+        st.bondBreakCooldown = now;
         break;
       }
     }
   }
 
   // Ancient bond break — deep sorrowful chord when a long relationship ends (70s+ bonds)
-  const ancientBreakTime = engineAncientBondBreakTime.get(engine) ?? 0;
-  if (now - ancientBreakTime > 3.0) {
+  if (now - st.ancientBondBreakTime > 3.0) {
     for (const m of motes) {
       if (m.ancientBondBreakFlash > 0.9) {
         playAncientBondBreak(engine, 1 - m.y / H, profile, biome);
-        engineAncientBondBreakTime.set(engine, now);
+        st.ancientBondBreakTime = now;
         break;
       }
     }
   }
 
   // Cluster merge sounds — two communities finding each other's resonance
-  const clusterMergeCooldown = engineClusterMergeCooldown.get(engine) ?? 0;
-  if (now - clusterMergeCooldown > 1.5) {
+  if (now - st.clusterMergeCooldown > 1.5) {
     for (const m of motes) {
       if (m.clusterMergeFlash > 0.9) {
         playClusterMerge(engine, profile, biome);
-        engineClusterMergeCooldown.set(engine, now);
+        st.clusterMergeCooldown = now;
         break;
       }
     }
   }
 
   // Mourning chorus — when 2+ motes grieve together, a quiet communal chord
-  const mourningTime = engineMourningTime.get(engine) ?? 0;
-  if (now - mourningTime > 7.0) {
+  if (now - st.mourningTime > 7.0) {
     let mourningCount = 0;
     for (const m of motes) { if (m.mourningFlash > 0.6) mourningCount++; }
     if (mourningCount >= 2) {
       playMourningChorus(engine, profile, biome);
-      engineMourningTime.set(engine, now);
+      st.mourningTime = now;
     }
   }
 
   // Spawn sounds — gentle arrival ping for freshly born motes
-  const spawnCooldown = engineSpawnCooldown.get(engine) ?? 0;
-  if (now - spawnCooldown > 0.18) {
+  if (now - st.spawnCooldown > 0.18) {
     const freshMote = motes.find((m) => m.spawnFlash > 0.75);
     if (freshMote) {
       playSpawnPing(engine, freshMote.x / W, 1 - freshMote.y / H, scale, profile);
-      engineSpawnCooldown.set(engine, now);
+      st.spawnCooldown = now;
     }
   }
 
   // Volcanic lava pops — periodic low-frequency transients, like bubbles of magma surfacing
   if (biome === "volcanic") {
-    const lastAccent = engineVolcanicAccentTime.get(engine) ?? 0;
-    if (now - lastAccent > 2.2 + Math.random() * 4.5) {
-      engineVolcanicAccentTime.set(engine, now);
+    if (now - st.volcanicAccentTime > 2.2 + Math.random() * 4.5) {
+      st.volcanicAccentTime = now;
       const aCtx = engine.ctx;
       const popLen = Math.floor(aCtx.sampleRate * 0.11);
       const popBuf = aCtx.createBuffer(1, popLen, aCtx.sampleRate);
@@ -534,9 +491,8 @@ export function updateSound(
   // Silence loner: when the last 1–2 motes remain in dissolution or silence,
   // a quiet sustained tone holds the space — loneliness made audible
   if (phaseIndex >= 4 && motes.length >= 1 && motes.length <= 2) {
-    const lastLonely = engineLonelyDroneTime.get(engine) ?? 0;
-    if (now - lastLonely > 22.0) {
-      engineLonelyDroneTime.set(engine, now);
+    if (now - st.lonelyDroneTime > 22.0) {
+      st.lonelyDroneTime = now;
       const lCtx = engine.ctx;
       const m = motes[0];
       const lonelyFreq = profile.rootFreq * (1.0 + (1 - m.y / H) * 0.4);
@@ -558,9 +514,8 @@ export function updateSound(
   // Tundra silence: two detuned sines that rise and fall like a cold wind breathing —
   // the frozen world's last exhale. Long arc (26s), fully wet in reverb.
   if (biome === "tundra" && phaseIndex === 5) {
-    const lastWind = engineTundraWindTime.get(engine) ?? 0;
-    if (now - lastWind > 28.0) {
-      engineTundraWindTime.set(engine, now);
+    if (now - st.tundraWindTime > 28.0) {
+      st.tundraWindTime = now;
       const wCtx = engine.ctx;
       for (const [detune, pan, vol] of [[-9, -0.45, 0.012], [9, 0.45, 0.010]] as [number, number, number][]) {
         const wOsc = wCtx.createOscillator();
@@ -587,10 +542,9 @@ export function updateSound(
   // Lush fireflies — brief high-frequency sine chirps in organization/complexity.
   // Each chirp is a single firefly: a soft blink of sound, randomly panned, randomly pitched.
   if (biome === "lush" && phaseIndex >= 2 && phaseIndex <= 3) {
-    const lastFirefly = engineLushFireflyTime.get(engine) ?? 0;
     const fireflyInterval = phaseIndex === 3 ? 0.7 : 1.1; // denser in complexity
-    if (now - lastFirefly > fireflyInterval && Math.random() < 0.70) {
-      engineLushFireflyTime.set(engine, now + Math.random() * 0.4); // stagger next check
+    if (now - st.lushFireflyTime > fireflyInterval && Math.random() < 0.70) {
+      st.lushFireflyTime = now + Math.random() * 0.4; // stagger next check
       const fCtx = engine.ctx;
       // Two chirps slightly staggered — feels like a real insect
       for (const [delay, freqMult] of [[0, 1.0], [0.045, 1.12]] as [number, number][]) {
@@ -616,10 +570,9 @@ export function updateSound(
   // Tundra crystal pings — resonant metallic tones, like ice shifting under pressure.
   // Rare during organization, moderate in complexity. Long decay echoing into frozen air.
   if (biome === "tundra" && phaseIndex >= 2 && phaseIndex <= 3) {
-    const lastCrystal = engineTundraCrystalTime.get(engine) ?? 0;
     const crystalInterval = phaseIndex === 3 ? 3.5 : 5.5;
-    if (now - lastCrystal > crystalInterval && Math.random() < 0.80) {
-      engineTundraCrystalTime.set(engine, now);
+    if (now - st.tundraCrystalTime > crystalInterval && Math.random() < 0.80) {
+      st.tundraCrystalTime = now;
       const cCtx = engine.ctx;
       // Two detuned tones for a glassy, slightly-out-of-phase shimmer
       for (const [detune, panVal] of [[-8, -0.55], [8, 0.55]] as [number, number][]) {
@@ -650,12 +603,11 @@ export function updateSound(
 
   // Lush final silence bloom — a warm major-7th chord burst as the last mote leaves.
   // Fires exactly once: when mote count first drops to 0 in the silence phase.
-  const prevMoteCount = enginePrevMoteCount.get(engine) ?? motes.length;
-  enginePrevMoteCount.set(engine, motes.length);
+  const prevMoteCount = st.prevMoteCount;
+  st.prevMoteCount = motes.length;
   if (biome === "lush" && phaseIndex === 5 && motes.length === 0 && prevMoteCount > 0) {
-    const lastBloom = engineLushBloomTime.get(engine) ?? -999;
-    if (now - lastBloom > 30.0) {
-      engineLushBloomTime.set(engine, now);
+    if (now - st.lushBloomTime > 30.0) {
+      st.lushBloomTime = now;
       playLushFinalBloom(engine, profile);
     }
   }
@@ -663,10 +615,9 @@ export function updateSound(
   // Volcanic dissolution: sub-bass rumbles that grow more frequent as the world ends.
   // Interval shrinks from 8s → 2s as phaseProgress approaches 1.
   if (biome === "volcanic" && phaseIndex === 4) {
-    const lastRumble = engineVolcanicRumbleTime.get(engine) ?? 0;
     const rumbleInterval = 8.0 - phaseProgress * 6.0;
-    if (now - lastRumble > rumbleInterval) {
-      engineVolcanicRumbleTime.set(engine, now);
+    if (now - st.volcanicRumbleTime > rumbleInterval) {
+      st.volcanicRumbleTime = now;
       const rCtx = engine.ctx;
       const rOsc = rCtx.createOscillator();
       const rFilter = rCtx.createBiquadFilter();
@@ -796,7 +747,7 @@ export function playBondForm(
   profile?: BiomeSoundProfile,
 ): void {
   const p = profile ?? BIOME_SOUND.temperate;
-  const biome = engineCurrentBiome.get(engine) ?? "temperate";
+  const biome = getState(engine).currentBiome ?? "temperate";
   const ctx = engine.ctx;
   const now = ctx.currentTime;
 
@@ -878,7 +829,7 @@ function playBondBreak(
   scale: number[],
   profile: BiomeSoundProfile,
 ): void {
-  const biome = engineCurrentBiome.get(engine) ?? "temperate";
+  const biome = getState(engine).currentBiome ?? "temperate";
   const ctx = engine.ctx;
   const now = ctx.currentTime;
   const idx = Math.floor(yNorm * scale.length) % scale.length;
@@ -1171,7 +1122,7 @@ function playAncientBondBreak(
 /** Death sound — distinct per biome, loss made audible in each world's own voice */
 export function playDeath(engine: SoundEngine, yNorm: number): void {
   if (!engine.initialized) return;
-  const biome = engineCurrentBiome.get(engine) ?? "temperate";
+  const biome = getState(engine).currentBiome ?? "temperate";
   const p = BIOME_SOUND[biome];
   const ctx = engine.ctx;
   const now = ctx.currentTime;
@@ -1325,15 +1276,15 @@ export function playDeath(engine: SoundEngine, yNorm: number): void {
  */
 export function playElderDeath(engine: SoundEngine, yNorm: number): void {
   if (!engine.initialized) return;
-  const biome = engineCurrentBiome.get(engine) ?? "temperate";
+  const st = getState(engine);
+  const biome = st.currentBiome ?? "temperate";
   const p = BIOME_SOUND[biome];
   const ctx = engine.ctx;
   const now = ctx.currentTime;
 
   // Cooldown: at most one elder knell every 4 seconds (avoids saturation in dissolution)
-  const lastKnell = engineElderDeathTime.get(engine) ?? -999;
-  if (now - lastKnell < 4.0) return;
-  engineElderDeathTime.set(engine, now);
+  if (now - st.elderDeathTime < 4.0) return;
+  st.elderDeathTime = now;
 
   // Root from biome profile shifted by Y position — high deaths ring higher
   const rootFreq = p.rootFreq * (1.0 + yNorm * 0.35);
@@ -2029,9 +1980,9 @@ export function playCascadeArrival(engine: SoundEngine, biome: Biome): void {
   const now = ctx.currentTime;
 
   // Per-engine cooldown — at most one cascade sound every 4 seconds
-  const lastCascade = engineCascadeArrivalTime.get(engine) ?? -999;
-  if (now - lastCascade < 4.0) return;
-  engineCascadeArrivalTime.set(engine, now);
+  const st = getState(engine);
+  if (now - st.cascadeArrivalTime < 4.0) return;
+  st.cascadeArrivalTime = now;
 
   const profile = BIOME_SOUND[biome];
   // Use the complexity-phase scale — richest voicing, peak of life
@@ -2255,7 +2206,7 @@ export function playStarAscension(engine: SoundEngine, _yNorm: number, colorR: n
   if (now - _lastStarChimeTime < 0.40) return;
   _lastStarChimeTime = now;
 
-  const biome = engineCurrentBiome.get(engine) ?? "temperate";
+  const biome = getState(engine).currentBiome ?? "temperate";
   const p = BIOME_SOUND[biome];
 
   // Pitch from mote's color (subtle variation, stays in upper register)
