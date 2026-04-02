@@ -37,6 +37,8 @@ import {
   TOGETHERNESS_LONELY_RATE, LONELY_THRESHOLD_TIME,
   CURIOSITY_RESTLESS_RATE, RESTLESS_THRESHOLD_TIME,
   GRIEF_COMFORT_OVERRIDE, GRIEF_TOGETHERNESS_FLOOR,
+  FAV_POSITION_ALPHA, FAV_POSITION_INTERVAL, FAV_POSITION_ENERGY_THRESHOLD,
+  AVOIDANCE_DURATION, AVOIDANCE_ENERGY_DROP, AVOIDANCE_ENERGY_WINDOW,
 } from "./constants";
 
 // Re-export for backward compatibility
@@ -159,6 +161,56 @@ function updateDrives(m: Mote, dt: number, hasNeighbor: boolean): void {
   m.togetherness = Math.max(0, Math.min(1, m.togetherness));
 }
 
+function updateMemory(m: Mote, dt: number): void {
+  // Favorite position: EMA updated every ~2s when energy is decent
+  m.favTimer += dt;
+  if (m.favTimer >= FAV_POSITION_INTERVAL && m.energy > FAV_POSITION_ENERGY_THRESHOLD) {
+    m.favTimer = 0;
+    m.favX += FAV_POSITION_ALPHA * (m.x - m.favX);
+    m.favY += FAV_POSITION_ALPHA * (m.y - m.favY);
+  }
+
+  // Preferred companion: track longest-bonded mote
+  if (m.bonds.length > 0) {
+    let longestAge = 0;
+    let longest: Mote | null = null;
+    for (const b of m.bonds) {
+      const age = m.bondAges.get(b) ?? 0;
+      if (age > longestAge) {
+        longestAge = age;
+        longest = b;
+      }
+    }
+    if (longest && m.preferredMote) {
+      const currentAge = m.bondAges.get(m.preferredMote) ?? 0;
+      if (longestAge > currentAge) {
+        m.preferredMote = longest;
+      }
+    } else if (longest && !m.preferredMote) {
+      m.preferredMote = longest;
+    }
+  }
+
+  // Avoidance: detect sharp energy drops
+  const energyDelta = m.lastEnergy - m.energy;
+  const timeDelta = m.age - m.lastEnergyTime;
+  if (timeDelta >= AVOIDANCE_ENERGY_WINDOW) {
+    if (energyDelta > AVOIDANCE_ENERGY_DROP) {
+      m.avoidX = m.x;
+      m.avoidY = m.y;
+      m.avoidTimer = AVOIDANCE_DURATION;
+    }
+    m.lastEnergy = m.energy;
+    m.lastEnergyTime = m.age;
+  }
+
+  // Avoidance decay
+  if (m.avoidTimer > 0) {
+    m.avoidTimer -= dt;
+    if (m.avoidTimer < 0) m.avoidTimer = 0;
+  }
+}
+
 export function updateMote(
   m: Mote,
   dt: number,
@@ -236,6 +288,7 @@ export function updateMote(
   const neighbors = getNeighbors(grid, m.x, m.y, NEIGHBOR_RADIUS, m);
   const hasNeighbor = neighbors.length > 0;
   updateDrives(m, dt, hasNeighbor);
+  updateMemory(m, dt);
 
   // Gravity
   if (!m.grounded) {
