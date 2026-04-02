@@ -744,9 +744,6 @@ function playSpawnPing(
 }
 
 
-
-
-
 /**
  * Elder death knell — played when an ancient mote (age > 25) dies.
  * A three-note resonant chord descending slowly into silence. More mournful and
@@ -811,12 +808,6 @@ export function playElderDeath(engine: SoundEngine, yNorm: number): void {
   }
 }
 
-export { playEventSound } from "./sound-events";
-export {
-  playBondForm, playBondBreak, playAncientBondBreak, playDeath,
-  playClusterMilestone, playClusterMerge, playMourningChorus, playLushFinalBloom,
-} from "./sound-lifecycle";
-
 /** Lone mote ping — sparse presence */
 function ping(
   engine: SoundEngine,
@@ -873,7 +864,6 @@ function playDesertShimmer(engine: SoundEngine, profile: BiomeSoundProfile, scal
   }
 }
 
-
 /** Create a looping stereo noise buffer source */
 export function createNoiseSource(ctx: AudioContext, duration: number): AudioBufferSourceNode {
   const len = Math.floor(ctx.sampleRate * duration);
@@ -890,12 +880,12 @@ export function createNoiseSource(ctx: AudioContext, duration: number): AudioBuf
   return src;
 }
 
-export { playPhaseTransition } from "./sound-events";
-
-export { playCascadeArrival } from "./sound-events";
-
-export { playBirdChirp } from "./sound-events";
-
+// Re-exports from sub-modules
+export {
+  playEventSound, playPhaseTransition, playCascadeArrival, playBirdChirp, playStarAscension,
+} from "./sound-events";
+export {
+  playBondForm, playBondBreak, playAncientBondBreak, playDeath,
+  playClusterMilestone, playClusterMerge, playMourningChorus, playLushFinalBloom,
+} from "./sound-lifecycle";
 export { updateWeatherSound, updateDissolutionSound } from "./sound-weather";
-
-export { playStarAscension } from "./sound-events";
