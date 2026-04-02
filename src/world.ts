@@ -277,6 +277,24 @@ export function updateWorld(world: World, dt: number): void {
           break;
         }
       }
+
+      // Elder grief ripple: when an elder dies, ALL nearby motes feel the loss —
+      // not just cluster members but any creature within 30px. Elders are community
+      // anchors; their death should ripple outward as a visible wave of mourning.
+      if (m.age > 20) {
+        const griefR2 = 30 * 30;
+        for (const other of world.motes) {
+          if (other === m || other.energy <= 0) continue;
+          const gdx = other.x - m.x;
+          const gdy = other.y - m.y;
+          if (gdx * gdx + gdy * gdy < griefR2 && other.mourningFlash < 0.5) {
+            other.mourningFlash = Math.max(other.mourningFlash, 0.48);
+            other.mourningR = dr;
+            other.mourningG = dg;
+            other.mourningB = db;
+          }
+        }
+      }
     }
   }
 

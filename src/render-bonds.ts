@@ -17,12 +17,12 @@ export function renderClusterBeacons(
   phaseIndex: number,
   time: number,
 ): void {
-  const PHASE_STR = [0.0, 0.08, 0.44, 1.0, 0.50, 0.04];
+  const PHASE_STR = [0.0, 0.18, 0.62, 1.0, 0.55, 0.06];
   const phaseStr = PHASE_STR[Math.min(5, Math.max(0, phaseIndex))];
   if (phaseStr < 0.02) return;
 
   for (const cluster of clusters) {
-    if (cluster.length < 6) continue;
+    if (cluster.length < 4) continue;
 
     let cx = 0, cy = 0, avgR = 0, avgG = 0, avgB = 0;
     for (const m of cluster) {
@@ -36,15 +36,18 @@ export function renderClusterBeacons(
     avgB = Math.round(avgB / cluster.length);
 
     // Beacon height scales with cluster size — larger communities cast higher light
-    const beaconH = Math.min(82, 22 + cluster.length * 5);
-    // Peak alpha: soft vapor — bloom pass will enrich this
-    const peakAlpha = Math.min(24, 6 + cluster.length * 2.0) * phaseStr;
+    const beaconH = Math.min(90, 28 + cluster.length * 5);
+    // Peak alpha: vivid enough to read on first glance — communities should be unmissable
+    const peakAlpha = Math.min(78, 18 + cluster.length * 7.0) * phaseStr;
     // Flicker rate matches cluster heartbeat: large clusters breathe slowly
     const pulseHz = 1.8 / Math.sqrt(Math.max(cluster.length, 4));
     const flicker = Math.sin(time * pulseHz + cx * 0.09) * 0.18 + 0.82;
 
     const rcx = Math.round(cx);
     const baseY = Math.round(cy) - 1;
+
+    // Base width scales with cluster size: small clusters = narrow wisp, large = broad pillar
+    const baseHalfW = Math.min(6.5, 2.2 + cluster.length * 0.42);
 
     for (let step = 0; step < beaconH; step++) {
       const t = step / beaconH;
@@ -53,8 +56,9 @@ export function renderClusterBeacons(
       const a = Math.round(peakAlpha * falloff * flicker);
       if (a < 2) continue;
 
-      // Width: full at base, single pixel near tip
-      const halfW = Math.max(0, 2.0 - t * 2.6);
+      // Width narrows from base toward tip; base bloom for first 8% of height
+      const bloomBoost = step < beaconH * 0.08 ? (1 - step / (beaconH * 0.08)) * 2.5 : 0;
+      const halfW = Math.max(0, baseHalfW * (1 - t) + bloomBoost);
 
       // Color: mote identity at base, cool blue-white toward tip
       const skyT = t * t * 0.45;

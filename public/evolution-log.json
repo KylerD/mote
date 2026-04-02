@@ -985,5 +985,22 @@
       "src/terrain.ts",
       "src/main.ts"
     ]
+  },
+  {
+    "date": "2026-04-02",
+    "title": "cluster beacons and elder grief",
+    "reflection": "Cluster beacons boosted 3x (alpha 24→78) and threshold lowered to 4 members — communities now cast visible colored pillars into the sky. Elder deaths ripple grief to nearby motes within 30px.",
+    "looking_ahead": [
+      "Mote reflection depth: glow extends into water below surface",
+      "Phase transition shockwave audio: dramatic sweep sound to match visual ring",
+      "Settlement stones: clusters that persist leave a tiny mark on terrain",
+      "Beacon shimmer: beacons visibly disturb clouds/weather above them"
+    ],
+    "visual_verification": "Organization screenshots with 1 cluster (M:6 C:1) show a clear pink/magenta column rising 15-20px from the cluster into the sky above the terrain. Before: same code at alpha 24 was invisible. After: unmistakably visible at alpha 78.",
+    "quality_delta": "avgMoteBrightness 0.52→0.54. No regressions. clumping 0.00.",
+    "files_changed": [
+      "src/render-bonds.ts",
+      "src/world.ts"
+    ]
   }
 ]
