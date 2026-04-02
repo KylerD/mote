@@ -108,6 +108,31 @@ export interface Mote {
   mourningB: number;
   clusterMergeFlash: number;
   ancientBondBreakFlash: number;
+
+  // Drives (fluctuating 0-1, biased by temperament)
+  comfort: number;
+  curiosity: number;
+  togetherness: number;
+
+  // Memory: favorite position (EMA of high-satisfaction locations)
+  favX: number;
+  favY: number;
+  favTimer: number;            // accumulator for 2s update interval
+
+  // Memory: preferred companion
+  preferredMote: Mote | null;
+
+  // Memory: avoidance
+  avoidX: number;
+  avoidY: number;
+  avoidTimer: number;          // countdown, 0 = no avoidance
+
+  // Behavioral state
+  grieving: number;            // countdown timer, 0 = not grieving
+  lonelyTimer: number;         // seconds since last neighbor
+  stableTimer: number;         // seconds bonded without bond-count change
+  lastEnergy: number;          // for sharp energy drop detection
+  lastEnergyTime: number;      // timestamp of lastEnergy sample
 }
 
 // ---- Physics ----

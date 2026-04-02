@@ -42,6 +42,9 @@ export function createMote(
   energy: number,
   rng: () => number,
 ): Mote {
+  const wanderlust = rng();
+  const sociability = rng();
+  const hardiness = rng();
   return {
     x,
     y,
@@ -50,9 +53,9 @@ export function createMote(
     energy,
     age: 0,
     temperament: {
-      wanderlust: rng(),
-      sociability: rng(),
-      hardiness: rng(),
+      wanderlust,
+      sociability,
+      hardiness,
     },
     bonds: [],
     bondAges: new Map(),
@@ -70,6 +73,22 @@ export function createMote(
     mourningB: 0,
     clusterMergeFlash: 0,
     ancientBondBreakFlash: 0,
+    // Drives (baseline from temperament)
+    comfort: 0.3 + hardiness * 0.4,
+    curiosity: 0.3 + wanderlust * 0.4,
+    togetherness: 0.3 + sociability * 0.4,
+    // Memory: favorite position (starts at spawn)
+    favX: x, favY: y, favTimer: 0,
+    // Memory: preferred companion
+    preferredMote: null,
+    // Memory: avoidance
+    avoidX: 0, avoidY: 0, avoidTimer: 0,
+    // State
+    grieving: 0,
+    lonelyTimer: 0,
+    stableTimer: 0,
+    lastEnergy: energy,
+    lastEnergyTime: 0,
     grounded: false,
     direction: rng() < 0.5 ? -1 : 1,
     spawnFlash: 1.0,
