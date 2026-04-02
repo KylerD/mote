@@ -241,17 +241,6 @@ canvas#world {
   padding: clamp(4rem, 10vh, 7rem) 1.5rem clamp(4rem, 10vh, 8rem);
 }
 
-/* Thin divider at top of story */
-#story::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(360px, 60vw);
-  height: 1px;
-  background: var(--border-subtle);
-}
 
 .story-inner {
   max-width: 620px;
@@ -318,49 +307,37 @@ canvas#world {
 }
 
 
-/* ── Details grid ──────────────────────────────────────── */
+/* ── Specimen data bar ──────────────────────────────────── */
 
-.details {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.specimen-data {
+  display: flex;
+  flex-wrap: wrap;
   gap: 0;
   margin-bottom: clamp(2.5rem, 5vh, 4rem);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-  background: var(--bg-raised);
+  padding: 1rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
-.detail {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 1rem 1.25rem;
-}
-
-.detail:nth-child(odd) {
-  border-right: 1px solid var(--border-subtle);
-}
-
-.detail:nth-child(n+3) {
-  border-top: 1px solid var(--border-subtle);
-}
-
-.detail dt {
+.datum {
   font-family: var(--mono);
   font-weight: 400;
-  font-size: 0.7rem;
-  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
+  padding: 0.2rem 1.25rem;
+  white-space: nowrap;
 }
 
-.detail dd {
-  font-family: var(--mono);
-  font-weight: 300;
-  font-size: 0.9rem;
-  color: var(--text-primary);
-  line-height: 1.5;
+.datum:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+
+.datum em {
+  font-style: normal;
+  color: var(--text-muted);
+  margin-right: 0.6em;
 }
 
 
@@ -503,16 +480,13 @@ canvas#world {
     padding-right: 1.25rem;
   }
 
-  .details {
-    grid-template-columns: 1fr;
+  .specimen-data {
+    flex-wrap: wrap;
   }
-
-  .detail:nth-child(odd) {
-    border-right: none;
-  }
-
-  .detail:nth-child(2) {
-    border-top: 1px solid var(--border-subtle);
+  .datum {
+    flex: 1 1 45%;
+    border-right: none !important;
+    padding: 0.4rem 0;
   }
 }
 
