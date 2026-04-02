@@ -328,14 +328,6 @@ export function updateMote(
       return;
     }
   }
-  // Enter rest when: near favorite position, comfort is high, not grieving
-  if (m.restTimer === 0 && m.grounded && m.grieving === 0) {
-    const distToFav = Math.abs(m.x - m.favX);
-    if (distToFav < REST_NEAR_FAV_DIST && m.comfort > REST_COMFORT_THRESHOLD && m.curiosity < REST_CURIOSITY_BREAK) {
-      m.restTimer = REST_MIN_DURATION + rng() * (REST_MAX_DURATION - REST_MIN_DURATION);
-    }
-  }
-
   // Gravity
   if (!m.grounded) {
     m.vy += GRAVITY * dt;
@@ -441,38 +433,32 @@ export function updateMote(
   // Clamp accumulated attraction so groups don't death-ball
   socialFx += Math.max(-SOCIAL_FORCE_CLAMP, Math.min(SOCIAL_FORCE_CLAMP, socialAttract));
 
-  // Target selection: weighted blend of drive targets
-  // Runs after neighbor scan so closestUnbonded is known
-  const totalDrive = m.comfort + m.curiosity + m.togetherness;
-  let targetX = m.x; // default: stay put
+  // Target selection: dominant drive wins — decisive, legible movement.
+  // No weighted blending. The strongest drive picks the target.
+  let targetX = m.x;
 
-  if (totalDrive > 0.01) {
-    // Comfort target: favorite position
-    const comfortX = m.favX;
+  // Find companion target (used by togetherness)
+  let companionX = m.x;
+  let hasCompanion = false;
+  if (m.preferredMote && m.preferredMote.energy > 0) {
+    companionX = m.preferredMote.x;
+    hasCompanion = true;
+  } else if (closestUnbonded) {
+    companionX = closestUnbonded.x;
+    hasCompanion = true;
+  }
 
-    // Curiosity target: point ahead in current direction
-    let exploreX = m.x + m.direction * EXPLORE_DISTANCE;
-    if (exploreX < 4 || exploreX > W - 4) exploreX = m.x - m.direction * EXPLORE_DISTANCE;
-
-    // Togetherness target: preferred companion, or nearest compatible mote
-    let companionX = m.x;
-    let hasCompanionTarget = false;
-    if (m.preferredMote && m.preferredMote.energy > 0) {
-      companionX = m.preferredMote.x;
-      hasCompanionTarget = true;
-    } else if (closestUnbonded) {
-      companionX = closestUnbonded.x;
-      hasCompanionTarget = true;
-    }
-
-    const cWeight = m.comfort;
-    const qWeight = m.curiosity;
-    const tWeight = hasCompanionTarget ? m.togetherness : 0;
-    const wSum = cWeight + qWeight + tWeight;
-
-    if (wSum > 0.01) {
-      targetX = (cWeight * comfortX + qWeight * exploreX + tWeight * companionX) / wSum;
-    }
+  // Dominant drive picks the goal
+  if (m.comfort >= m.curiosity && m.comfort >= m.togetherness) {
+    // COMFORT dominant: go home to favorite spot
+    targetX = m.favX;
+  } else if (m.togetherness >= m.curiosity && hasCompanion) {
+    // TOGETHERNESS dominant: walk toward companion
+    targetX = companionX;
+  } else {
+    // CURIOSITY dominant: explore ahead
+    targetX = m.x + m.direction * EXPLORE_DISTANCE;
+    if (targetX < 4 || targetX > W - 4) targetX = m.x - m.direction * EXPLORE_DISTANCE;
   }
 
   // Avoidance repulsion
@@ -480,18 +466,30 @@ export function updateMote(
     const avoidDx = m.x - m.avoidX;
     const avoidDist = Math.abs(avoidDx);
     if (avoidDist < 40 && avoidDist > 0.5) {
-      targetX += (avoidDx / avoidDist) * 15; // push away from bad spot
+      targetX += (avoidDx / avoidDist) * 15;
     }
   }
 
-  // Set direction to face target
-  if (Math.abs(targetX - m.x) > 1) {
+  // Set direction to face target (only change when target is meaningfully far)
+  if (Math.abs(targetX - m.x) > 2) {
     m.direction = targetX > m.x ? 1 : -1;
   }
 
-  // Rare random perturbation (keeps movement organic without constant jitter)
-  if (rng() < 0.005 * dt * 60) {
+  // Very rare random perturbation
+  if (rng() < 0.003 * dt * 60) {
     m.direction *= -1;
+  }
+
+  // Enter rest: arrived near target, or sitting with a bonded companion
+  if (m.restTimer === 0 && m.grounded && m.grieving === 0 && m.curiosity < REST_CURIOSITY_BREAK) {
+    const distToTarget = Math.abs(targetX - m.x);
+    const nearCompanion = m.bonds.length > 0 && m.bonds.some(b => {
+      const dx = b.x - m.x;
+      return dx * dx < REST_NEAR_FAV_DIST * REST_NEAR_FAV_DIST;
+    });
+    if ((distToTarget < 5 && m.comfort > REST_COMFORT_THRESHOLD) || nearCompanion) {
+      m.restTimer = REST_MIN_DURATION + rng() * (REST_MAX_DURATION - REST_MIN_DURATION);
+    }
   }
 
   // Age all existing bonds
