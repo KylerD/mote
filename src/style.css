@@ -1,7 +1,7 @@
 /* ── mote — technical showcase ────────────────────────── */
 
 :root {
-  --bg: #09090b;
+  --bg: #0a0a0c;
   --bg-raised: #111113;
   --border: #27272a;
   --border-subtle: #1c1c1f;
@@ -10,6 +10,7 @@
   --text-muted: #71717a;
   --accent: #dc8c50;
   --accent-dim: rgba(220, 140, 80, 0.25);
+  --accent-trace: rgba(220, 140, 80, 0.12);
   --mono: "IBM Plex Mono", "Menlo", monospace;
   --serif: "EB Garamond", Georgia, "Times New Roman", serif;
 }
@@ -103,18 +104,19 @@ body.idle { cursor: none; }
 
 #frame {
   position: relative;
-  width: min(94vw, calc((100vh - 7rem) * 16 / 9));
   width: min(94vw, calc((100dvh - 7rem) * 16 / 9));
   max-width: 2000px;
   aspect-ratio: 16 / 9;
-
-  border: 1px solid var(--border);
-  border-radius: 4px;
-
+  border: none;
+  border-radius: 2px;
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.5),
-    0 4px 24px rgba(0, 0, 0, 0.3);
-
+    inset 0 0 30px rgba(0, 0, 0, 0.5),
+    inset 0 0 80px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 0 0 4px #0c0c0e,
+    0 0 0 5px rgba(255, 255, 255, 0.03),
+    0 20px 60px rgba(0, 0, 0, 0.5),
+    0 0 120px var(--frame-glow, rgba(220, 140, 80, 0.06));
   overflow: hidden;
   opacity: 0;
   animation:
@@ -137,15 +139,16 @@ canvas#world {
   pointer-events: none;
   background:
     linear-gradient(
-      168deg,
-      rgba(255, 255, 255, 0.022) 0%,
-      transparent 38%,
-      transparent 62%,
-      rgba(0, 0, 0, 0.035) 100%
+      170deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      transparent 30%,
+      transparent 70%,
+      rgba(0, 0, 0, 0.06) 100%
     );
-  border-radius: 4px;
-  /* Subtle inner shadow: the depth of looking into a container */
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    inset 0 0 60px rgba(0, 0, 0, 0.35),
+    inset 0 0 120px rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
 }
 
 /* Audio prompt — invites users to hear the world */
@@ -428,15 +431,23 @@ canvas#world {
 @keyframes frame-breathe {
   0%, 100% {
     box-shadow:
-      0 0 0 1px rgba(0, 0, 0, 0.5),
-      0 4px 24px rgba(0, 0, 0, 0.30),
-      0 0 48px transparent;
+      inset 0 0 30px rgba(0, 0, 0, 0.5),
+      inset 0 0 80px rgba(0, 0, 0, 0.25),
+      0 0 0 1px rgba(255, 255, 255, 0.04),
+      0 0 0 4px #0c0c0e,
+      0 0 0 5px rgba(255, 255, 255, 0.03),
+      0 20px 60px rgba(0, 0, 0, 0.5),
+      0 0 120px var(--frame-glow, rgba(220, 140, 80, 0.05));
   }
   50% {
     box-shadow:
-      0 0 0 1px rgba(0, 0, 0, 0.45),
-      0 4px 32px rgba(0, 0, 0, 0.35),
-      0 0 72px var(--frame-glow, rgba(220, 140, 80, 0.07));
+      inset 0 0 30px rgba(0, 0, 0, 0.5),
+      inset 0 0 80px rgba(0, 0, 0, 0.25),
+      0 0 0 1px rgba(255, 255, 255, 0.04),
+      0 0 0 4px #0c0c0e,
+      0 0 0 5px rgba(255, 255, 255, 0.03),
+      0 20px 60px rgba(0, 0, 0, 0.5),
+      0 0 160px var(--frame-glow, rgba(220, 140, 80, 0.12));
   }
 }
 
