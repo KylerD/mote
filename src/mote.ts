@@ -30,6 +30,13 @@ import {
   DYING_SOCIAL_BOOST, ELDER_BOND_BREAK_MULT, BOND_BREAK_DISTANCE_MULT,
   ANCIENT_BOND_AGE, BOND_FORMATION_ENERGY_GAIN, BOND_TIMER_DECAY_RATE,
   CURIOSITY_FACING_MIN_TIMER, LOOKAHEAD_DISTANCE,
+  COMFORT_BASELINE_BASE, COMFORT_BASELINE_SCALE,
+  CURIOSITY_BASELINE_BASE, CURIOSITY_BASELINE_SCALE,
+  TOGETHERNESS_BASELINE_BASE, TOGETHERNESS_BASELINE_SCALE,
+  DRIVE_DECAY_RATE, COMFORT_LOW_ENERGY_RATE, COMFORT_LOW_ENERGY_THRESHOLD,
+  TOGETHERNESS_LONELY_RATE, LONELY_THRESHOLD_TIME,
+  CURIOSITY_RESTLESS_RATE, RESTLESS_THRESHOLD_TIME,
+  GRIEF_COMFORT_OVERRIDE, GRIEF_TOGETHERNESS_FLOOR,
 } from "./constants";
 
 // Re-export for backward compatibility
@@ -97,6 +104,59 @@ export function createMote(
     forceX: 0,
     forceY: 0,
   };
+}
+
+function updateDrives(m: Mote, dt: number, hasNeighbor: boolean): void {
+  const { wanderlust, sociability, hardiness } = m.temperament;
+  const comfortBase = COMFORT_BASELINE_BASE + hardiness * COMFORT_BASELINE_SCALE;
+  const curiosityBase = CURIOSITY_BASELINE_BASE + wanderlust * CURIOSITY_BASELINE_SCALE;
+  const togethernessBase = TOGETHERNESS_BASELINE_BASE + sociability * TOGETHERNESS_BASELINE_SCALE;
+
+  // Decay toward baseline
+  m.comfort += (comfortBase - m.comfort) * DRIVE_DECAY_RATE * dt * 60;
+  m.curiosity += (curiosityBase - m.curiosity) * DRIVE_DECAY_RATE * dt * 60;
+  m.togetherness += (togethernessBase - m.togetherness) * DRIVE_DECAY_RATE * dt * 60;
+
+  // Low energy → comfort rises
+  if (m.energy < COMFORT_LOW_ENERGY_THRESHOLD) {
+    const deficit = 1 - m.energy / COMFORT_LOW_ENERGY_THRESHOLD;
+    m.comfort += COMFORT_LOW_ENERGY_RATE * deficit * dt;
+  }
+
+  // Lonely → togetherness rises
+  if (!hasNeighbor) {
+    m.lonelyTimer += dt;
+  } else {
+    m.lonelyTimer = Math.max(0, m.lonelyTimer - dt * 2);
+  }
+  if (m.lonelyTimer > LONELY_THRESHOLD_TIME) {
+    m.togetherness += TOGETHERNESS_LONELY_RATE * dt;
+  }
+
+  // Bonded and stable → curiosity rises (restlessness)
+  if (m.bonds.length > 0) {
+    m.stableTimer += dt;
+  } else {
+    m.stableTimer = 0;
+  }
+  if (m.stableTimer > RESTLESS_THRESHOLD_TIME) {
+    m.curiosity += CURIOSITY_RESTLESS_RATE * dt;
+  }
+
+  // Grief overrides
+  if (m.grieving > 0) {
+    m.grieving -= dt;
+    m.comfort = GRIEF_COMFORT_OVERRIDE;
+    m.togetherness = Math.min(m.togetherness, GRIEF_TOGETHERNESS_FLOOR);
+    if (m.grieving <= 0) {
+      m.grieving = 0;
+    }
+  }
+
+  // Clamp
+  m.comfort = Math.max(0, Math.min(1, m.comfort));
+  m.curiosity = Math.max(0, Math.min(1, m.curiosity));
+  m.togetherness = Math.max(0, Math.min(1, m.togetherness));
 }
 
 export function updateMote(
@@ -172,6 +232,11 @@ export function updateMote(
     return;
   }
 
+  // Drives
+  const neighbors = getNeighbors(grid, m.x, m.y, NEIGHBOR_RADIUS, m);
+  const hasNeighbor = neighbors.length > 0;
+  updateDrives(m, dt, hasNeighbor);
+
   // Gravity
   if (!m.grounded) {
     m.vy += GRAVITY * dt;
@@ -205,8 +270,6 @@ export function updateMote(
   let socialAttract = 0;
   let closestUnbonded: Mote | null = null;
   let closestDist = Infinity;
-
-  const neighbors = getNeighbors(grid, m.x, m.y, NEIGHBOR_RADIUS, m);
   for (const other of neighbors) {
     const dx = other.x - m.x;
     const dy = other.y - m.y;

@@ -145,3 +145,50 @@ export const RIPPLE_INITIAL_ALPHA = 1;
 export const PULSE_FORCE_H = 8;
 export const PULSE_FORCE_V = 5;
 export const GRAVITY_VERTICAL_REDUCTION = 0.3;
+
+// ---- Drives ----
+export const COMFORT_BASELINE_BASE = 0.3;
+export const COMFORT_BASELINE_SCALE = 0.4;
+export const CURIOSITY_BASELINE_BASE = 0.3;
+export const CURIOSITY_BASELINE_SCALE = 0.4;
+export const TOGETHERNESS_BASELINE_BASE = 0.3;
+export const TOGETHERNESS_BASELINE_SCALE = 0.4;
+export const DRIVE_DECAY_RATE = 0.04;
+export const COMFORT_LOW_ENERGY_RATE = 0.15;
+export const COMFORT_LOW_ENERGY_THRESHOLD = 0.4;
+export const TOGETHERNESS_LONELY_RATE = 0.08;
+export const LONELY_THRESHOLD_TIME = 5;
+export const CURIOSITY_RESTLESS_RATE = 0.06;
+export const RESTLESS_THRESHOLD_TIME = 8;
+export const EVENT_BOLD_CURIOSITY_SPIKE = 0.3;
+export const EVENT_TIMID_COMFORT_SPIKE = 0.3;
+export const BOLD_HARDINESS_THRESHOLD = 0.5;
+
+// ---- Memory ----
+export const FAV_POSITION_ALPHA = 0.15;
+export const FAV_POSITION_INTERVAL = 2;
+export const FAV_POSITION_ENERGY_THRESHOLD = 0.4;
+export const AVOIDANCE_DURATION = 75;
+export const AVOIDANCE_ENERGY_DROP = 0.15;
+export const AVOIDANCE_ENERGY_WINDOW = 2;
+
+// ---- Grief ----
+export const GRIEF_DURATION = 18;
+export const GRIEF_SPEED_MULT = 0.5;
+export const GRIEF_COMFORT_OVERRIDE = 1.0;
+export const GRIEF_TOGETHERNESS_FLOOR = 0.1;
+export const GRIEF_BOND_THRESHOLD = 0.8;
+export const GRIEF_TOGETHERNESS_RECOVERY = 0.03;
+
+// ---- Compatibility ----
+export const COMPAT_WANDERLUST_SOCIAL_WEIGHT = 0.5;
+export const COMPAT_HARDINESS_WEIGHT = 0.3;
+export const COMPAT_BOND_THRESHOLD = 0.35;
+export const COMPAT_FAST_FRIEND_THRESHOLD = 0.7;
+export const COMPAT_FAST_FRIEND_MULT = 1.5;
+
+// ---- Rejection ----
+export const REJECTION_TOGETHERNESS_THRESHOLD = 0.3;
+
+// ---- Target selection ----
+export const EXPLORE_DISTANCE = 40;
