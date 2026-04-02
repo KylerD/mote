@@ -357,7 +357,7 @@ function placeFeatures(t: Terrain, rng: () => number): void {
         const slope = Math.abs(t.heights[x + 1] - t.heights[x - 1]);
         if (slope > 3) continue; // cacti grow on moderately sloped dunes
       }
-      const height = 3 + Math.floor(rng() * 4); // 3–6px tall
+      const height = 5 + Math.floor(rng() * 5); // 5–9px tall
       const armHeight = 1 + Math.floor(rng() * Math.floor(height / 2)); // arm level from base
       // Main column
       for (let dy = 0; dy < height; dy++) {
@@ -402,9 +402,9 @@ function placeFeatures(t: Terrain, rng: () => number): void {
   } else {
     // Trees: temperate, lush, tundra — organic canopy shapes
     // Tundra gets sparse dead trees; lush gets denser; temperate standard
-    const treeCount = biome === "lush"   ? 28 + Math.floor(rng() * 22) :
-                      biome === "tundra" ?  8 + Math.floor(rng() *  8) :
-                                           20 + Math.floor(rng() * 30);
+    const treeCount = biome === "lush"   ? 32 + Math.floor(rng() * 26) :
+                      biome === "tundra" ? 10 + Math.floor(rng() * 10) :
+                                           24 + Math.floor(rng() * 30);
     for (let i = 0; i < treeCount; i++) {
       const x = 4 + Math.floor(rng() * (W - 8));
       const surfaceY = getSurfaceY(t, x);
@@ -415,7 +415,7 @@ function placeFeatures(t: Terrain, rng: () => number): void {
         const slope = Math.abs(t.heights[x + 1] - t.heights[x - 1]);
         if (slope > 2) continue;
       }
-      const trunkH = 2 + Math.floor(rng() * 2);
+      const trunkH = 3 + Math.floor(rng() * 3); // 3-5px trunk (was 2-3)
       const ty = surfaceY - 1;
       for (let dy = 0; dy < trunkH; dy++) {
         const idx = (ty - dy) * W + x;
@@ -423,9 +423,10 @@ function placeFeatures(t: Terrain, rng: () => number): void {
       }
       const canopyY = ty - trunkH;
       if (biome === "tundra") {
-        // Dead tree: narrow silhouette, sparse branching, no wide canopy
+        // Dead tree: narrow silhouette, sparse branching
         if (canopyY >= 0) t.tiles[canopyY * W + x] = Tile.TreeCanopy;
-        // Sparse branch stubs off to one side
+        if (canopyY - 1 >= 0) t.tiles[(canopyY - 1) * W + x] = Tile.TreeCanopy;
+        // Sparse branch stubs off to one or both sides
         if (canopyY + 1 >= 0 && canopyY + 1 < H && rng() < 0.65) {
           const side = rng() < 0.5 ? -1 : 1;
           if (x + side >= 0 && x + side < W) {
@@ -433,14 +434,17 @@ function placeFeatures(t: Terrain, rng: () => number): void {
           }
         }
       } else {
-        // Full canopy: 3px wide × 2px tall (lush gets an extra canopy row)
-        const canopyRows = biome === "lush" ? 3 : 2;
+        // Full canopy: 5px wide × 3px tall (lush gets 4 rows)
+        const canopyRows = biome === "lush" ? 4 : 3;
         for (let dy = 0; dy < canopyRows; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
+          // Wider at base (±2), narrower at top (±1)
+          const halfW = dy < canopyRows - 1 ? 2 : 1;
+          for (let dx = -halfW; dx <= halfW; dx++) {
             const cx = x + dx;
             const cy = canopyY - dy;
             if (cx >= 0 && cx < W && cy >= 0) {
-              if (dy === canopyRows - 1 && Math.abs(dx) === 1 && rng() < 0.35) continue;
+              // Randomly skip outer corners on top row for organic shape
+              if (dy === canopyRows - 1 && Math.abs(dx) === halfW && rng() < 0.3) continue;
               t.tiles[cy * W + cx] = Tile.TreeCanopy;
             }
           }
