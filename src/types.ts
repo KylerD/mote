@@ -136,6 +136,10 @@ export interface Mote {
 
   // Resting state
   restTimer: number;           // >0 = resting (countdown), 0 = moving
+
+  // Belonging (the pull toward the gathering site)
+  belonging: number;   // effective pull toward the gathering site this step
+  marching: boolean;   // belonging won target selection this step
 }
 
 // ---- Physics ----
@@ -296,6 +300,7 @@ export interface World {
   spawnAccumSim?: number;        // locked-branch sim-time accumulator (updateWorld)
   colony: {
     siteX: number; siteY: number;
+    basinLo: number; basinHi: number;
     milestones: { name: string; time: number; progress: number }[];
     arrived: boolean;
     peakPopulation: number;

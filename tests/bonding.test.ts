@@ -33,7 +33,12 @@ describe("bonding", () => {
 
   it("bonded motes lose energy slower than loners", () => {
     const w = createWorldForCycle(42);
-    for (let i = 0; i < 3600; i++) stepWorld(w, SIM_DT);
+    // Measure in the exploration window (bondStrength meaningful, belonging=0):
+    // this isolates the community energy-relief effect. From ~progress 0.13 the
+    // 30s measurement ends before the belonging ramp (progress 0.25) begins, so
+    // the pull doesn't march the pair/loner onto different terrain and confound
+    // the pure bonded-vs-loner decay comparison.
+    for (let i = 0; i < 1200; i++) stepWorld(w, SIM_DT); // 40s -> exploration
     w.motes.length = 0;
     const x = 128;
     const y = getSurfaceY(w.terrain, x) - 1;
@@ -44,7 +49,7 @@ describe("bonding", () => {
     const t = { wanderlust: 0.5, sociability: 0.5, hardiness: 0.5 };
     a.temperament = { ...t }; b.temperament = { ...t }; loner.temperament = { ...t };
     w.motes.push(a, b, loner);
-    for (let i = 0; i < 900; i++) stepWorld(w, SIM_DT); // 30 sim-seconds
+    for (let i = 0; i < 900; i++) stepWorld(w, SIM_DT); // 30 sim-seconds (ends ~progress 0.23)
     expect((a.energy + b.energy) / 2).toBeGreaterThan(loner.energy);
   });
 });

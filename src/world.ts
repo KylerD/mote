@@ -3,7 +3,7 @@
 import { Tile } from "./types";
 import type { World, PhaseName, DeathRecord } from "./types";
 import { createMote, updateMote, placeSettlement } from "./mote";
-import { createColony } from "./colony";
+import { createColony, belongingBase } from "./colony";
 import { generateTerrain, getSurfaceY, getTile } from "./terrain";
 import { W, CYCLE_DURATION } from "./config";
 import { findClusters, createGrid, buildGrid } from "./physics";
@@ -202,11 +202,13 @@ export function stepWorld(world: World, h: number): void {
   }
 
   // Update motes (spatial grid for efficient neighbor queries)
+  const colonyInfo = { siteX: world.colony.siteX, belongingBase: belongingBase(world.cycleProgress) };
   buildGrid(world.grid, world.motes);
   for (const mote of world.motes) {
     updateMote(
       mote, h, world.terrain, world.grid,
       world.params.energyDecay, world.params.bondStrength, world.rng,
+      colonyInfo,
     );
   }
 

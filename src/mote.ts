@@ -43,6 +43,8 @@ import {
   REST_CURIOSITY_BREAK, REST_NEAR_FAV_DIST,
   COMPAT_WANDERLUST_SOCIAL_WEIGHT, COMPAT_HARDINESS_WEIGHT,
   COMPAT_TIMER_BASE, COMMUNITY_DECAY_RELIEF, REJECTION_TOGETHERNESS_THRESHOLD,
+  BELONGING_WANDER_RESIST, SITE_ARRIVE_DIST, PROCESSION_LINK_DIST, PROCESSION_SPACING,
+  GATHERING_REPULSION_MULT,
 } from "./constants";
 
 // Re-export for backward compatibility
@@ -116,6 +118,8 @@ export function createMote(
     trailTimer: 0,
     forceX: 0,
     forceY: 0,
+    belonging: 0,
+    marching: false,
   };
 }
 
@@ -230,6 +234,7 @@ export function updateMote(
   energyDecay: number,
   bondStrength: number,
   rng: () => number,
+  colony: { siteX: number; belongingBase: number },
 ): void {
   m.age += dt;
   m.spawnFlash = Math.max(0, m.spawnFlash - dt * SPAWN_FLASH_DECAY);
@@ -304,6 +309,17 @@ export function updateMote(
   updateDrives(m, dt, hasNeighbor);
   updateMemory(m, dt);
 
+  // Effective belonging: the global ramp, resisted by wanderlust
+  m.belonging = colony.belongingBase * (1 - m.temperament.wanderlust * BELONGING_WANDER_RESIST);
+
+  // Dense huddle: near the gathering site (or while marching to it), soften
+  // social repulsion so arrivals pack into a tight cluster instead of a loose
+  // ~6px line strung along the 1-D surface. Repulsion is only reduced, never
+  // removed, so motes stay visually distinct (~2-3px apart).
+  const gathering = colony.belongingBase > 0 &&
+    (m.marching || Math.abs(colony.siteX - m.x) < SITE_ARRIVE_DIST * 1.5);
+  const repulsionMult = gathering ? GATHERING_REPULSION_MULT : 1;
+
   // Resting: motes pause when comfortable and near their favorite spot.
   // Curiosity building up breaks the rest. Creates visible stillness.
   if (m.restTimer > 0) {
@@ -364,9 +380,13 @@ export function updateMote(
       socialAttract += (dx / dist) * m.temperament.sociability * SOCIAL_ATTRACT_STRENGTH;
     }
 
-    // Strong inverse-square repulsion at close range — prevents clumping
+    // Strong inverse-square repulsion at close range — prevents clumping.
+    // While gathering, repulsion is softened so the colony packs into a dense
+    // huddle (~2px apart) instead of a loose ~6px line strung along the 1-D
+    // surface. The inverse-square term still blows up at very close range, so
+    // motes stay mostly distinct without fully overlapping.
     if (dist < REPULSION_DIST) {
-      const repelStrength = REPULSION_STRENGTH * Math.pow(REPULSION_DIST / Math.max(dist, 1), 2);
+      const repelStrength = REPULSION_STRENGTH * Math.pow(REPULSION_DIST / Math.max(dist, 1), 2) * repulsionMult;
       socialFx -= (dx / dist) * repelStrength;
     }
 
@@ -451,7 +471,27 @@ export function updateMote(
   }
 
   // Dominant drive picks the goal
-  if (m.comfort >= m.curiosity && m.comfort >= m.togetherness) {
+  m.marching = false;
+  if (
+    m.belonging > m.comfort &&
+    m.belonging > m.curiosity &&
+    m.belonging > m.togetherness &&
+    Math.abs(colony.siteX - m.x) > SITE_ARRIVE_DIST * 0.5
+  ) {
+    // BELONGING dominant: march to the gathering site
+    m.marching = true;
+    targetX = colony.siteX;
+    // Procession: fall in behind a marcher ahead of us on the same heading
+    const dirToSite = colony.siteX > m.x ? 1 : -1;
+    for (const other of neighbors) {
+      if (!other.marching) continue;
+      const ahead = (other.x - m.x) * dirToSite;
+      if (ahead > 1 && ahead < PROCESSION_LINK_DIST) {
+        targetX = other.x - dirToSite * PROCESSION_SPACING;
+        break;
+      }
+    }
+  } else if (m.comfort >= m.curiosity && m.comfort >= m.togetherness) {
     // COMFORT dominant: go home to favorite spot
     targetX = m.favX;
   } else if (m.togetherness >= m.curiosity && hasCompanion) {
@@ -482,14 +522,16 @@ export function updateMote(
     m.direction *= -1;
   }
 
-  // Enter rest: arrived near target, or sitting with a bonded companion
-  if (m.restTimer === 0 && m.grounded && m.grieving === 0 && m.curiosity < REST_CURIOSITY_BREAK) {
+  // Enter rest: arrived near target, near the gathering site, or with a bonded
+  // companion. Marching motes don't stop to rest en route — the pull comes first.
+  if (m.restTimer === 0 && m.grounded && m.grieving === 0 && m.curiosity < REST_CURIOSITY_BREAK && !m.marching) {
     const distToTarget = Math.abs(targetX - m.x);
+    const nearSite = Math.abs(colony.siteX - m.x) < SITE_ARRIVE_DIST && colony.belongingBase > 0;
     const nearCompanion = m.bonds.length > 0 && m.bonds.some(b => {
       const dx = b.x - m.x;
       return dx * dx < REST_NEAR_FAV_DIST * REST_NEAR_FAV_DIST;
     });
-    if ((distToTarget < 5 && m.comfort > REST_COMFORT_THRESHOLD) || nearCompanion) {
+    if ((distToTarget < 5 && m.comfort > REST_COMFORT_THRESHOLD) || nearCompanion || nearSite) {
       m.restTimer = REST_MIN_DURATION + rng() * (REST_MAX_DURATION - REST_MIN_DURATION);
     }
   }
