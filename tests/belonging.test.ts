@@ -20,11 +20,13 @@ describe("belongingBase ramp", () => {
 });
 
 describe("the pull", () => {
-  it("the colony converges on the site by complexity", () => {
-    // Community-relative: measure among motes inside the site's walkable basin.
-    // Motes stranded across water on a split map are stragglers/texture — the
-    // gathering is about those who *can* reach the site (spec 2.0 §6.2).
-    const w = createWorldForCycle(1000);
+  // Community-relative convergence: measure among motes inside the site's
+  // walkable basin. Motes stranded across water on a split map are
+  // stragglers/texture — the gathering is about those who *can* reach the
+  // site (spec 2.0 §6.2). Tasks 10/11 assert arrival for these cycles, so the
+  // gate is enforced for all three.
+  const measure = (cycle: number) => {
+    const w = createWorldForCycle(cycle);
     const basinMotes = () =>
       w.motes.filter(m => m.x >= w.colony.basinLo && m.x <= w.colony.basinHi);
     const spreadAt = (steps: number) => {
@@ -34,10 +36,26 @@ describe("the pull", () => {
     };
     const spreadBefore = spreadAt(Math.floor(STEPS_PER_CYCLE * 0.25)); // end of exploration
     const spreadAfter = spreadAt(Math.floor(STEPS_PER_CYCLE * 0.70));  // mid-complexity
-    expect(spreadAfter).toBeLessThan(spreadBefore * 0.5);
-    // And a majority of the reachable colony is actually AT the site
     const bm = basinMotes();
     const near = bm.filter(m => Math.abs(m.x - w.colony.siteX) < SITE_ARRIVE_DIST).length;
-    expect(near / bm.length).toBeGreaterThanOrEqual(0.5);
+    return { spreadBefore, spreadAfter, ratio: near / Math.max(1, bm.length) };
+  };
+
+  for (const cycle of [1000, 2000, 3000]) {
+    it(`the colony converges on the site by complexity (cycle ${cycle})`, () => {
+      const { spreadBefore, spreadAfter, ratio } = measure(cycle);
+      expect(spreadAfter).toBeLessThan(spreadBefore * 0.5);   // the crowd tightens
+      expect(ratio).toBeGreaterThanOrEqual(0.5);              // a majority is AT the site
+    });
+  }
+
+  // Generalization probe (informational — not asserted): confirm nearby cycles
+  // also converge without gating on them, since convergence is chaotic per-cycle.
+  it("probes generalization on other cycles (informational)", () => {
+    for (const cycle of [1500, 4000]) {
+      const { ratio } = measure(cycle);
+      console.log(`cycle ${cycle}: basin-relative near-ratio @0.70 = ${ratio.toFixed(2)}`);
+    }
+    expect(true).toBe(true);
   });
 });

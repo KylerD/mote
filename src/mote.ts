@@ -43,7 +43,8 @@ import {
   REST_CURIOSITY_BREAK, REST_NEAR_FAV_DIST,
   COMPAT_WANDERLUST_SOCIAL_WEIGHT, COMPAT_HARDINESS_WEIGHT,
   COMPAT_TIMER_BASE, COMMUNITY_DECAY_RELIEF, REJECTION_TOGETHERNESS_THRESHOLD,
-  BELONGING_WANDER_RESIST, SITE_ARRIVE_DIST, PROCESSION_LINK_DIST, PROCESSION_SPACING,
+  BELONGING_WANDER_RESIST, SITE_ARRIVE_DIST, SITE_MARCH_CUTOFF,
+  PROCESSION_LINK_DIST, PROCESSION_SPACING,
   GATHERING_REPULSION_MULT,
 } from "./constants";
 
@@ -316,6 +317,9 @@ export function updateMote(
   // social repulsion so arrivals pack into a tight cluster instead of a loose
   // ~6px line strung along the 1-D surface. Repulsion is only reduced, never
   // removed, so motes stay visually distinct (~2-3px apart).
+  // Note: m.marching here is the PRIOR frame's value (target selection sets it
+  // later this frame). That one-frame lag is deterministic and self-correcting —
+  // the position term catches motes near the site regardless.
   const gathering = colony.belongingBase > 0 &&
     (m.marching || Math.abs(colony.siteX - m.x) < SITE_ARRIVE_DIST * 1.5);
   const repulsionMult = gathering ? GATHERING_REPULSION_MULT : 1;
@@ -476,7 +480,7 @@ export function updateMote(
     m.belonging > m.comfort &&
     m.belonging > m.curiosity &&
     m.belonging > m.togetherness &&
-    Math.abs(colony.siteX - m.x) > SITE_ARRIVE_DIST * 0.5
+    Math.abs(colony.siteX - m.x) > SITE_MARCH_CUTOFF
   ) {
     // BELONGING dominant: march to the gathering site
     m.marching = true;
