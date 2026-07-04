@@ -23,9 +23,9 @@ describe("bonding", () => {
     const y = getSurfaceY(w.terrain, x) - 1;
     const a = createMote(x, y, 0.8, w.rng);
     const b = createMote(x + 3, y, 0.8, w.rng);
-    // Worst-case temperaments for old compat gating: maximally mismatched
+    // Genuinely low-compatibility pair (compat ≈ 0.2) — old gate at 0.35 would have blocked this
     a.temperament = { wanderlust: 1, sociability: 0, hardiness: 1 };
-    b.temperament = { wanderlust: 0, sociability: 1, hardiness: 0 };
+    b.temperament = { wanderlust: 1, sociability: 0, hardiness: 0 };
     w.motes.push(a, b);
     for (let i = 0; i < 300; i++) stepWorld(w, SIM_DT); // 10 sim-seconds
     expect(a.bonds.includes(b)).toBe(true);
