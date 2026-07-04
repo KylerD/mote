@@ -171,7 +171,10 @@ function init(): void {
       };
     }
 
-    applyInteraction(input, w.motes);
+    // Cursor force is a live-app feature; a locked (?cycle) world is a canonical
+    // deterministic replay, so local interaction must not perturb it. This also
+    // lets the analyzer/determinism instruments measure the pristine world.
+    if (w.lockedCycle === null) applyInteraction(input, w.motes);
 
     // Terrain life heatmap: clear on new cycle, deposit at mote positions, decay
     if (w.cycleNumber !== heatCycleNumber) {
