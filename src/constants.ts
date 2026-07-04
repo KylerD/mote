@@ -207,3 +207,9 @@ export const REST_NEAR_FAV_DIST = 15;         // must be near fav position to re
 
 // ---- Target selection ----
 export const EXPLORE_DISTANCE = 40;
+
+// ---- Colony / gathering site ----
+export const SITE_MARGIN = 16;
+export const SITE_SCAN_STEP = 2;
+export const SITE_FLAT_RADIUS = 10;
+export const SITE_WATER_RANGE = 40;

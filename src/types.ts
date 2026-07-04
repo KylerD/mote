@@ -294,6 +294,13 @@ export interface World {
   debugSnapshots: Array<{ decile: number; population: number; bondCount: number; bondedFraction: number; spawnTotal: number; deathTotal: number }>;
   snapshotDecile: number;      // last decile boundary captured (for step-exact sampling)
   spawnAccumSim?: number;        // locked-branch sim-time accumulator (updateWorld)
+  colony: {
+    siteX: number; siteY: number;
+    milestones: { name: string; time: number; progress: number }[];
+    arrived: boolean;
+    peakPopulation: number;
+    lastSurvivor: Mote | null;
+  };
 }
 
 interface PhaseParams {

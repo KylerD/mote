@@ -3,6 +3,7 @@
 import { Tile } from "./types";
 import type { World, PhaseName, DeathRecord } from "./types";
 import { createMote, updateMote, placeSettlement } from "./mote";
+import { createColony } from "./colony";
 import { generateTerrain, getSurfaceY, getTile } from "./terrain";
 import { W, CYCLE_DURATION } from "./config";
 import { findClusters, createGrid, buildGrid } from "./physics";
@@ -105,6 +106,7 @@ export function createWorldForCycle(
     captureSnapshots: false,
     debugSnapshots: [],
     snapshotDecile: 0,
+    colony: createColony(terrain),
   };
 }
 
@@ -390,4 +392,5 @@ function resetCycle(world: World, cycleNumber: number): void {
   world.cycleProgress = 0;
   world.debugSnapshots = [];
   world.snapshotDecile = 0;
+  world.colony = createColony(world.terrain);
 }
