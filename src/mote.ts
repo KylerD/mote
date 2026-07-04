@@ -42,8 +42,7 @@ import {
   REST_MIN_DURATION, REST_MAX_DURATION, REST_COMFORT_THRESHOLD,
   REST_CURIOSITY_BREAK, REST_NEAR_FAV_DIST,
   COMPAT_WANDERLUST_SOCIAL_WEIGHT, COMPAT_HARDINESS_WEIGHT,
-  COMPAT_BOND_THRESHOLD, COMPAT_FAST_FRIEND_THRESHOLD, COMPAT_FAST_FRIEND_MULT,
-  GRIEF_BOND_THRESHOLD, REJECTION_TOGETHERNESS_THRESHOLD,
+  COMPAT_TIMER_BASE, COMMUNITY_DECAY_RELIEF, REJECTION_TOGETHERNESS_THRESHOLD,
 } from "./constants";
 
 // Re-export for backward compatibility
@@ -270,8 +269,11 @@ export function updateMote(
   // Tile the mote is standing on (used for both energy and movement)
   const standingTile = getTile(terrain, m.x, m.y + 1);
 
-  // Energy decay (modified by hardiness and wanderlust)
-  const decayRate = energyDecay * (1.2 - m.temperament.hardiness * ENERGY_DECAY_HARDINESS) * (1 + m.temperament.wanderlust * ENERGY_DECAY_WANDERLUST);
+  // Energy decay (modified by hardiness, wanderlust, and community — bonds sustain life)
+  const communityRelief = 1 - COMMUNITY_DECAY_RELIEF * Math.min(m.bonds.length, 3) / 3;
+  const decayRate = energyDecay * communityRelief
+    * (1.2 - m.temperament.hardiness * ENERGY_DECAY_HARDINESS)
+    * (1 + m.temperament.wanderlust * ENERGY_DECAY_WANDERLUST);
   m.energy -= decayRate * dt;
 
   // Terrain energy: gain from nutrient tiles, drain from hazards
@@ -519,29 +521,25 @@ export function updateMote(
     }
   }
 
-  // Bond formation
+  // Bond formation — compatibility scales speed, never blocks. (Spec 2.0 §6.1)
   if (closestUnbonded && closestDist < BOND_DIST) {
     const compat = compatibility(m, closestUnbonded);
-    const griefThreshold = m.grieving > 0 ? GRIEF_BOND_THRESHOLD : COMPAT_BOND_THRESHOLD;
-    if (compat > griefThreshold) {
-      const compatMult = compat > COMPAT_FAST_FRIEND_THRESHOLD ? COMPAT_FAST_FRIEND_MULT : 1;
-      m.bondTimer += dt * compatMult;
-      if (m.bondTimer > BOND_TIME / bondStrength) {
-        // Cluster merge: both motes already have bonds → two communities becoming one
-        const isMerge = m.bonds.length > 0 && closestUnbonded.bonds.length > 0;
-        m.bonds.push(closestUnbonded);
-        closestUnbonded.bonds.push(m);
-        m.bondAges.set(closestUnbonded, 0);
-        closestUnbonded.bondAges.set(m, 0);
-        m.bondTimer = 0;
-        m.bondFlash = 1;
-        closestUnbonded.bondFlash = 1;
-        m.energy = Math.min(1, m.energy + BOND_FORMATION_ENERGY_GAIN);
-        closestUnbonded.energy = Math.min(1, closestUnbonded.energy + BOND_FORMATION_ENERGY_GAIN);
-        if (isMerge) {
-          m.clusterMergeFlash = 1.0;
-          closestUnbonded.clusterMergeFlash = 1.0;
-        }
+    m.bondTimer += dt * (COMPAT_TIMER_BASE + Math.max(0, compat));
+    if (m.bondTimer > BOND_TIME / bondStrength) {
+      // Cluster merge: both motes already have bonds → two communities becoming one
+      const isMerge = m.bonds.length > 0 && closestUnbonded.bonds.length > 0;
+      m.bonds.push(closestUnbonded);
+      closestUnbonded.bonds.push(m);
+      m.bondAges.set(closestUnbonded, 0);
+      closestUnbonded.bondAges.set(m, 0);
+      m.bondTimer = 0;
+      m.bondFlash = 1;
+      closestUnbonded.bondFlash = 1;
+      m.energy = Math.min(1, m.energy + BOND_FORMATION_ENERGY_GAIN);
+      closestUnbonded.energy = Math.min(1, closestUnbonded.energy + BOND_FORMATION_ENERGY_GAIN);
+      if (isMerge) {
+        m.clusterMergeFlash = 1.0;
+        closestUnbonded.clusterMergeFlash = 1.0;
       }
     }
   } else {

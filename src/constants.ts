@@ -119,14 +119,15 @@ export const SIM_DT = 1 / 30;               // simulation quantum, seconds
 export const STEPS_PER_CYCLE = 9000;        // CYCLE_DURATION / SIM_DT
 
 // Phase params table (indexed by phase)
-// Few motes, slow arrival — each creature is an individual you can watch.
+// Population IS the narrative arc: rises through the first half,
+// peaks in complexity, falls to a single survivor. (Spec 2.0 §6.1)
 export const PHASE_PARAMS = [
-  { spawnRate: 1,  maxMotes: 2,  energyDecay: 0.006, bondStrength: 0.3 },
-  { spawnRate: 1,  maxMotes: 5,  energyDecay: 0.010, bondStrength: 0.5 },
-  { spawnRate: 1,  maxMotes: 7,  energyDecay: 0.012, bondStrength: 0.8 },
-  { spawnRate: 1,  maxMotes: 8,  energyDecay: 0.015, bondStrength: 0.9 },
-  { spawnRate: 0,  maxMotes: 8,  energyDecay: 0.03,  bondStrength: 0.3 },
-  { spawnRate: 0,  maxMotes: 8,  energyDecay: 0.05,  bondStrength: 0.1 },
+  { spawnRate: 2.0, maxMotes: 10, energyDecay: 0.004, bondStrength: 0.2 },
+  { spawnRate: 1.5, maxMotes: 24, energyDecay: 0.008, bondStrength: 0.7 },
+  { spawnRate: 0.8, maxMotes: 32, energyDecay: 0.010, bondStrength: 0.9 },
+  { spawnRate: 0.3, maxMotes: 36, energyDecay: 0.012, bondStrength: 1.0 },
+  { spawnRate: 0,   maxMotes: 36, energyDecay: 0.035, bondStrength: 0.4 },
+  { spawnRate: 0,   maxMotes: 36, energyDecay: 0.06,  bondStrength: 0.1 },
 ] as const;
 
 // ---- Events ----
@@ -182,18 +183,20 @@ export const GRIEF_DURATION = 18;
 export const GRIEF_SPEED_MULT = 0.5;
 export const GRIEF_COMFORT_OVERRIDE = 1.0;
 export const GRIEF_TOGETHERNESS_FLOOR = 0.1;
-export const GRIEF_BOND_THRESHOLD = 0.8;
 export const GRIEF_TOGETHERNESS_RECOVERY = 0.03;
 
 // ---- Compatibility ----
+// Compatibility shapes bond character and speed — it never blocks bonding. (Spec 2.0 §6.1)
 export const COMPAT_WANDERLUST_SOCIAL_WEIGHT = 0.5;
 export const COMPAT_HARDINESS_WEIGHT = 0.3;
-export const COMPAT_BOND_THRESHOLD = 0.35;
-export const COMPAT_FAST_FRIEND_THRESHOLD = 0.7;
-export const COMPAT_FAST_FRIEND_MULT = 1.5;
+export const COMPAT_TIMER_BASE = 0.5;   // bond timer rate = BASE + compat (0.5x..1.5x)
 
 // ---- Rejection ----
-export const REJECTION_TOGETHERNESS_THRESHOLD = 0.3;
+export const REJECTION_TOGETHERNESS_THRESHOLD = 0.1;
+
+// ---- Community energy ----
+// Being bonded slows energy decay — community is literally life-sustaining.
+export const COMMUNITY_DECAY_RELIEF = 0.5;  // up to 50% slower at 3 bonds
 
 // ---- Resting ----
 export const REST_MIN_DURATION = 3;
