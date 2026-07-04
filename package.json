@@ -7,11 +7,13 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "capture": "node scripts/capture.mjs"
+    "capture": "node scripts/capture.mjs",
+    "test": "vitest run"
   },
   "devDependencies": {
     "playwright": "^1.58.2",
     "typescript": "^5.9.3",
-    "vite": "^6.4.1"
+    "vite": "^6.4.1",
+    "vitest": "^4.1.9"
   }
 }
