@@ -166,6 +166,8 @@ npx vite build
 ```
 Both must pass.
 
+Also run `node scripts/analyze-quality.mjs 60 quality-report-after.json` — if the analyzer exits non-zero, nothing else matters: fix the gates before committing.
+
 ### 11. Run AFTER quality analysis
 ```bash
 node scripts/analyze-quality.mjs 60 quality-report-after.json

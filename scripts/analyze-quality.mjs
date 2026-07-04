@@ -1,8 +1,13 @@
-// analyze-quality.mjs — Visual quality analysis via Playwright.
-// Extracts the 256x144 canvas pixel data and computes quality metrics.
-// Usage: node scripts/analyze-quality.mjs [speed] [output-file]
+// analyze-quality.mjs — Ground-truth quality analysis via Playwright.
+// Reads window.__mote (exact simulation state) at locked ?cycle=N worlds,
+// combines it with pixel-level visibility metrics, and enforces hard gates.
+// Exits non-zero when any gate fails (unless --report-only) — an empty or
+// degenerate world can no longer be reported as fine.
+// Usage: node scripts/analyze-quality.mjs [speed] [outFile] [--cycles a,b,c] [--report-only]
 //   speed: time multiplier (default 60)
-//   output-file: where to write the JSON report (default quality-report.json)
+//   outFile: where to write the JSON report (default quality-report.json)
+//   --cycles: comma-separated locked cycle numbers (default 1000,2000,3000)
+//   --report-only: write the report and print gate results but always exit 0
 
 import { chromium } from "playwright";
 import { createServer } from "vite";
@@ -13,22 +18,14 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, "..");
 
-const speed = parseInt(process.argv[2] || "60", 10);
-const outFile = process.argv[3] || "quality-report.json";
-
-const CYCLE_DURATION = 300;
-const effectiveCycleDuration = CYCLE_DURATION / speed;
-
-// Sample points through the cycle (fraction of cycle progress)
-const SAMPLE_POINTS = [
-  { name: "genesis", progress: 0.05 },
-  { name: "exploration-early", progress: 0.15 },
-  { name: "exploration-late", progress: 0.25 },
-  { name: "organization", progress: 0.40 },
-  { name: "complexity-peak", progress: 0.65 },
-  { name: "dissolution", progress: 0.85 },
-  { name: "silence", progress: 0.95 },
-];
+const args = process.argv.slice(2).filter(a => !a.startsWith("--"));
+const flags = process.argv.slice(2).filter(a => a.startsWith("--"));
+const speed = parseInt(args[0] || "60", 10);
+const outFile = args[1] || "quality-report.json";
+const cyclesFlag = flags.find(f => f.startsWith("--cycles"));
+const CYCLES = cyclesFlag ? cyclesFlag.split("=")[1].split(",").map(Number) : [1000, 2000, 3000];
+const REPORT_ONLY = flags.includes("--report-only");
+const SAMPLE_EVERY = 0.02; // 50 samples per cycle
 
 // Analyze raw 256x144 pixel data for quality metrics
 function analyzeFrame(pixelData, width, height) {
@@ -223,8 +220,65 @@ function analyzeFrame(pixelData, width, height) {
   return metrics;
 }
 
+// Gate evaluation against ground-truth + pixel samples for a single cycle.
+// Spec §9 gates — G3 uses first-bond sample timing until milestones (Task 10) land.
+function evaluateGates(samples) {
+  const gates = [];
+  const peak = samples.reduce((best, s) => (s.population > best.population ? s : best), samples[0]);
+  gates.push({ id: "G1", pass: peak.population >= 28 && peak.population <= 36 && peak.progress >= 0.55 && peak.progress <= 0.80,
+    detail: `peak ${peak.population} at ${peak.progress.toFixed(2)}` });
+  const org = samples.find(s => s.progress >= 0.55);
+  gates.push({ id: "G2", pass: !!org && org.bondedFraction >= 0.4,
+    detail: `bondedFraction ${org ? org.bondedFraction.toFixed(2) : "n/a"} at 0.55` });
+  const firstBond = samples.find(s => s.bondCount >= 1);
+  gates.push({ id: "G3", pass: !!firstBond && firstBond.progress < 0.25,
+    detail: `first bond at ${firstBond ? firstBond.progress.toFixed(2) : "never"}` });
+  const tail = samples.filter(s => s.progress >= 0.965 && s.progress <= 0.99);
+  gates.push({ id: "G4", pass: tail.length > 0 && tail.every(s => s.population === 1),
+    detail: `tail populations [${tail.map(s => s.population).join(",")}]` });
+  const contrast = samples.filter(s => s.visibleMoteCount > 0);
+  const worst = contrast.reduce((min, s) => Math.min(min, s.avgMoteBrightness - s.avgBrightness), Infinity);
+  gates.push({ id: "G5", pass: contrast.length > 0 && worst >= 0.25,
+    detail: `worst mote/backdrop delta ${worst === Infinity ? "n/a" : worst.toFixed(2)}` });
+  return gates;
+}
+
+// Drives one locked ?cycle=N world at full speed, sampling ground truth
+// (window.__mote) plus pixel-derived visibility metrics every SAMPLE_EVERY
+// of cycle progress, until the locked cycle wraps back around to 0%.
+async function analyzeCycle(page, cycle) {
+  await page.goto(`http://localhost:5198/?cycle=${cycle}&speed=${speed}&debug`);
+  await page.click("canvas");
+  await page.mouse.move(2, 2); // park off-canvas so the cursor indicator doesn't render
+  const samples = [];
+  let nextSample = 0.01;
+  let lastProgress = 0;
+  for (;;) {
+    const truth = await page.evaluate(() => window.__mote);
+    // Locked cycles wrap back to the same cycle at 100% — stop when progress rewinds
+    if (truth && truth.progress < lastProgress - 0.5) break;
+    if (truth) lastProgress = truth.progress;
+    if (truth && truth.progress >= nextSample) {
+      const pixelData = await page.evaluate(() => {
+        const canvas = document.getElementById("world");
+        const ctx = canvas.getContext("2d");
+        const d = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        return { data: Array.from(d.data), width: canvas.width, height: canvas.height };
+      });
+      const pixels = analyzeFrame(new Uint8Array(pixelData.data), pixelData.width, pixelData.height);
+      const { snapshots, ...truthRest } = truth;
+      samples.push({ ...truthRest, ...pixels });
+      nextSample = truth.progress + SAMPLE_EVERY;
+    }
+    if (truth && truth.progress >= 0.995 && samples.length > 5) break;
+    await page.waitForTimeout(20);
+  }
+  return samples;
+}
+
 async function main() {
-  console.log("Starting quality analysis...");
+  console.log("Starting ground-truth quality analysis...");
+  console.log(`  cycles: ${CYCLES.join(", ")}  speed: ${speed}x  report-only: ${REPORT_ONLY}`);
 
   const server = await createServer({
     root: projectRoot,
@@ -238,112 +292,30 @@ async function main() {
     viewport: { width: 1280, height: 720 },
   });
 
-  const url = `http://localhost:5198/?speed=${speed}&debug`;
-  await page.goto(url);
-  await page.click("canvas");
-  await page.mouse.move(2, 2); // park off-canvas so the cursor indicator doesn't render
-  await page.waitForTimeout(500);
+  const report = { timestamp: new Date().toISOString(), cycles: [], pass: false };
 
-  const startReal = Date.now();
-  const report = { timestamp: new Date().toISOString(), samples: [], summary: {} };
-
-  for (const sample of SAMPLE_POINTS) {
-    const targetRealMs = sample.progress * effectiveCycleDuration * 1000;
-
-    // Wait until the right time
-    while (Date.now() - startReal < targetRealMs) {
-      await page.waitForTimeout(30);
+  for (const cycle of CYCLES) {
+    console.log(`\n=== cycle ${cycle} ===`);
+    const samples = await analyzeCycle(page, cycle);
+    const gates = evaluateGates(samples);
+    for (const g of gates) {
+      console.log(`  [${g.pass ? "PASS" : "FAIL"}] ${g.id}: ${g.detail}`);
     }
-
-    // Extract raw canvas pixel data at native resolution
-    const pixelData = await page.evaluate(() => {
-      const canvas = document.getElementById("world");
-      if (!canvas) return null;
-      const ctx = canvas.getContext("2d");
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      return {
-        data: Array.from(imageData.data),
-        width: canvas.width,
-        height: canvas.height,
-      };
-    });
-
-    if (!pixelData) {
-      console.log(`  ${sample.name}: could not read canvas`);
-      continue;
-    }
-
-    const metrics = analyzeFrame(
-      new Uint8Array(pixelData.data),
-      pixelData.width,
-      pixelData.height,
-    );
-
-    console.log(`  ${sample.name}: ${metrics.visibleMoteCount} visible motes, ` +
-      `avg brightness ${metrics.avgMoteBrightness.toFixed(2)}, ` +
-      `clumped ratio ${metrics.clumpedMoteRatio.toFixed(2)}, ` +
-      `water bodies ${metrics.waterBodyCount}`);
-
-    report.samples.push({ phase: sample.name, progress: sample.progress, ...metrics });
+    report.cycles.push({ cycle, samples, gates });
   }
 
-  // Compute summary across all samples
-  const allSamples = report.samples;
-  if (allSamples.length > 0) {
-    const avg = (arr, key) => arr.reduce((s, x) => s + x[key], 0) / arr.length;
-    const max = (arr, key) => Math.max(...arr.map(x => x[key]));
-    const min = (arr, key) => Math.min(...arr.map(x => x[key]));
-
-    report.summary = {
-      avgVisibleMotes: avg(allSamples, "visibleMoteCount"),
-      peakVisibleMotes: max(allSamples, "visibleMoteCount"),
-      avgMoteBrightness: avg(allSamples, "avgMoteBrightness"),
-      avgClumpedRatio: avg(allSamples, "clumpedMoteRatio"),
-      worstClumpedRatio: max(allSamples, "clumpedMoteRatio"),
-      avgMoteSpread: avg(allSamples, "moteSpreadX"),
-      waterBodyCount: max(allSamples, "waterBodyCount"),
-      avgWaterCoverage: avg(allSamples, "waterCoverage"),
-
-      // Quality flags
-      issues: [],
-    };
-
-    const s = report.summary;
-    if (s.avgMoteBrightness < 0.5)
-      s.issues.push("MOTE_TOO_DIM: Average mote brightness below 0.5 — motes are hard to see against terrain");
-    if (s.worstClumpedRatio > 0.4)
-      s.issues.push("MOTE_CLUMPING: >40% of motes have nearest neighbor <4px apart — they merge visually");
-    if (s.avgMoteSpread < 0.3)
-      s.issues.push("MOTE_BUNCHED: Motes clustered in narrow X range — poor use of landscape");
-    if (s.waterBodyCount <= 1)
-      s.issues.push("WATER_MONOTONE: Only 0-1 water bodies detected — liquid placement lacks variety");
-    if (s.peakVisibleMotes < 5)
-      s.issues.push("LOW_POPULATION: Peak visible motes below 5 — world feels empty");
-    if (s.avgVisibleMotes < 3)
-      s.issues.push("INVISIBLE_MOTES: Average visible motes below 3 — motes may be too transparent");
-
-    console.log(`\n=== QUALITY SUMMARY ===`);
-    console.log(`  Avg visible motes: ${s.avgVisibleMotes.toFixed(1)} (peak: ${s.peakVisibleMotes})`);
-    console.log(`  Avg mote brightness: ${s.avgMoteBrightness.toFixed(2)}`);
-    console.log(`  Clumping ratio: ${s.avgClumpedRatio.toFixed(2)} (worst: ${s.worstClumpedRatio.toFixed(2)})`);
-    console.log(`  Water bodies: ${s.waterBodyCount}, coverage: ${(s.avgWaterCoverage * 100).toFixed(1)}%`);
-
-    if (s.issues.length > 0) {
-      console.log(`\n  ISSUES DETECTED:`);
-      for (const issue of s.issues) {
-        console.log(`    - ${issue}`);
-      }
-    } else {
-      console.log(`\n  No quality issues detected.`);
-    }
-  }
+  const pass = report.cycles.every(c => c.gates.every(g => g.pass));
+  report.pass = pass;
 
   const absOut = resolve(projectRoot, outFile);
   writeFileSync(absOut, JSON.stringify(report, null, 2));
   console.log(`\nReport saved to ${absOut}`);
+  console.log(pass ? "\nAll gates passed." : "\nGate FAILURES detected.");
 
   await browser.close();
   await server.close();
+
+  if (!pass && !REPORT_ONLY) process.exit(1);
 }
 
 main().catch((err) => {
