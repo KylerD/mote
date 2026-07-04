@@ -290,6 +290,9 @@ export interface World {
   stepsThisCycle: number;        // fixed steps executed since cycle start
   spawnTotal: number;            // motes spawned this cycle
   deathTotal: number;            // motes died this cycle
+  captureSnapshots: boolean;   // when true, stepWorld records per-decile debug snapshots
+  debugSnapshots: Array<{ decile: number; population: number; bondCount: number; bondedFraction: number; spawnTotal: number; deathTotal: number }>;
+  snapshotDecile: number;      // last decile boundary captured (for step-exact sampling)
   spawnAccumSim?: number;        // locked-branch sim-time accumulator (updateWorld)
 }
 

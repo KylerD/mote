@@ -102,6 +102,9 @@ export function createWorldForCycle(
     stepsThisCycle: 0,
     spawnTotal: 0,
     deathTotal: 0,
+    captureSnapshots: false,
+    debugSnapshots: [],
+    snapshotDecile: 0,
   };
 }
 
@@ -109,12 +112,16 @@ export function createWorldForCycle(
 export function createWorld(): World {
   const params = new URLSearchParams(window.location.search);
   const speed = params.get("speed") ? Number(params.get("speed")) : 1;
+  const debug = params.get("debug") !== null;
   const cycleOverride = params.get("cycle");
   if (cycleOverride !== null) {
-    return createWorldForCycle(parseInt(cycleOverride, 10), speed, true);
+    const world = createWorldForCycle(parseInt(cycleOverride, 10), speed, true);
+    world.captureSnapshots = debug;
+    return world;
   }
   const cycleNumber = Math.floor((Date.now() / 1000) * speed / CYCLE_DURATION);
   const world = createWorldForCycle(cycleNumber, speed, false);
+  world.captureSnapshots = debug;
   // Mid-cycle join: catch up to the shared clock so every viewer sees the same world
   catchUp(world);
   return world;
@@ -323,6 +330,27 @@ export function stepWorld(world: World, h: number): void {
 
   // Cache clusters for rendering and sound
   world.clusters = findClusters(world.motes);
+
+  // Step-exact debug snapshot capture: sampled per-decile inside the fixed-step loop
+  // so the recorded timeline is identical across sim speeds by construction. Reads only
+  // world state (no Date.now/Math.random/performance.now), preserving determinism.
+  if (world.captureSnapshots) {
+    const decile = Math.floor(world.cycleProgress * 10);
+    if (decile > world.snapshotDecile) {
+      world.snapshotDecile = decile;
+      let bondCount = 0, bonded = 0;
+      for (const m of world.motes) { bondCount += m.bonds.length; if (m.bonds.length > 0) bonded++; }
+      bondCount /= 2;
+      world.debugSnapshots.push({
+        decile,
+        population: world.motes.length,
+        bondCount,
+        bondedFraction: world.motes.length > 0 ? bonded / world.motes.length : 0,
+        spawnTotal: world.spawnTotal,
+        deathTotal: world.deathTotal,
+      });
+    }
+  }
 }
 
 export function updateWorld(world: World, realDt: number): void {
@@ -360,4 +388,6 @@ function resetCycle(world: World, cycleNumber: number): void {
   world.spawnTotal = 0;
   world.deathTotal = 0;
   world.cycleProgress = 0;
+  world.debugSnapshots = [];
+  world.snapshotDecile = 0;
 }
