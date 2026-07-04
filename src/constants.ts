@@ -114,6 +114,10 @@ export const AGE_GOLD_WINDOW = 22;
 export const AGE_GOLD_STRENGTH = 0.40;
 export const MAX_SPEED_MULTIPLIER = 120;
 
+// ---- Fixed-timestep simulation ----
+export const SIM_DT = 1 / 30;               // simulation quantum, seconds
+export const STEPS_PER_CYCLE = 9000;        // CYCLE_DURATION / SIM_DT
+
 // Phase params table (indexed by phase)
 // Few motes, slow arrival — each creature is an individual you can watch.
 export const PHASE_PARAMS = [

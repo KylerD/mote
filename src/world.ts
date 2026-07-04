@@ -16,6 +16,7 @@ import { createWeather, updateWeather } from "./weather";
 import {
   PHASE_DURATIONS, PHASE_PARAMS,
   RNG_SEED_OFFSET, MAX_SPEED_MULTIPLIER,
+  SIM_DT, STEPS_PER_CYCLE,
   SPAWN_ATTEMPTS, SPAWN_ENERGY_MIN, SPAWN_ENERGY_RANGE,
   SETTLEMENT_INTERVAL, SETTLEMENT_MIN_CLUSTER,
   DEATH_RECORD_LIFETIME,
@@ -68,9 +69,11 @@ export function getPhaseFromCycle(cycleProgress: number): {
 
 // World, DeathRecord are defined in types.ts and re-exported above
 
-export function createWorld(): World {
-  const cycleOverride = new URLSearchParams(window.location.search).get("cycle");
-  const cycleNumber = cycleOverride ? parseInt(cycleOverride, 10) : Math.floor(Date.now() / (CYCLE_DURATION * 1000));
+export function createWorldForCycle(
+  cycleNumber: number,
+  speed = 1,
+  locked = true,
+): World {
   const terrain = generateTerrain(cycleNumber);
   return {
     terrain,
@@ -94,53 +97,54 @@ export function createWorld(): World {
     pendingEventSound: null,
     phaseFlash: 0,
     weather: createWeather(cycleNumber, terrain.biome),
+    simSpeed: Math.max(1, Math.min(MAX_SPEED_MULTIPLIER, speed)),
+    lockedCycle: locked ? cycleNumber : null,
+    stepsThisCycle: 0,
+    spawnTotal: 0,
+    deathTotal: 0,
   };
 }
 
-/** Get time multiplier from URL param (?speed=N) */
-function getSpeedMultiplier(): number {
+/** Browser entry: honors ?cycle=N (locked) and ?speed=N. */
+export function createWorld(): World {
   const params = new URLSearchParams(window.location.search);
-  const speed = params.get("speed");
-  return speed ? Math.max(1, Math.min(MAX_SPEED_MULTIPLIER, Number(speed))) : 1;
+  const speed = params.get("speed") ? Number(params.get("speed")) : 1;
+  const cycleOverride = params.get("cycle");
+  if (cycleOverride !== null) {
+    return createWorldForCycle(parseInt(cycleOverride, 10), speed, true);
+  }
+  const cycleNumber = Math.floor((Date.now() / 1000) * speed / CYCLE_DURATION);
+  const world = createWorldForCycle(cycleNumber, speed, false);
+  // Mid-cycle join: catch up to the shared clock so every viewer sees the same world
+  catchUp(world);
+  return world;
 }
 
-const speedMultiplier = getSpeedMultiplier();
+function targetSteps(world: World): number {
+  if (world.lockedCycle !== null) return world.stepsThisCycle; // driven by updateWorld accumulation
+  const effectiveTime = (Date.now() / 1000) * world.simSpeed;
+  const inCycle = effectiveTime - world.cycleNumber * CYCLE_DURATION;
+  return Math.max(0, Math.min(STEPS_PER_CYCLE, Math.floor(inCycle / SIM_DT)));
+}
 
-export function updateWorld(world: World, dt: number): void {
-  // Cycle clock (with speed multiplier for debug)
-  const utcSeconds = Date.now() / 1000;
-  const effectiveTime = utcSeconds * speedMultiplier;
-  world.cycleProgress = (effectiveTime % CYCLE_DURATION) / CYCLE_DURATION;
-  world.time += dt;
+function catchUp(world: World): void {
+  const target = targetSteps(world);
+  while (world.stepsThisCycle < target) stepWorld(world, SIM_DT);
+}
 
-  // Phase detection
+export function stepWorld(world: World, h: number): void {
+  world.time += h;
+  world.stepsThisCycle++;
+  world.cycleProgress = Math.min(1, (world.stepsThisCycle * SIM_DT) / CYCLE_DURATION);
+
   const { index: newPhase, progress } = getPhaseFromCycle(world.cycleProgress);
   world.phaseProgress = progress;
-
-  // Cycle change detection
-  const currentCycle = Math.floor(effectiveTime / CYCLE_DURATION);
-  if (currentCycle !== world.cycleNumber) {
-    world.cycleNumber = currentCycle;
-    world.terrain = generateTerrain(currentCycle);
-    world.motes = [];
-    world.rng = mulberry32(currentCycle + RNG_SEED_OFFSET);
-    world.spawnAccum = 0;
-    world.settlementTimer = 0;
-    world.event = checkForEvent(currentCycle);
-    world.eventTriggered = false;
-    world.deaths = [];
-    world.allDeaths = [];
-    world.pendingEventSound = null;
-    world.weather = createWeather(currentCycle, world.terrain.biome);
-  }
-
   if (newPhase !== world.phaseIndex) {
     world.phaseIndex = newPhase;
     world.phaseName = PHASE_NAMES[newPhase];
     world.phaseFlash = 1.0;
   }
-  world.phaseFlash = Math.max(0, world.phaseFlash - dt);
-
+  world.phaseFlash = Math.max(0, world.phaseFlash - h);
   world.params = PHASE_PARAMS[world.phaseIndex];
 
   // Rare event triggering
@@ -154,7 +158,7 @@ export function updateWorld(world: World, dt: number): void {
 
   // Apply active event
   if (world.event && isEventActive(world.event, world.time)) {
-    applyEvent(world.event, world, dt);
+    applyEvent(world.event, world, h);
   }
 
   // Event-driven drive spikes
@@ -170,7 +174,7 @@ export function updateWorld(world: World, dt: number): void {
 
   // Spawn motes on walkable terrain
   if (world.motes.length < world.params.maxMotes) {
-    world.spawnAccum += world.params.spawnRate * dt;
+    world.spawnAccum += world.params.spawnRate * h;
     while (world.spawnAccum >= 1) {
       world.spawnAccum -= 1;
       // Find a valid spawn position
@@ -182,6 +186,7 @@ export function updateWorld(world: World, dt: number): void {
         if (tile === Tile.ShallowWater || tile === Tile.DeepWater) continue;
         const energy = SPAWN_ENERGY_MIN + world.rng() * SPAWN_ENERGY_RANGE;
         world.motes.push(createMote(x, surfY - 1, energy, world.rng));
+        world.spawnTotal++;
         break;
       }
     }
@@ -191,13 +196,13 @@ export function updateWorld(world: World, dt: number): void {
   buildGrid(world.grid, world.motes);
   for (const mote of world.motes) {
     updateMote(
-      mote, dt, world.terrain, world.grid,
+      mote, h, world.terrain, world.grid,
       world.params.energyDecay, world.params.bondStrength, world.rng,
     );
   }
 
   // Settlement placement: stable clusters mark the ground
-  world.settlementTimer += dt;
+  world.settlementTimer += h;
   if (world.settlementTimer > SETTLEMENT_INTERVAL) {
     world.settlementTimer = 0;
     const clusters = findClusters(world.motes);
@@ -238,6 +243,7 @@ export function updateWorld(world: World, dt: number): void {
         age: m.age,
         trail: trailCopy,
       });
+      world.deathTotal++;
 
       // Persist all death positions for the silence constellation
       world.allDeaths.push({ x: m.x, y: m.y, r: dr, g: dg, b: db, time: world.time });
@@ -313,8 +319,45 @@ export function updateWorld(world: World, dt: number): void {
   world.deaths = world.deaths.filter(d => world.time - d.time < DEATH_RECORD_LIFETIME);
 
   // Weather particle/cloud/lightning updates
-  updateWeather(world.weather, dt, world.time, world.rng);
+  updateWeather(world.weather, h, world.time, world.rng);
 
   // Cache clusters for rendering and sound
   world.clusters = findClusters(world.motes);
+}
+
+export function updateWorld(world: World, realDt: number): void {
+  if (world.lockedCycle !== null) {
+    // Locked (instruments): advance by scaled real time; wrap to the same cycle.
+    world.spawnAccumSim = (world.spawnAccumSim ?? 0) + realDt * world.simSpeed;
+    while (world.spawnAccumSim >= SIM_DT) {
+      world.spawnAccumSim -= SIM_DT;
+      if (world.stepsThisCycle >= STEPS_PER_CYCLE) resetCycle(world, world.lockedCycle);
+      stepWorld(world, SIM_DT);
+    }
+    return;
+  }
+  // Live: derive the current cycle from the shared clock.
+  const effectiveTime = (Date.now() / 1000) * world.simSpeed;
+  const currentCycle = Math.floor(effectiveTime / CYCLE_DURATION);
+  if (currentCycle !== world.cycleNumber) resetCycle(world, currentCycle);
+  catchUp(world);
+}
+
+function resetCycle(world: World, cycleNumber: number): void {
+  world.cycleNumber = cycleNumber;
+  world.terrain = generateTerrain(cycleNumber);
+  world.motes = [];
+  world.rng = mulberry32(cycleNumber + RNG_SEED_OFFSET);
+  world.spawnAccum = 0;
+  world.settlementTimer = 0;
+  world.event = checkForEvent(cycleNumber);
+  world.eventTriggered = false;
+  world.deaths = [];
+  world.allDeaths = [];
+  world.pendingEventSound = null;
+  world.weather = createWeather(cycleNumber, world.terrain.biome);
+  world.stepsThisCycle = 0;
+  world.spawnTotal = 0;
+  world.deathTotal = 0;
+  world.cycleProgress = 0;
 }

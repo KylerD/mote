@@ -285,6 +285,12 @@ export interface World {
   pendingEventSound: string | null;
   phaseFlash: number;
   weather: Weather;
+  simSpeed: number;              // time multiplier (1 = live; >1 for instruments)
+  lockedCycle: number | null;    // non-null pins the world to one cycle (?cycle=N)
+  stepsThisCycle: number;        // fixed steps executed since cycle start
+  spawnTotal: number;            // motes spawned this cycle
+  deathTotal: number;            // motes died this cycle
+  spawnAccumSim?: number;        // locked-branch sim-time accumulator (updateWorld)
 }
 
 interface PhaseParams {
