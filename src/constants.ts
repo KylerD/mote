@@ -213,3 +213,15 @@ export const SITE_MARGIN = 16;
 export const SITE_SCAN_STEP = 2;
 export const SITE_FLAT_RADIUS = 10;
 export const SITE_WATER_RANGE = 40;
+
+// ---- Belonging (the pull toward the gathering site) ----
+export const BELONGING_RAMP_START = 0.25;   // cycleProgress where the pull begins
+export const BELONGING_RAMP_FULL = 0.45;    // fully felt by mid-organization
+export const BELONGING_FADE_START = 0.80;   // dissolution: the colony lets go
+export const BELONGING_FADE_END = 0.92;
+export const BELONGING_PEAK = 0.9;          // stronger than any drive baseline
+export const BELONGING_WANDER_RESIST = 0.5; // high-wanderlust motes resist longest
+export const SITE_ARRIVE_DIST = 24;
+export const PROCESSION_LINK_DIST = 8;      // follow a marcher ahead within this range
+export const PROCESSION_SPACING = 4;        // single-file spacing
+export const GATHERING_REPULSION_MULT = 0.035; // gathered motes pack into a dense huddle (~2px, tuned)

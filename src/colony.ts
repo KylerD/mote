@@ -6,7 +6,11 @@ import { Tile } from "./types";
 import type { Terrain, Mote } from "./types";
 import { getSurfaceY, getTile } from "./terrain-query";
 import { W, H } from "./config";
-import { SITE_MARGIN, SITE_SCAN_STEP, SITE_FLAT_RADIUS, SITE_WATER_RANGE } from "./constants";
+import {
+  SITE_MARGIN, SITE_SCAN_STEP, SITE_FLAT_RADIUS, SITE_WATER_RANGE, JUMP_OVER,
+  BELONGING_RAMP_START, BELONGING_RAMP_FULL, BELONGING_FADE_START,
+  BELONGING_FADE_END, BELONGING_PEAK,
+} from "./constants";
 
 export interface Milestone {
   name: string;
@@ -17,6 +21,8 @@ export interface Milestone {
 export interface ColonyState {
   siteX: number;
   siteY: number;
+  basinLo: number;   // bounds of the walkable basin the site sits in —
+  basinHi: number;   // motes stranded outside it are stragglers/texture
   milestones: Milestone[];
   arrived: boolean;
   peakPopulation: number;
@@ -24,16 +30,55 @@ export interface ColonyState {
 }
 
 /**
- * Deterministically pick the gathering site: the flattest, reasonably
- * elevated walkable spot, with a mild preference for being near water.
- * Pure function of terrain — this is what makes cross-cycle memory
- * derivable without simulation (spec §6.4).
+ * The single largest contiguous WALKABLE BASIN in the scannable range: the
+ * longest run of columns that are dry (surface AND below-surface not water)
+ * AND connected to their neighbour by a step motes can actually climb
+ * (<= JUMP_OVER). A dry-but-too-steep column breaks the run and starts a
+ * fresh one; a wet column kills the run. Reachability lives here — a site
+ * nobody can walk to is no gathering place. Pure function of terrain.
+ */
+export function largestWalkableBasin(terrain: Terrain): { lo: number; hi: number } {
+  const lo = SITE_MARGIN, hi = W - SITE_MARGIN;
+  let bestStart = -1, bestLen = 0, runStart = -1, prevY = 0;
+  for (let x = lo; x <= hi; x++) {
+    const sy = getSurfaceY(terrain, x);
+    const t0 = getTile(terrain, x, sy);
+    const t1 = getTile(terrain, x, sy + 1);
+    const wet = t0 === Tile.ShallowWater || t0 === Tile.DeepWater
+             || t1 === Tile.ShallowWater || t1 === Tile.DeepWater;
+    const stepOK = runStart >= 0 && Math.abs(sy - prevY) <= JUMP_OVER;
+    if (!wet && (runStart < 0 || stepOK)) {
+      if (runStart < 0) runStart = x;
+    } else {
+      runStart = wet ? -1 : x;   // dry-but-too-steep column starts a fresh run
+    }
+    if (runStart >= 0) {
+      const len = x - runStart + 1;
+      if (len > bestLen) { bestLen = len; bestStart = runStart; }
+    }
+    prevY = sy;
+  }
+  return {
+    lo: bestStart >= 0 ? bestStart : lo,
+    hi: bestStart >= 0 ? bestStart + bestLen - 1 : hi,
+  };
+}
+
+/**
+ * Deterministically pick the gathering site: the flattest, gently elevated
+ * spot INSIDE the largest walkable basin, with a mild preference for being
+ * near water. Pure function of terrain — this is what makes cross-cycle
+ * memory derivable without simulation (spec §6.4).
  */
 export function chooseSite(terrain: Terrain): { x: number; y: number } {
-  let bestX = Math.floor(W / 2);
+  const { lo: basinLo, hi: basinHi } = largestWalkableBasin(terrain);
+
+  // Score columns within the basin. Elevation weight is reduced so the
+  // site favours gentle high ground, not an unclimbable peak.
+  let bestX = Math.floor((basinLo + basinHi) / 2);
   let bestScore = -Infinity;
 
-  for (let x = SITE_MARGIN; x <= W - SITE_MARGIN; x += SITE_SCAN_STEP) {
+  for (let x = basinLo; x <= basinHi; x += SITE_SCAN_STEP) {
     const surfY = getSurfaceY(terrain, x);
     const tile = getTile(terrain, x, surfY);
     if (tile === Tile.ShallowWater || tile === Tile.DeepWater) continue;
@@ -69,7 +114,7 @@ export function chooseSite(terrain: Terrain): { x: number; y: number } {
       }
     }
 
-    const score = flatScore * 2 + elevScore + waterScore;
+    const score = flatScore * 2 + elevScore * 0.5 + waterScore;
     if (score > bestScore) {
       bestScore = score;
       bestX = x;
@@ -79,11 +124,28 @@ export function chooseSite(terrain: Terrain): { x: number; y: number } {
   return { x: bestX, y: getSurfaceY(terrain, bestX) };
 }
 
+/** Global belonging ramp: 0 while the world is young, dominant through the
+ *  gathering, releasing its grip as dissolution begins. */
+export function belongingBase(cycleProgress: number): number {
+  if (cycleProgress <= BELONGING_RAMP_START) return 0;
+  if (cycleProgress >= BELONGING_FADE_END) return 0;
+  if (cycleProgress < BELONGING_RAMP_FULL) {
+    const t = (cycleProgress - BELONGING_RAMP_START) / (BELONGING_RAMP_FULL - BELONGING_RAMP_START);
+    return BELONGING_PEAK * t * t * (3 - 2 * t); // smoothstep
+  }
+  if (cycleProgress <= BELONGING_FADE_START) return BELONGING_PEAK;
+  const t = (cycleProgress - BELONGING_FADE_START) / (BELONGING_FADE_END - BELONGING_FADE_START);
+  return BELONGING_PEAK * (1 - t);
+}
+
 export function createColony(terrain: Terrain): ColonyState {
+  const basin = largestWalkableBasin(terrain);
   const site = chooseSite(terrain);
   return {
     siteX: site.x,
     siteY: site.y,
+    basinLo: basin.lo,
+    basinHi: basin.hi,
     milestones: [],
     arrived: false,
     peakPopulation: 0,
