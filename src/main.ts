@@ -145,12 +145,48 @@ function init(): void {
   let starChimeCount = 0;
   let starChimeCycleNumber = -1;
 
+  let lastSnapshotDecile = 0;
+  const debugSnapshots: Array<Record<string, number>> = [];
+
   function frame(now: number): void {
     const dt = Math.min((now - lastTime) / 1000, 0.05);
     lastTime = now;
 
     // Update
     updateWorld(w, dt);
+
+    if (debugMode) {
+      const population = w.motes.length;
+      let bondCount = 0;
+      let bonded = 0;
+      for (const m of w.motes) {
+        bondCount += m.bonds.length;
+        if (m.bonds.length > 0) bonded++;
+      }
+      bondCount /= 2;
+      const largestCluster = w.clusters.reduce((s, c) => Math.max(s, c.length), 0);
+      const decile = Math.floor(w.cycleProgress * 10);
+      if (decile > lastSnapshotDecile) {
+        lastSnapshotDecile = decile;
+        debugSnapshots.push({
+          decile, population, bondCount,
+          bondedFraction: population > 0 ? bonded / population : 0,
+          spawnTotal: w.spawnTotal, deathTotal: w.deathTotal,
+        });
+      }
+      if (decile < lastSnapshotDecile) { // new cycle
+        lastSnapshotDecile = 0;
+        debugSnapshots.length = 0;
+      }
+      (window as unknown as Record<string, unknown>).__mote = {
+        cycle: w.cycleNumber, progress: w.cycleProgress, phase: w.phaseName,
+        population, bondCount, clusterCount: w.clusters.length, largestCluster,
+        bondedFraction: population > 0 ? bonded / population : 0,
+        spawnTotal: w.spawnTotal, deathTotal: w.deathTotal,
+        snapshots: debugSnapshots,
+      };
+    }
+
     applyInteraction(input, w.motes);
 
     // Terrain life heatmap: clear on new cycle, deposit at mote positions, decay
