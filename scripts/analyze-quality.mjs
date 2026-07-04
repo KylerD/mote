@@ -25,7 +25,28 @@ const outFile = args[1] || "quality-report.json";
 const cyclesFlag = flags.find(f => f.startsWith("--cycles"));
 const CYCLES = cyclesFlag ? cyclesFlag.split("=")[1].split(",").map(Number) : [1000, 2000, 3000];
 const REPORT_ONLY = flags.includes("--report-only");
-const SAMPLE_EVERY = 0.02; // 50 samples per cycle
+// Cheap ground-truth (window.__mote) is sampled densely — this is what lets G4
+// catch the narrow [0.965, 0.99] tail window. Pixel reads (full canvas
+// serialization to Node) are far more expensive, so they're sampled sparsely
+// on a separate cadence and only feed G5.
+const SAMPLE_EVERY = 0.01; // dense truth sampling — ~100 samples/cycle, feeds G1-G4
+const PIXEL_SAMPLE_EVERY = 0.05; // sparse pixel sampling — ~20 samples/cycle, feeds G5
+// A single pixel read (getImageData + Array.from of the full 147KB canvas,
+// serialized to Node over CDP) costs roughly 10x the wall-clock time of a
+// plain window.__mote read. The sim clock keeps running during that stall,
+// so a pixel read can let real cycle progress jump ~0.06-0.08 in one step —
+// wide enough to leap clean over G4's narrow [0.965, 0.99] tail window and
+// have the *next* dense truth read land past it entirely (confirmed by
+// profiling: plain truth polls advance progress ~0.0067 each; a poll that
+// also does a pixel read advances ~0.065-0.08). To guarantee dense,
+// jump-free resolution through the tail, pixel sampling is cut off well
+// before it — G5 loses nothing meaningful here since the interesting
+// mote-visibility action (peak population, clustering) happens long before
+// the tail's lone-survivor phase anyway.
+const PIXEL_SAMPLE_CUTOFF = 0.85;
+const POLL_INTERVAL_MS = 20;
+const MAX_CYCLE_WALL_MS = 60_000; // wall-clock guard per cycle; fail loudly instead of hanging
+const MAX_POLLS_PER_CYCLE = Math.ceil(MAX_CYCLE_WALL_MS / POLL_INTERVAL_MS);
 
 // Analyze raw 256x144 pixel data for quality metrics
 function analyzeFrame(pixelData, width, height) {
@@ -222,7 +243,12 @@ function analyzeFrame(pixelData, width, height) {
 
 // Gate evaluation against ground-truth + pixel samples for a single cycle.
 // Spec §9 gates — G3 reads the first-bond arc milestone (recorded by updateColony).
-function evaluateGates(samples) {
+// G1-G4 read the DENSE truth-only `samples` array (cheap window.__mote reads,
+// taken every poll iteration) so they have enough resolution to catch narrow
+// windows like G4's [0.965, 0.99] tail. G5 needs pixel-derived visibility
+// metrics, which are only affordable at a coarser cadence, so it reads the
+// separate `pixelSamples` array instead.
+function evaluateGates(samples, pixelSamples) {
   const gates = [];
   const peak = samples.reduce((best, s) => (s.population > best.population ? s : best), samples[0]);
   gates.push({ id: "G1", pass: peak.population >= 28 && peak.population <= 36 && peak.progress >= 0.55 && peak.progress <= 0.80,
@@ -236,29 +262,56 @@ function evaluateGates(samples) {
   const tail = samples.filter(s => s.progress >= 0.965 && s.progress <= 0.99);
   gates.push({ id: "G4", pass: tail.length > 0 && tail.every(s => s.population === 1),
     detail: `tail populations [${tail.map(s => s.population).join(",")}]` });
-  const contrast = samples.filter(s => s.visibleMoteCount > 0);
+  const contrast = pixelSamples.filter(s => s.visibleMoteCount > 0);
   const worst = contrast.reduce((min, s) => Math.min(min, s.avgMoteBrightness - s.avgBrightness), Infinity);
   gates.push({ id: "G5", pass: contrast.length > 0 && worst >= 0.25,
     detail: `worst mote/backdrop delta ${worst === Infinity ? "n/a" : worst.toFixed(2)}` });
   return gates;
 }
 
-// Drives one locked ?cycle=N world at full speed, sampling ground truth
-// (window.__mote) plus pixel-derived visibility metrics every SAMPLE_EVERY
-// of cycle progress, until the locked cycle wraps back around to 0%.
+// Drives one locked ?cycle=N world at full speed. Two independent sampling
+// cadences run off the same poll loop:
+//   - `samples`: cheap window.__mote reads (no pixel work), taken every time
+//     progress crosses the next SAMPLE_EVERY threshold. Dense enough to catch
+//     narrow windows like G4's [0.965, 0.99] tail.
+//   - `pixelSamples`: expensive full-canvas pixel reads + analyzeFrame, taken
+//     only every PIXEL_SAMPLE_EVERY of progress (far coarser, since each read
+//     serializes the whole 147KB pixel buffer to Node), and only while
+//     progress < PIXEL_SAMPLE_CUTOFF — see the comment on that constant for
+//     why pixel sampling must not run late in the cycle.
+// Polling stops when the locked cycle wraps back around to 0%, or once dense
+// sampling has reached the tail. A wall-clock guard throws if a cycle never
+// produces window.__mote (or never progresses) within MAX_CYCLE_WALL_MS.
 async function analyzeCycle(page, cycle) {
   await page.goto(`http://localhost:5198/?cycle=${cycle}&speed=${speed}&debug`);
   await page.click("canvas");
   await page.mouse.move(2, 2); // park off-canvas so the cursor indicator doesn't render
   const samples = [];
-  let nextSample = 0.01;
+  const pixelSamples = [];
+  let nextSample = SAMPLE_EVERY;
+  let nextPixelSample = PIXEL_SAMPLE_EVERY;
   let lastProgress = 0;
+  let polls = 0;
   for (;;) {
+    polls++;
+    if (polls > MAX_POLLS_PER_CYCLE) {
+      throw new Error(
+        `analyzeCycle(${cycle}): exceeded wall-clock timeout of ${MAX_CYCLE_WALL_MS}ms ` +
+        `(collected ${samples.length} truth samples, ${pixelSamples.length} pixel samples, ` +
+        `lastProgress=${lastProgress}). window.__mote may never have appeared, or the ` +
+        `cycle stopped progressing.`
+      );
+    }
     const truth = await page.evaluate(() => window.__mote);
     // Locked cycles wrap back to the same cycle at 100% — stop when progress rewinds
     if (truth && truth.progress < lastProgress - 0.5) break;
     if (truth) lastProgress = truth.progress;
     if (truth && truth.progress >= nextSample) {
+      const { snapshots, ...truthRest } = truth;
+      samples.push(truthRest);
+      nextSample = truth.progress + SAMPLE_EVERY;
+    }
+    if (truth && truth.progress >= nextPixelSample && truth.progress < PIXEL_SAMPLE_CUTOFF) {
       const pixelData = await page.evaluate(() => {
         const canvas = document.getElementById("world");
         const ctx = canvas.getContext("2d");
@@ -267,13 +320,13 @@ async function analyzeCycle(page, cycle) {
       });
       const pixels = analyzeFrame(new Uint8Array(pixelData.data), pixelData.width, pixelData.height);
       const { snapshots, ...truthRest } = truth;
-      samples.push({ ...truthRest, ...pixels });
-      nextSample = truth.progress + SAMPLE_EVERY;
+      pixelSamples.push({ ...truthRest, ...pixels });
+      nextPixelSample = truth.progress + PIXEL_SAMPLE_EVERY;
     }
     if (truth && truth.progress >= 0.995 && samples.length > 5) break;
-    await page.waitForTimeout(20);
+    await page.waitForTimeout(POLL_INTERVAL_MS);
   }
-  return samples;
+  return { samples, pixelSamples };
 }
 
 async function main() {
@@ -296,8 +349,8 @@ async function main() {
 
   for (const cycle of CYCLES) {
     console.log(`\n=== cycle ${cycle} ===`);
-    const samples = await analyzeCycle(page, cycle);
-    const gates = evaluateGates(samples);
+    const { samples, pixelSamples } = await analyzeCycle(page, cycle);
+    const gates = evaluateGates(samples, pixelSamples);
     for (const g of gates) {
       console.log(`  [${g.pass ? "PASS" : "FAIL"}] ${g.id}: ${g.detail}`);
     }
