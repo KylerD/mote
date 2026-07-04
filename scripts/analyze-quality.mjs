@@ -241,6 +241,7 @@ async function main() {
   const url = `http://localhost:5198/?speed=${speed}&debug`;
   await page.goto(url);
   await page.click("canvas");
+  await page.mouse.move(2, 2); // park off-canvas so the cursor indicator doesn't render
   await page.waitForTimeout(500);
 
   const startReal = Date.now();

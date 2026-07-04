@@ -74,6 +74,7 @@ async function main() {
 
   // Click to init audio (dismissed quickly)
   await page.click("canvas");
+  await page.mouse.move(2, 2); // park off-canvas so the cursor indicator doesn't render
   console.log(`Capturing ${CAPTURE_POINTS.length} frames across one cycle (~${Math.round(effectiveCycleDuration)}s real time)...`);
 
   // Wait for initial render

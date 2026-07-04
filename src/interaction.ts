@@ -48,7 +48,6 @@ export function createInteraction(canvas: HTMLCanvasElement): Interaction {
   });
 
   canvas.addEventListener("mouseleave", () => { ix.present = false; ix.speed = 0; });
-  canvas.addEventListener("mouseenter", () => { ix.present = true; });
 
   canvas.addEventListener("click", (e) => {
     const [wx, wy] = toWorld(e.clientX, e.clientY);
