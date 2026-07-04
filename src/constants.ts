@@ -226,3 +226,7 @@ export const SITE_MARCH_CUTOFF = 6;         // march until this close, so the co
 export const PROCESSION_LINK_DIST = 8;      // follow a marcher ahead within this range
 export const PROCESSION_SPACING = 4;        // single-file spacing
 export const GATHERING_REPULSION_MULT = 0.04; // gathered motes pack into a dense huddle (~2px, tuned)
+
+// ---- Last survivor ----
+export const SURVIVOR_DECAY_MULT = 0.05;        // the chosen one endures
+export const SILENCE_OTHERS_DECAY_MULT = 1.5;   // the rest fade quickly

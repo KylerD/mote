@@ -221,7 +221,7 @@ function analyzeFrame(pixelData, width, height) {
 }
 
 // Gate evaluation against ground-truth + pixel samples for a single cycle.
-// Spec §9 gates — G3 uses first-bond sample timing until milestones (Task 10) land.
+// Spec §9 gates — G3 reads the first-bond arc milestone (recorded by updateColony).
 function evaluateGates(samples) {
   const gates = [];
   const peak = samples.reduce((best, s) => (s.population > best.population ? s : best), samples[0]);
@@ -230,9 +230,9 @@ function evaluateGates(samples) {
   const org = samples.find(s => s.progress >= 0.55);
   gates.push({ id: "G2", pass: !!org && org.bondedFraction >= 0.4,
     detail: `bondedFraction ${org ? org.bondedFraction.toFixed(2) : "n/a"} at 0.55` });
-  const firstBond = samples.find(s => s.bondCount >= 1);
-  gates.push({ id: "G3", pass: !!firstBond && firstBond.progress < 0.25,
-    detail: `first bond at ${firstBond ? firstBond.progress.toFixed(2) : "never"}` });
+  const fb = samples[samples.length - 1].milestones?.find(m => m.name === "first-bond");
+  gates.push({ id: "G3", pass: !!fb && fb.progress < 0.25,
+    detail: `first-bond milestone at ${fb ? fb.progress.toFixed(2) : "never"}` });
   const tail = samples.filter(s => s.progress >= 0.965 && s.progress <= 0.99);
   gates.push({ id: "G4", pass: tail.length > 0 && tail.every(s => s.population === 1),
     detail: `tail populations [${tail.map(s => s.population).join(",")}]` });

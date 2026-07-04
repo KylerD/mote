@@ -3,13 +3,13 @@
 // (Spec 2.0 §6.2)
 
 import { Tile } from "./types";
-import type { Terrain, Mote } from "./types";
+import type { Terrain, Mote, World } from "./types";
 import { getSurfaceY, getTile } from "./terrain-query";
 import { W, H } from "./config";
 import {
   SITE_MARGIN, SITE_SCAN_STEP, SITE_FLAT_RADIUS, SITE_WATER_RANGE, JUMP_OVER,
   BELONGING_RAMP_START, BELONGING_RAMP_FULL, BELONGING_FADE_START,
-  BELONGING_FADE_END, BELONGING_PEAK,
+  BELONGING_FADE_END, BELONGING_PEAK, SITE_ARRIVE_DIST,
 } from "./constants";
 
 export interface Milestone {
@@ -136,6 +136,53 @@ export function belongingBase(cycleProgress: number): number {
   if (cycleProgress <= BELONGING_FADE_START) return BELONGING_PEAK;
   const t = (cycleProgress - BELONGING_FADE_START) / (BELONGING_FADE_END - BELONGING_FADE_START);
   return BELONGING_PEAK * (1 - t);
+}
+
+function record(world: World, name: string): void {
+  if (world.colony.milestones.some(m => m.name === name)) return;
+  world.colony.milestones.push({ name, time: world.time, progress: world.cycleProgress });
+}
+
+/**
+ * Called once per simulation step, after motes/clusters update. Appends each
+ * arc milestone at most once per cycle and shapes the last-survivor state.
+ * Reads only world state — no Date.now/Math.random/performance.now — so the
+ * arc is identical across sim speeds and cross-machine (spec §5). Arrival is
+ * measured relative to the SITE'S BASIN: motes stranded across water are
+ * stragglers/texture, not part of the gathering (spec 2.0 §6.2).
+ */
+export function updateColony(world: World): void {
+  const c = world.colony;
+  const population = world.motes.length;
+  c.peakPopulation = Math.max(c.peakPopulation, population);
+
+  if (population > 0 && world.motes.some(m => m.bonds.length > 0)) record(world, "first-bond");
+  if (world.clusters.some(cl => cl.length >= 4)) record(world, "first-cluster");
+
+  if (!c.arrived && belongingBase(world.cycleProgress) > 0 && population >= 8) {
+    const basinPop = world.motes.filter(m => m.x >= c.basinLo && m.x <= c.basinHi).length;
+    const near = world.motes.filter(m => Math.abs(m.x - c.siteX) < SITE_ARRIVE_DIST).length;
+    if (basinPop > 0 && near / basinPop >= 0.5) {
+      c.arrived = true;
+      record(world, "arrival");
+    }
+  }
+
+  // Dissolution & silence: crown the last survivor — the hardiest living mote
+  // endures while the rest fade, so every cycle ends on a single figure. The
+  // crowning begins in dissolution (phase 4) because the community would
+  // otherwise fully fade before silence ever starts; protecting one mote
+  // guarantees a final figure remains to the end. (Spec §5)
+  if (world.phaseIndex >= 4) {
+    if (c.lastSurvivor === null || c.lastSurvivor.energy <= 0) {
+      let hardiest: Mote | null = null;
+      for (const m of world.motes) {
+        if (!hardiest || m.temperament.hardiness > hardiest.temperament.hardiness) hardiest = m;
+      }
+      c.lastSurvivor = hardiest;
+    }
+    if (population === 1) record(world, "last-survivor");
+  }
 }
 
 export function createColony(terrain: Terrain): ColonyState {

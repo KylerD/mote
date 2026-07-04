@@ -3,7 +3,7 @@
 import { Tile } from "./types";
 import type { World, PhaseName, DeathRecord } from "./types";
 import { createMote, updateMote, placeSettlement } from "./mote";
-import { createColony, belongingBase } from "./colony";
+import { createColony, belongingBase, updateColony } from "./colony";
 import { generateTerrain, getSurfaceY, getTile } from "./terrain";
 import { W, CYCLE_DURATION } from "./config";
 import { findClusters, createGrid, buildGrid } from "./physics";
@@ -20,6 +20,7 @@ import {
   SIM_DT, STEPS_PER_CYCLE,
   SPAWN_ATTEMPTS, SPAWN_ENERGY_MIN, SPAWN_ENERGY_RANGE,
   SETTLEMENT_INTERVAL, SETTLEMENT_MIN_CLUSTER,
+  SURVIVOR_DECAY_MULT, SILENCE_OTHERS_DECAY_MULT,
   DEATH_RECORD_LIFETIME,
   INHERIT_RADIUS_BASE, INHERIT_RADIUS_AGE_MAX, INHERIT_RADIUS_AGE_MULT,
   CLUSTER_MOURNING_PERIPHERAL,
@@ -205,9 +206,16 @@ export function stepWorld(world: World, h: number): void {
   const colonyInfo = { siteX: world.colony.siteX, belongingBase: belongingBase(world.cycleProgress) };
   buildGrid(world.grid, world.motes);
   for (const mote of world.motes) {
+    // Dissolution & silence: the crowned survivor's decay slows while the rest
+    // fade quickly, so every cycle resolves to a single enduring figure. Begins
+    // in dissolution (phase 4) so one mote reliably reaches silence. (Spec §5)
+    let decay = world.params.energyDecay;
+    if (world.phaseIndex >= 4) {
+      decay *= mote === world.colony.lastSurvivor ? SURVIVOR_DECAY_MULT : SILENCE_OTHERS_DECAY_MULT;
+    }
     updateMote(
       mote, h, world.terrain, world.grid,
-      world.params.energyDecay, world.params.bondStrength, world.rng,
+      decay, world.params.bondStrength, world.rng,
       colonyInfo,
     );
   }
@@ -334,6 +342,9 @@ export function stepWorld(world: World, h: number): void {
 
   // Cache clusters for rendering and sound
   world.clusters = findClusters(world.motes);
+
+  // Arc milestones + last-survivor bookkeeping (reads only world state)
+  updateColony(world);
 
   // Step-exact debug snapshot capture: sampled per-decile inside the fixed-step loop
   // so the recorded timeline is identical across sim speeds by construction. Reads only

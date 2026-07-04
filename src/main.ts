@@ -168,6 +168,8 @@ function init(): void {
         bondedFraction: population > 0 ? bonded / population : 0,
         spawnTotal: w.spawnTotal, deathTotal: w.deathTotal,
         snapshots: w.debugSnapshots,
+        milestones: w.colony.milestones,
+        siteX: w.colony.siteX,
       };
     }
 
