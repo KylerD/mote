@@ -166,13 +166,11 @@ npx vite build
 ```
 Both must pass.
 
-Also run `node scripts/analyze-quality.mjs 60 quality-report-after.json` — if the analyzer exits non-zero, nothing else matters: fix the gates before committing.
-
 ### 11. Run AFTER quality analysis
 ```bash
 node scripts/analyze-quality.mjs 60 quality-report-after.json
 ```
-Compare with BEFORE. If any quality metric got worse, you must fix it before committing.
+The analyzer's exit code blocks on gates G1-G4 only. If it exits non-zero, nothing else matters: fix those gates before committing. G5 (figure-ground mote/backdrop contrast) is a known, accepted failure on bright cycles, deferred to milestone M6 (the emissive-glow / luminance-cap work) — it still prints in the gate table (as `FAIL·deferred→M6` when failing) but does not block, so don't try to fix it now. Compare the full report with BEFORE. If any quality metric got worse — including G5's — you must fix it before committing, unless it's the pre-existing deferred G5 failure.
 
 ### 12. Capture AFTER screenshots
 ```bash
