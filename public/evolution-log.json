@@ -1002,5 +1002,38 @@
       "src/render-bonds.ts",
       "src/world.ts"
     ]
+  },
+  {
+    "date": "2026-07-05",
+    "title": "the gathering arc",
+    "reflection": "M1: the world is repopulated to a 10’36→1 population arc, and a belonging drive pulls each cycle's motes into a dense huddle at a deterministically chosen, reachable gathering site (arrival measured community-relative, so water-stranded stragglers stay texture). M0 first made the instruments truthful — a fixed-timestep sim decoupled from frame rate and ?speed, ground-truth window.__mote, an analyzer that hard-fails on empty worlds, and an enforced cross-speed determinism check.",
+    "looking_ahead": [
+      "M2: settlement structures rise at the gathering site",
+      "M3: bond-voice sound rebuild (motif + cluster voices)",
+      "M4: history.ts — ruins and memory carried from past cycles",
+      "M5: rare events with visible, lasting consequences",
+      "M6: figure-ground luminance pass — analyzer gate G5 (mote/backdrop contrast ≥0.25) fails on bright cycles 2000/3000; deferred here per plan, fix first in M6"
+    ],
+    "visual_verification": "Locked-cycle captures (cycle 1000) trace the arc: exploration ~24 motes wandering with first bonds, organization/complexity 32–35 motes gathering into bonded clusters under light-pillar beacons, silence ending on a single glowing survivor beneath a soul-constellation.",
+    "quality_delta": "Analyzer G1–G4 fail→pass on cycles 1000/2000/3000 vs quality-baseline-m0.json (which failed G1–G4); peak population 8→35. Cross-speed determinism check green at speeds 40/80. Full-cycle Vitest test proves the arc step-exact for all three cycles. Known deferral: G5 figure-ground contrast fails on 2000/3000 (→ M6).",
+    "files_changed": [
+      "src/world.ts",
+      "src/mote.ts",
+      "src/colony.ts",
+      "src/constants.ts",
+      "src/types.ts",
+      "src/main.ts",
+      "src/interaction.ts",
+      "scripts/analyze-quality.mjs",
+      "scripts/check-determinism.mjs",
+      "scripts/capture.mjs",
+      "tests/rng.test.ts",
+      "tests/world-step.test.ts",
+      "tests/bonding.test.ts",
+      "tests/colony.test.ts",
+      "tests/belonging.test.ts",
+      "tests/full-cycle.test.ts",
+      "package.json"
+    ]
   }
 ]
