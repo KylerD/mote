@@ -85,32 +85,43 @@ async function main() {
   await saveCanvasNative(page, resolve(absOut, `00-initial-native.png`));
   console.log(`  00-initial.png (+ native)`);
 
-  // Now we need to wait for specific cycle progress points.
-  // At speed=60, a full cycle takes 5 seconds.
-  // We'll poll the cycle progress and capture at the right moments.
+  // Capture on ACTUAL cycle progress (window.__mote.progress from ?debug),
+  // not wall-clock timing. The fixed-timestep sim advances at speed×realtime,
+  // but the live world loads mid-cycle (catch-up) and screenshot latency
+  // drifts wall-clock estimates late — both broke the old timing model, so we
+  // poll the real progress instead. First wait for a fresh cycle start so the
+  // phase frames line up (a locked ?cycle already starts at 0).
   const startReal = Date.now();
-  let captureIndex = 0;
+  for (let i = 0; i < 500; i++) {
+    const t = await page.evaluate(() => window.__mote);
+    if (t && t.progress < 0.02) break; // at/near the start of a cycle
+    await page.waitForTimeout(30);
+    if (Date.now() - startReal > effectiveCycleDuration * 2000 + 15000) break;
+  }
 
+  let captureIndex = 0;
+  let sawProgress = false;
   while (captureIndex < CAPTURE_POINTS.length) {
     const point = CAPTURE_POINTS[captureIndex];
+    const truth = await page.evaluate(() => window.__mote);
+    const progress = truth ? truth.progress : 0;
+    // If the cycle already wrapped past the remaining points, stop.
+    if (sawProgress && progress < 0.02 && captureIndex > 0) break;
+    if (truth && progress > 0.001) sawProgress = true;
 
-    // Calculate when this progress point should occur in real time
-    const targetRealMs = point.progress * effectiveCycleDuration * 1000;
-    const elapsed = Date.now() - startReal;
-
-    if (elapsed >= targetRealMs) {
+    if (truth && progress >= point.progress) {
       const filename = `${String(captureIndex + 1).padStart(2, "0")}-${point.name}.png`;
       const nativeFilename = `${String(captureIndex + 1).padStart(2, "0")}-${point.name}-native.png`;
       await page.screenshot({ path: resolve(absOut, filename) });
       await saveCanvasNative(page, resolve(absOut, nativeFilename));
-      console.log(`  ${filename} (+ native, progress ~${(point.progress * 100).toFixed(1)}%)`);
+      console.log(`  ${filename} (+ native, progress ~${(progress * 100).toFixed(1)}%)`);
       captureIndex++;
     } else {
-      await page.waitForTimeout(50);
+      await page.waitForTimeout(30);
     }
 
-    // Safety: don't run longer than 2 full cycles
-    if (Date.now() - startReal > effectiveCycleDuration * 2000) {
+    // Safety: don't run longer than ~4 full cycles of real time
+    if (Date.now() - startReal > effectiveCycleDuration * 4000 + 15000) {
       console.log(`Timeout — captured ${captureIndex} of ${CAPTURE_POINTS.length} frames`);
       break;
     }
