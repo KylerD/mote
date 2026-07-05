@@ -259,7 +259,13 @@ function evaluateGates(samples, pixelSamples) {
   const fb = samples[samples.length - 1].milestones?.find(m => m.name === "first-bond");
   gates.push({ id: "G3", pass: !!fb && fb.progress < 0.25,
     detail: `first-bond milestone at ${fb ? fb.progress.toFixed(2) : "never"}` });
-  const tail = samples.filter(s => s.progress >= 0.965 && s.progress <= 0.99);
+  // Tail window has NO upper bound: dense truth sampling runs to ~0.995 (the
+  // loop's break point), and the real-time poller can jump the narrow window
+  // (e.g. 0.96 -> 0.997), so an upper bound of 0.99 would exclude the only
+  // valid late sample and spuriously report an empty tail. Every sample past
+  // 0.965 must be the lone survivor (population 1) — the invariant the
+  // step-exact full-cycle Vitest test proves; this just confirms it live.
+  const tail = samples.filter(s => s.progress >= 0.965);
   gates.push({ id: "G4", pass: tail.length > 0 && tail.every(s => s.population === 1),
     detail: `tail populations [${tail.map(s => s.population).join(",")}]` });
   const contrast = pixelSamples.filter(s => s.visibleMoteCount > 0);
